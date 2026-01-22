@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState } from '../types';
 import { THEMES } from '../constants';
@@ -16,23 +15,24 @@ interface Props {
     onBackToHome: () => void;
 }
 
-type ThemeCategory = 'exclusivo' | 'oscuro' | 'vibrante' | 'retro';
+type ThemeCategory = 'exclusivo' | 'sensorial' | 'oscuro' | 'vibrante' | 'retro';
 
 export const SettingsDrawer: React.FC<Props> = ({ 
     isOpen, onClose, theme, themeName, setThemeName, gameState, onUpdateSettings, onOpenHowToPlay, onBackToHome 
 }) => {
-    const [activeTab, setActiveTab] = useState<ThemeCategory>('exclusivo');
+    const [activeTab, setActiveTab] = useState<ThemeCategory>('sensorial');
 
     // Categorización manual de temas para el diseño premium
     const themeCategories: Record<ThemeCategory, ThemeName[]> = {
         exclusivo: ['luminous', 'aura'],
+        sensorial: ['silk_soul', 'nebula_dream', 'crystal_garden', 'aurora_borealis', 'liquid_gold', 'luminescent_ocean', 'zen_sunset'],
         oscuro: ['midnight', 'obsidian', 'space', 'zenith', 'bond', 'noir', 'protocol', 'ethereal'],
         vibrante: ['cyber', 'nightclub', 'solar', 'illojuan', 'material'],
         retro: ['terminal84', 'turing', 'paper', 'soft']
     };
 
     const totalThemes = Object.keys(THEMES).length;
-    const isPremiumActive = themeName === 'aura' || themeName === 'luminous';
+    const isPremiumActive = themeName === 'aura' || themeName === 'luminous' || themeCategories.sensorial.includes(themeName);
 
     if (!isOpen) return null;
 
@@ -179,8 +179,8 @@ export const SettingsDrawer: React.FC<Props> = ({
                                         style={{ 
                                             backgroundColor: tConfig.bg,
                                             borderColor: isActive ? tConfig.accent : 'rgba(255,255,255,0.1)',
-                                            ringColor: tConfig.accent
-                                        }}
+                                            '--tw-ring-color': tConfig.accent
+                                        } as React.CSSProperties}
                                     >
                                         {/* Theme Preview Elements */}
                                         <div className="absolute inset-0 opacity-30" style={{ background: `linear-gradient(135deg, ${tConfig.cardBg} 0%, transparent 100%)` }} />

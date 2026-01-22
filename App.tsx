@@ -329,13 +329,11 @@ function App() {
             
             {/* Global CSS */}
             <style>{`
+                /* Premium styles are now handled dynamically in IdentityCard.tsx to ensure correct gradient behavior */
                 .aura-mode .premium-border {
-                    background-image: linear-gradient(${theme.cardBg}, ${theme.cardBg}), var(--aura-border-gradient);
-                    background-origin: border-box;
-                    background-clip: padding-box, border-box;
-                    border: 1.5px solid transparent !important;
-                    box-shadow: ${themeName === 'luminous' ? '0 10px 40px -10px rgba(0,0,0,0.1), 0 0 20px -10px rgba(245, 158, 11, 0.2)' : '0 10px 40px -10px rgba(0,0,0,0.5), 0 0 20px -10px rgba(0, 209, 255, 0.1)'};
+                    transition: all 0.5s ease;
                 }
+
                 @keyframes particle-flow { 0% { background-position: 0 0; } 100% { background-position: 20px 20px; } }
                 @keyframes echo-pulse { 0% { box-shadow: 0 0 0 0px currentColor; opacity: 1; transform: scale(1.2); } 70% { box-shadow: 0 0 0 10px transparent; opacity: 1; transform: scale(1); } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; transform: scale(1); } }
                 @keyframes dissolve { 0% { filter: blur(0px) brightness(1); opacity: 1; transform: scale(1); } 50% { filter: blur(4px) brightness(1.5); opacity: 0.8; transform: scale(1.02); } 100% { filter: blur(20px) brightness(5); opacity: 0; transform: scale(1.1); } }

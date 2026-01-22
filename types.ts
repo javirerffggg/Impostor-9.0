@@ -1,5 +1,6 @@
 
-export type ThemeName = 'midnight' | 'obsidian' | 'solar' | 'cyber' | 'bond' | 'turing' | 'illojuan' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub' | 'aura' | 'luminous';
+
+export type ThemeName = 'midnight' | 'obsidian' | 'solar' | 'cyber' | 'bond' | 'turing' | 'illojuan' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub' | 'aura' | 'luminous' | 'silk_soul' | 'nebula_dream' | 'crystal_garden' | 'aurora_borealis' | 'liquid_gold' | 'luminescent_ocean' | 'zen_sunset';
 
 export interface ThemeConfig {
     name: string;
@@ -11,7 +12,14 @@ export interface ThemeConfig {
     radius: string; // Tailwind class equivalent or CSS value
     font: string;
     border: string;
-    particleType: 'circle' | 'binary' | 'rain' | 'aura';
+    particleType: 'circle' | 'binary' | 'rain' | 'aura' | 'silk' | 'stardust' | 'foliage' | 'aurora' | 'goldleaf' | 'plankton' | 'ember';
+    // Optional extended properties for premium themes
+    particleColor?: string | string[];
+    particleCount?: number;
+    particleSpeed?: number;
+    blur?: string;
+    shadow?: string;
+    pulseInterval?: number;
 }
 
 export interface Player {

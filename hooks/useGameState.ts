@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { GameState, Player, InfinityVault, TrollScenario, CategoryData } from '../types';
 import { DEFAULT_PLAYERS } from '../constants';
@@ -10,7 +9,7 @@ export const useGameState = () => {
     // -- State --
     const [gameState, setGameState] = useState<GameState>(() => {
         // Default History
-        let loadedHistory = { 
+        let loadedHistory: GameState['history'] = { 
             roundCounter: 0,
             lastWords: [],
             lastCategories: [],
@@ -19,7 +18,11 @@ export const useGameState = () => {
             lastTrollRound: -10,
             lastArchitectRound: -999,
             lastStartingPlayers: [],
-            matchLogs: [] // v6.2
+            matchLogs: [], // v6.2
+            pastImpostorIds: [],
+            paranoiaLevel: 0,
+            coolingDownRounds: 0,
+            lastBreakProtocol: null
         };
 
         // Try to recover The Infinity Vault from LocalStorage
@@ -35,7 +38,11 @@ export const useGameState = () => {
                         lastCategories: parsed.lastCategories || [],
                         lastArchitectRound: parsed.lastArchitectRound || -999,
                         lastStartingPlayers: parsed.lastStartingPlayers || [],
-                        matchLogs: parsed.matchLogs || []
+                        matchLogs: parsed.matchLogs || [],
+                        pastImpostorIds: parsed.pastImpostorIds || [],
+                        paranoiaLevel: parsed.paranoiaLevel || 0,
+                        coolingDownRounds: parsed.coolingDownRounds || 0,
+                        lastBreakProtocol: parsed.lastBreakProtocol || null
                     };
                 }
             }
@@ -224,7 +231,7 @@ export const useGameState = () => {
                     isArchitectRound: true,
                     currentPlayerIndex: firstCivilIndex,
                     startingPlayer: designatedStarter,
-                    history: newHistory,
+                    history: newHistory as GameState['history'],
                     currentDrinkingPrompt: "",
                     debugState: cleanDebugState,
                     partyState: newPartyState
@@ -242,7 +249,7 @@ export const useGameState = () => {
             isArchitectRound: false,
             currentPlayerIndex: 0,
             startingPlayer: designatedStarter,
-            history: newHistory, 
+            history: newHistory as GameState['history'], 
             currentDrinkingPrompt: "",
             debugState: cleanDebugState,
             partyState: newPartyState

@@ -1,11 +1,5 @@
 
 
-
-
-
-
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
 import { Fingerprint, Shield, Skull, Eye, Play, ArrowRight, Lock, Beer, Unlock, AlertCircle, Check, Radio, Network, MousePointerClick, Zap } from 'lucide-react';
@@ -52,6 +46,9 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
     // Visual Effects flags
     const isHighIntensity = partyIntensity === 'after_hours' || partyIntensity === 'resaca';
     const isBartender = player.partyRole === 'bartender';
+    
+    // Extended premium check for new themes
+    const isPremium = theme.particleType === 'aura' || ['silk', 'stardust', 'foliage', 'aurora', 'goldleaf', 'plankton', 'ember'].includes(theme.particleType);
 
     // Reset state when player changes
     useEffect(() => {
@@ -254,6 +251,35 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
     // Derived state for the Oracle "Lock" visual feedback
     const isOracleLockedOpen = player.isOracle && !oracleSelectionMade && isHolding;
 
+    // --- PREMIUM STYLE LOGIC ---
+    // Standard themes use simple borders/backgrounds.
+    // Premium themes use the double-gradient trick with background-clip to create a glass border.
+    // Override with specific shadow if provided by theme config
+    const shadowStyle = theme.shadow || (isHolding 
+            ? `0 0 50px ${color}40, inset 0 0 40px ${color}10` 
+            : `0 15px 40px -10px rgba(0,0,0,0.5), 0 0 20px -10px ${color}20`);
+
+    const premiumStyle: React.CSSProperties = isPremium ? {
+        // Layer 1 (Top): Content Background (clipped to padding-box)
+        // Layer 2 (Bottom): Border Gradient (clipped to border-box)
+        background: `
+            linear-gradient(135deg, ${theme.cardBg}, ${color}10) padding-box,
+            linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.05) 40%, transparent) border-box
+        `,
+        border: theme.border.includes('px') ? theme.border : '1.5px solid transparent', // Use theme border if specific size given
+        backgroundClip: 'padding-box, border-box',
+        WebkitBackgroundClip: 'padding-box, border-box',
+        boxShadow: shadowStyle,
+    } : {
+        // Standard Theme Logic
+        background: `linear-gradient(135deg, ${theme.cardBg} 0%, ${color}20 100%)`,
+        // Fix: Explicitly remove border width when idle for standard themes if desired, 
+        // but for premium we always keep the transparent border to show the gradient.
+        borderWidth: isHolding ? '1px' : '0px',
+        borderColor: color,
+        boxShadow: isHolding ? `0 0 50px ${color}50` : '0 10px 40px rgba(0,0,0,0.4)',
+    };
+
     return (
         <div className="flex flex-col items-center gap-8 w-full max-w-sm z-10 relative">
             {/* Header: Compacts when holding to avoid overlap */}
@@ -269,25 +295,26 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                 className="w-full aspect-[3/4] relative"
                 style={{
                     animation: (!isHolding && !hasInteracted && !isDragging) ? 'breathe 4s ease-in-out infinite' : 'none',
-                    transition: 'transform 0.3s ease-out'
+                    transition: 'transform 0.3s ease-out',
+                    transformStyle: 'preserve-3d' // Helps with clipping artifacts
                 }}
             >
                 {/* DYNAMIC MOVING AURA (Replaces fixed background) */}
                 <div 
-                    className="absolute rounded-full pointer-events-none blur-3xl"
+                    className="absolute rounded-full pointer-events-none"
                     style={{
-                        width: '140%',
-                        height: '140%',
-                        top: '-20%',
-                        left: '-20%',
-                        background: `radial-gradient(circle, ${color}40 0%, ${color}00 70%)`,
+                        width: '100%',
+                        height: '100%',
+                        top: '0%',
+                        left: '0%',
+                        filter: 'blur(60px)', // Reduced blur slightly to prevent artifacts
+                        background: `radial-gradient(circle, ${color}50 0%, transparent 70%)`,
                         // Updated translation to -40px
-                        transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.05}deg)`,
+                        transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, -1px) rotate(${dragPosition.x * 0.05}deg)`,
                         transition: isDragging 
                             ? 'none' 
                             : 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        zIndex: -1,
-                        opacity: 0.8,
+                        opacity: 0.6,
                         willChange: 'transform'
                     }}
                 />
@@ -304,20 +331,11 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                         '--card-shadow-weak': `${color}40`,
                         '--card-shadow-strong': `${color}80`,
                         
-                        background: `linear-gradient(135deg, ${theme.cardBg} 0%, ${color}20 100%)`,
-                        
-                        // FIX: Remove border width completely when idle to prevent "gray bar" backdrop artifact
-                        borderWidth: isHolding ? '1px' : '0px',
-                        borderColor: color,
-                        
                         borderRadius: theme.radius,
                         
-                        // Enhanced shadow in idle state to compensate for missing border
-                        boxShadow: isHolding ? `0 0 50px ${color}50` : '0 10px 40px rgba(0,0,0,0.4)',
-                        
                         // Glassmorphism Fixes
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)', // Safari support
+                        backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)',
+                        WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', // Safari support
                         
                         transition: isDragging 
                             ? 'none' 
@@ -331,9 +349,12 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                         animation: (isHolding && !player.isImp) ? 'reveal-pulse 2s infinite' : 'none',
                         touchAction: 'none',
                         cursor: isDragging ? 'grabbing' : 'grab',
-                        willChange: 'transform, box-shadow'
+                        willChange: 'transform, box-shadow',
+                        
+                        // Apply Premium or Standard Styles
+                        ...premiumStyle
                     } as React.CSSProperties}
-                    className={`w-full h-full border relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp ? 'animate-impostor-shake' : ''}`}
+                    className={`w-full h-full relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp ? 'animate-impostor-shake' : ''}`}
                 >
                     {/* IMPOSTOR GLITCH LAYERS (Only visible when Impostor + Holding) */}
                     {isHolding && player.isImp && (
