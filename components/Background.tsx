@@ -349,8 +349,9 @@ export const Background: React.FC<BackgroundProps> = ({ theme, phase, isTroll, i
                         opacity: isLuminous ? 0.6 : 0.15,
                         top: '-10%',
                         left: '-10%',
-                        transform: `translate(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px)`,
-                        mixBlendMode: isLuminous ? 'multiply' : 'normal'
+                        transform: `translate3d(${mousePos.x * 0.5}px, ${mousePos.y * 0.5}px, 0)`,
+                        mixBlendMode: isLuminous ? 'multiply' : 'normal',
+                        willChange: 'transform'
                     }}
                 />
 
@@ -364,8 +365,9 @@ export const Background: React.FC<BackgroundProps> = ({ theme, phase, isTroll, i
                         opacity: isLuminous ? 0.5 : 0.12,
                         bottom: '10%',
                         right: '10%',
-                        transform: `translate(-${mousePos.x * 0.3}px, -${mousePos.y * 0.3}px)`,
-                        mixBlendMode: isLuminous ? 'multiply' : 'normal'
+                        transform: `translate3d(-${mousePos.x * 0.3}px, -${mousePos.y * 0.3}px, 0)`,
+                        mixBlendMode: isLuminous ? 'multiply' : 'normal',
+                        willChange: 'transform'
                     }}
                 />
 

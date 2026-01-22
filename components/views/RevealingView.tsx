@@ -4,6 +4,7 @@ import { GameState, ThemeConfig } from '../../types';
 import { IdentityCard } from '../IdentityCard';
 import { PartyNotification } from '../PartyNotification';
 import { PLAYER_COLORS } from '../../constants';
+import { Smartphone, ArrowRight } from 'lucide-react';
 
 interface Props {
     gameState: GameState;
@@ -12,9 +13,10 @@ interface Props {
     onNextPlayer: (viewTime: number) => void;
     onOracleConfirm: (hint: string) => void;
     isExiting: boolean;
+    transitionName?: string | null;
 }
 
-export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayerColor, onNextPlayer, onOracleConfirm, isExiting }) => {
+export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayerColor, onNextPlayer, onOracleConfirm, isExiting, transitionName }) => {
     const [hasSeenCurrentCard, setHasSeenCurrentCard] = useState(false);
     const isParty = gameState.settings.partyMode;
     const currentPlayer = gameState.gameData[gameState.currentPlayerIndex];
@@ -47,57 +49,125 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
             )}
 
             <div 
-                key={gameState.currentPlayerIndex} 
+                key={gameState.currentPlayerIndex + (transitionName || '')} 
                 className={`w-full max-w-sm flex flex-col items-center ${isExiting ? 'card-exit' : 'card-enter'}`}
             >
-                <IdentityCard 
-                    player={currentPlayer}
-                    theme={theme}
-                    color={currentPlayerColor}
-                    onRevealStart={() => {}}
-                    onRevealEnd={() => {
-                        if (!currentPlayer.isOracle) setHasSeenCurrentCard(true);
-                    }}
-                    nextAction={(time) => {
-                        setHasSeenCurrentCard(false); // Reset for next
-                        onNextPlayer(time);
-                    }}
-                    readyForNext={hasSeenCurrentCard}
-                    isLastPlayer={isLastPlayer}
-                    isParty={gameState.settings.partyMode}
-                    partyIntensity={gameState.partyState.intensity} 
-                    debugMode={gameState.debugState.isEnabled}
-                    onOracleConfirm={(hint) => {
-                        setHasSeenCurrentCard(true);
-                        onOracleConfirm(hint);
-                    }}
-                />
+                {transitionName ? (
+                    // --- TRANSITION UI (PASS PHONE) ---
+                    <div className="w-full aspect-[3/4] flex flex-col items-center justify-center relative animate-in zoom-in-95 duration-500">
+                        {/* Glass Card Container */}
+                        <div 
+                            className="absolute inset-0 rounded-[3rem] border border-white/10 backdrop-blur-xl"
+                            style={{ 
+                                boxShadow: `0 20px 50px -10px ${theme.accent}20`,
+                                background: `linear-gradient(135deg, ${theme.cardBg} 0%, rgba(0,0,0,0) 100%)`
+                            }}
+                        />
+                        
+                        {/* Content */}
+                        <div className="relative z-10 flex flex-col items-center gap-10 w-full px-8">
+                            
+                            {/* Icons Group */}
+                            <div className="relative flex items-center justify-center">
+                                {/* Ambient Glow */}
+                                <div className="absolute inset-0 bg-white/10 blur-[60px] rounded-full" />
+                                
+                                {/* Phone */}
+                                <div className="relative z-10">
+                                    <Smartphone 
+                                        size={100} 
+                                        strokeWidth={1}
+                                        style={{ color: theme.accent, filter: `drop-shadow(0 0 15px ${theme.accent}40)` }} 
+                                        className="transform -rotate-6 transition-transform duration-700" 
+                                    />
+                                </div>
+
+                                {/* Arrow Badge - Positioned to the right, clearly separated */}
+                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 z-20 animate-pass-arrow">
+                                    <div 
+                                        className="p-3 rounded-full border border-white/20 shadow-lg backdrop-blur-md"
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                                    >
+                                        <ArrowRight size={24} className="text-white" strokeWidth={3} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Text Info */}
+                            <div className="text-center w-full space-y-4">
+                                <div className="space-y-2">
+                                    <p style={{ color: theme.text }} className="text-xs font-bold uppercase tracking-widest opacity-60">
+                                        PASA EL TELÉFONO A
+                                    </p>
+                                    <h2 
+                                        className="text-4xl font-black uppercase tracking-tight leading-none break-words"
+                                        style={{ 
+                                            color: theme.text,
+                                            fontFamily: theme.font,
+                                            textShadow: `0 0 40px ${theme.accent}30`
+                                        }}
+                                    >
+                                        {transitionName}
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    // --- STANDARD IDENTITY CARD ---
+                    <IdentityCard 
+                        player={currentPlayer}
+                        theme={theme}
+                        color={currentPlayerColor}
+                        onRevealStart={() => {}}
+                        onRevealEnd={() => {
+                            if (!currentPlayer.isOracle) setHasSeenCurrentCard(true);
+                        }}
+                        nextAction={(time) => {
+                            setHasSeenCurrentCard(false); // Reset for next
+                            onNextPlayer(time);
+                        }}
+                        readyForNext={hasSeenCurrentCard}
+                        isLastPlayer={isLastPlayer}
+                        isParty={gameState.settings.partyMode}
+                        partyIntensity={gameState.partyState.intensity} 
+                        debugMode={gameState.debugState.isEnabled}
+                        onOracleConfirm={(hint) => {
+                            setHasSeenCurrentCard(true);
+                            onOracleConfirm(hint);
+                        }}
+                    />
+                )}
             </div>
             
-            <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
-                 <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">
-                    Jugador {gameState.currentPlayerIndex + 1} de {gameState.players.length}
-                </p>
-                <div className="flex gap-2 justify-center items-center h-4">
-                    {gameState.players.map((_, i) => {
-                        const isActive = i === gameState.currentPlayerIndex;
-                        const isPast = i < gameState.currentPlayerIndex;
-                        return (
-                            <div 
-                                key={i} 
-                                style={{ 
-                                    backgroundColor: isActive || isPast
-                                        ? PLAYER_COLORS[i % PLAYER_COLORS.length] 
-                                        : 'rgba(255,255,255,0.2)',
-                                    animation: isActive ? 'echo-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite' : 'none',
-                                    boxShadow: isActive ? `0 0 10px ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` : 'none'
-                                }}
-                                className={`rounded-full transition-all duration-500 ${isActive ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}
-                            />
-                        );
-                    })}
+            {/* Progress Dots - Only show when NOT transitioning */}
+            {!transitionName && (
+                <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
+                    <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">
+                        Jugador {gameState.currentPlayerIndex + 1} de {gameState.players.length}
+                    </p>
+                    <div className="flex gap-2 justify-center items-center h-4">
+                        {gameState.players.map((_, i) => {
+                            const isActive = i === gameState.currentPlayerIndex;
+                            const isPast = i < gameState.currentPlayerIndex;
+                            return (
+                                <div 
+                                    key={i} 
+                                    style={{ 
+                                        backgroundColor: isActive || isPast
+                                            ? PLAYER_COLORS[i % PLAYER_COLORS.length] 
+                                            : 'rgba(255,255,255,0.2)',
+                                        animation: isActive ? 'echo-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite' : 'none',
+                                        boxShadow: isActive ? `0 0 10px ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` : 'none'
+                                    }}
+                                    className={`rounded-full transition-all duration-500 ${isActive ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}
+                                />
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
+            
             <style>{`
                 .card-enter { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
                 .card-exit { animation: slideOutLeft 0.3s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
@@ -113,6 +183,13 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                     0% { transform: scale(0.5); opacity: 0; }
                     30% { opacity: 0.6; }
                     100% { transform: scale(20); opacity: 0; }
+                }
+                @keyframes pass-arrow {
+                    0%, 100% { transform: translate(0, -50%); }
+                    50% { transform: translate(10px, -50%); }
+                }
+                .animate-pass-arrow {
+                    animation: pass-arrow 1.5s ease-in-out infinite;
                 }
             `}</style>
         </div>

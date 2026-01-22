@@ -33,6 +33,7 @@ function App() {
     // UI Transitions
     const [isExiting, setIsExiting] = useState(false); 
     const [isPixelating, setIsPixelating] = useState(false);
+    const [transitionName, setTransitionName] = useState<string | null>(null);
     
     // -- Party Mode --
     const [batteryLevel, setBatteryLevel] = useState(100);
@@ -157,31 +158,53 @@ function App() {
         
         setIsExiting(false);
         setIsPixelating(false);
+        setTransitionName(null);
     };
 
     const handleNextPlayer = (viewTime: number) => {
         if (isExiting) return;
 
+        // 1. Guardar tiempo de visualización
         setGameState(prev => {
             const newData = [...prev.gameData];
             if (newData[prev.currentPlayerIndex]) newData[prev.currentPlayerIndex].viewTime = viewTime;
             return { ...prev, gameData: newData };
         });
 
+        // 2. Trigger Party Mode si procede
         if (gameState.settings.partyMode && gameState.currentPlayerIndex < gameState.players.length - 1) {
              triggerPartyMessage('revealing');
         }
 
+        const nextIndex = gameState.currentPlayerIndex + 1;
+        const isLast = nextIndex >= gameState.players.length;
+
+        // 3. Animación de salida de la carta actual
         setIsExiting(true);
 
         setTimeout(() => {
-            if (gameState.currentPlayerIndex < gameState.players.length - 1) {
-                setGameState(prev => ({ ...prev, currentPlayerIndex: prev.currentPlayerIndex + 1 }));
-            } else {
+            if (isLast) {
+                // Fin del juego: Ir a resultados
                 setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
                 if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                setIsExiting(false);
+            } else {
+                // Intermedio: Mostrar pantalla "Pasa el teléfono"
+                setTransitionName(gameState.players[nextIndex].name);
+                setIsExiting(false); // Entra la pantalla de transición
+
+                // Esperar brevemente (2 segundos)
+                setTimeout(() => {
+                    setIsExiting(true); // Sale la pantalla de transición
+
+                    setTimeout(() => {
+                        // Cambio real de jugador
+                        setTransitionName(null);
+                        setGameState(prev => ({ ...prev, currentPlayerIndex: nextIndex }));
+                        setIsExiting(false); // Entra la nueva carta
+                    }, 300);
+                }, 2000);
             }
-            setIsExiting(false);
         }, 300);
     };
 
@@ -287,6 +310,7 @@ function App() {
                     onNextPlayer={handleNextPlayer}
                     onOracleConfirm={actions.handleOracleConfirm}
                     isExiting={isExiting}
+                    transitionName={transitionName}
                 />
             )}
             

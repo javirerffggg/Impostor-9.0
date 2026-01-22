@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
 import { Fingerprint, Shield, Skull, Eye, Play, ArrowRight, Lock, Beer, Unlock, AlertCircle, Check, Radio, Network, MousePointerClick, Zap } from 'lucide-react';
@@ -296,21 +294,23 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                 style={{
                     animation: (!isHolding && !hasInteracted && !isDragging) ? 'breathe 4s ease-in-out infinite' : 'none',
                     transition: 'transform 0.3s ease-out',
-                    transformStyle: 'preserve-3d' // Helps with clipping artifacts
+                    // SAFARI FIX: Removed transformStyle: 'preserve-3d' to prevent blur clipping artifacts on iOS
                 }}
             >
                 {/* DYNAMIC MOVING AURA (Replaces fixed background) */}
                 <div 
                     className="absolute rounded-full pointer-events-none"
                     style={{
-                        width: '100%',
-                        height: '100%',
-                        top: '0%',
-                        left: '0%',
-                        filter: 'blur(60px)', // Reduced blur slightly to prevent artifacts
-                        background: `radial-gradient(circle, ${color}50 0%, transparent 70%)`,
-                        // Updated translation to -40px
-                        transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, -1px) rotate(${dragPosition.x * 0.05}deg)`,
+                        // SAFARI FIX: Increased size to 140% and centered to move hard edges away from blur
+                        width: '140%',
+                        height: '140%',
+                        top: '-20%',
+                        left: '-20%',
+                        filter: 'blur(60px)', 
+                        background: `radial-gradient(circle, ${color}50 0%, transparent 60%)`, // Adjusted gradient stop
+                        // SAFARI FIX: Use zIndex -1 instead of translate3d(..., -1px) to avoid 3D context clipping
+                        zIndex: -1,
+                        transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.05}deg)`,
                         transition: isDragging 
                             ? 'none' 
                             : 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
@@ -428,7 +428,7 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                                 </div>
 
                                 {/* BOTTOM: FINGERPRINT - Symmetrical & Synchronized */}
-                                <div className="flex flex-col items-center gap-4 animate-sync">
+                                <div className="flex-1 flex flex-col items-center justify-end gap-4 animate-sync">
                                     <div 
                                         className="w-20 h-20 rounded-full border-2 flex items-center justify-center transition-colors duration-300 backdrop-blur-sm bg-black/10"
                                         style={{ borderColor: `${color}60` }}
