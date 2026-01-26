@@ -188,22 +188,24 @@ function App() {
                 setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
                 if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
                 setIsExiting(false);
-            } else {
-                // Intermedio: Mostrar pantalla "Pasa el teléfono"
+            } else if (gameState.settings.passPhoneMode) {
+                // MODO PASES ACTIVADO: Mostrar pantalla "Pasa el teléfono"
                 setTransitionName(gameState.players[nextIndex].name);
-                setIsExiting(false); // Entra la pantalla de transición
+                setIsExiting(false); 
 
-                // Esperar brevemente (2 segundos)
                 setTimeout(() => {
-                    setIsExiting(true); // Sale la pantalla de transición
-
+                    setIsExiting(true); 
                     setTimeout(() => {
-                        // Cambio real de jugador
                         setTransitionName(null);
                         setGameState(prev => ({ ...prev, currentPlayerIndex: nextIndex }));
-                        setIsExiting(false); // Entra la nueva carta
+                        setIsExiting(false); 
                     }, 300);
                 }, 2000);
+            } else {
+                // MODO PASES DESACTIVADO: Transición directa
+                setTransitionName(null);
+                setGameState(prev => ({ ...prev, currentPlayerIndex: nextIndex }));
+                setIsExiting(false);
             }
         }, 300);
     };
@@ -341,6 +343,7 @@ function App() {
                 onClose={() => setCategoriesOpen(false)}
                 selectedCategories={gameState.settings.selectedCategories}
                 onToggleCategory={actions.toggleCategory}
+                onToggleCollection={actions.toggleCollection}
                 onToggleAll={actions.toggleAllCategories}
                 theme={theme}
             />

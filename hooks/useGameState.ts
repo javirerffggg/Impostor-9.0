@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { GameState, Player, InfinityVault, TrollScenario, CategoryData } from '../types';
-import { DEFAULT_PLAYERS } from '../constants';
+import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
 import { generateGameData, generateArchitectOptions, generateSmartHint, generateVanguardHints } from '../utils/gameLogic';
 import { calculatePartyIntensity } from '../utils/partyLogic';
 import { CATEGORIES_DATA } from '../categories';
@@ -69,6 +70,7 @@ export const useGameState = () => {
                 oracleMode: false,
                 vanguardiaMode: false,
                 nexusMode: false,
+                passPhoneMode: false,
                 soundEnabled: true,
                 selectedCategories: []
             },
@@ -146,6 +148,33 @@ export const useGameState = () => {
                 ? current.filter(c => c !== cat) 
                 : [...current, cat];
             return { ...prev, settings: { ...prev.settings, selectedCategories: updated } };
+        });
+    };
+
+    const toggleCollection = (collectionId: string) => {
+        const collection = CURATED_COLLECTIONS.find(c => c.id === collectionId);
+        if (!collection) return;
+
+        setGameState(prev => {
+            const currentCatsSet = new Set(prev.settings.selectedCategories);
+            
+            // Si TODAS las categorías de la colección ya están seleccionadas, las quitamos (Toggle OFF)
+            // Si falta al menos una, las añadimos todas (Toggle ON)
+            const allSelected = collection.categories.every(cat => currentCatsSet.has(cat));
+
+            if (allSelected) {
+                collection.categories.forEach(cat => currentCatsSet.delete(cat));
+            } else {
+                collection.categories.forEach(cat => currentCatsSet.add(cat));
+            }
+
+            return {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    selectedCategories: Array.from(currentCatsSet)
+                }
+            };
         });
     };
 
@@ -331,6 +360,7 @@ export const useGameState = () => {
             saveToBank,
             deleteFromBank,
             toggleCategory,
+            toggleCollection,
             toggleAllCategories,
             runGameGeneration,
             handleArchitectConfirm,

@@ -1,7 +1,5 @@
 
-
-
-import { ThemeConfig, ThemeName } from './types';
+import { ThemeConfig, ThemeName, CuratedCollection } from './types';
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
     aura: {
@@ -402,4 +400,95 @@ export const PLAYER_COLORS = [
     "#6366f1", // Indigo
     "#d946ef", // Fuchsia
     "#14b8a6", // Teal
+];
+
+export const CURATED_COLLECTIONS: CuratedCollection[] = [
+    {
+        id: "spain",
+        name: "Sabor de España",
+        description: "Gastronomía y tradiciones locales.",
+        vibe: "Cálido, tradicional, ideal para cenas.",
+        icon: "Utensils",
+        categories: ["Gastronomía Regional", "Cocina y Gastronomía", "Comidas y Bebidas", "Fiestas Populares"]
+    },
+    {
+        id: "digital",
+        name: "Invasión Digital",
+        description: "Tecnología, internet y el mundo gaming.",
+        vibe: "Moderno, frenético, para nativos digitales.",
+        icon: "Zap",
+        categories: ["Cultura de Internet", "Ciencia y Tecnología", "Tecnología del Mañana", "Mundo Gamer", "Videojuegos"]
+    },
+    {
+        id: "redcarpet",
+        name: "Alfombra Roja",
+        description: "Famosos, pop, cine y series.",
+        vibe: "Glamuroso, ruidoso, cultura popular.",
+        icon: "Clapperboard",
+        categories: ["Personas Famosas", "Iconos del Pop", "Películas y Series", "Series de Éxito", "Cine de Terror"]
+    },
+    {
+        id: "global",
+        name: "Aventura Global",
+        description: "Viajes, países y monumentos.",
+        vibe: "Aventurero, visual, transporta al grupo.",
+        icon: "Compass",
+        categories: ["Países y Ciudades", "Islas del Archipiélago", "Monumentos Nacionales", "Transporte"]
+    },
+    {
+        id: "geek",
+        name: "Mundo Geek",
+        description: "Fantasía, nostalgia y héroes.",
+        vibe: "Épico, nostálgico, referencias clásicas.",
+        icon: "Gamepad2",
+        categories: ["Superhéroes", "Universo Marvel/DC", "Dibujos Animados Retro", "Mitología Griega"]
+    },
+    {
+        id: "lifestyle",
+        name: "Lifestyle Premium",
+        description: "Moda, lujo y vida nocturna.",
+        vibe: "Elegante, exclusivo, perfecto para fiestas.",
+        icon: "Diamond",
+        categories: ["Marcas y Logotipos", "Moda (Inditex)", "Transporte de Lujo", "Vida Nocturna"]
+    },
+    {
+        id: "academic",
+        name: "El Taller del Sabio",
+        description: "Academia, ciencia y filosofía.",
+        vibe: "Intelectual, analítico, léxico preciso.",
+        icon: "Book",
+        categories: ["Escuela y Educación", "Filosofía", "Elementos Químicos", "Astronomía", "Cuerpo Humano (Órganos)"]
+    },
+    {
+        id: "nature",
+        name: "Esencia Natural",
+        description: "Vida salvaje y entorno natural.",
+        vibe: "Orgánico, salvaje, mundo físico.",
+        icon: "Leaf",
+        categories: ["Animales", "Clima y Naturaleza", "Clima Extremo"]
+    },
+    {
+        id: "mind",
+        name: "Mente y Alma",
+        description: "Psicología, emociones y zodiaco.",
+        vibe: "Introspectivo, abstracto, dificultad alta.",
+        icon: "Brain",
+        categories: ["Emociones y Sentimientos", "Emociones Complejas", "Filosofía", "Zodiaco"]
+    },
+    {
+        id: "sports",
+        name: "Arena Deportiva",
+        description: "Competición y actividades físicas.",
+        vibe: "Energético, dinámico, léxico deportivo.",
+        icon: "Trophy",
+        categories: ["Deportes", "Deportes de Raqueta", "Aficiones y Actividades"]
+    },
+    {
+        id: "daily",
+        name: "Vida Cotidiana",
+        description: "Hogar, rutina y objetos comunes.",
+        vibe: "Familiar, cercano, para principiantes.",
+        icon: "Home",
+        categories: ["Objetos Cotidianos", "Electrodomésticos Pequeños", "Papelería y Oficina", "Supermercados Locales"]
+    }
 ];

@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState } from '../types';
 import { THEMES } from '../constants';
-import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor } from 'lucide-react';
+import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
@@ -103,6 +104,32 @@ export const SettingsDrawer: React.FC<Props> = ({
                                     <p style={{ color: theme.text }} className="text-sm font-bold uppercase tracking-wide">Audio</p>
                                     <p style={{ color: theme.sub }} className="text-[10px] font-mono opacity-80">
                                         {gameState.settings.soundEnabled ? 'ACTIVO - ESTÉREO' : 'SILENCIADO'}
+                                    </p>
+                                </div>
+                            </button>
+
+                            {/* PASS PHONE MODULE */}
+                            <button
+                                onClick={() => onUpdateSettings({ passPhoneMode: !gameState.settings.passPhoneMode })}
+                                className="relative group overflow-hidden p-4 rounded-2xl border transition-all duration-300 active:scale-[0.98]"
+                                style={{ 
+                                    backgroundColor: gameState.settings.passPhoneMode ? `${theme.accent}15` : theme.cardBg,
+                                    borderColor: gameState.settings.passPhoneMode ? theme.accent : theme.border,
+                                }}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div 
+                                        className={`p-2 rounded-full transition-colors ${gameState.settings.passPhoneMode ? 'bg-white/20' : 'bg-black/20'}`}
+                                        style={{ color: theme.text }}
+                                    >
+                                        <Smartphone size={20} />
+                                    </div>
+                                    <div className={`w-2 h-2 rounded-full ${gameState.settings.passPhoneMode ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-500/50'}`} />
+                                </div>
+                                <div className="text-left">
+                                    <p style={{ color: theme.text }} className="text-sm font-bold uppercase tracking-wide">Pases</p>
+                                    <p style={{ color: theme.sub }} className="text-[10px] font-mono opacity-80">
+                                        {gameState.settings.passPhoneMode ? 'ACTIVO - SEGURO' : 'OMITIR ESPERA'}
                                     </p>
                                 </div>
                             </button>

@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { ThemeConfig } from '../types';
-import { ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap } from 'lucide-react';
+import { ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, Smartphone } from 'lucide-react';
 
 interface Props {
-    type: 'hint' | 'troll' | 'architect' | 'nexus' | 'party' | 'oracle' | 'vanguardia';
+    type: 'hint' | 'troll' | 'architect' | 'nexus' | 'party' | 'oracle' | 'vanguardia' | 'passPhone';
     isActive: boolean;
     isDisabled?: boolean;
     onClick: () => void;
@@ -18,7 +18,8 @@ const CONFIG = {
     nexus: { icon: Network, label: "Nexus" },
     party: { icon: Beer, label: "Fiesta" },
     oracle: { icon: Eye, label: "Oráculo" },
-    vanguardia: { icon: Zap, label: "Vanguardia" }
+    vanguardia: { icon: Zap, label: "Vanguardia" },
+    passPhone: { icon: Smartphone, label: "Pases" }
 };
 
 export const ModeToggle: React.FC<Props> = ({ type, isActive, isDisabled, onClick, theme }) => {

@@ -1,5 +1,4 @@
 
-
 export type ThemeName = 'midnight' | 'obsidian' | 'solar' | 'cyber' | 'bond' | 'turing' | 'illojuan' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub' | 'aura' | 'luminous' | 'silk_soul' | 'nebula_dream' | 'crystal_garden' | 'aurora_borealis' | 'liquid_gold' | 'luminescent_ocean' | 'zen_sunset';
 
 export interface ThemeConfig {
@@ -107,6 +106,15 @@ export interface PartyState {
     isHydrationLocked: boolean; // Safety lock
 }
 
+export interface CuratedCollection {
+    id: string;
+    name: string;
+    description: string;
+    vibe: string;
+    categories: string[];
+    icon: string; // Lucide icon name
+}
+
 export interface GameState {
     phase: 'setup' | 'architect' | 'revealing' | 'discussion' | 'results';
     players: Player[];
@@ -147,6 +155,7 @@ export interface GameState {
         oracleMode: boolean; // v7.0 Protocolo ORÁCULO
         vanguardiaMode: boolean; // v8.0 Protocolo VANGUARDIA
         nexusMode: boolean; // v6.5 Protocolo NEXUS
+        passPhoneMode: boolean; // v9.0 Protocolo TRANSICIÓN
         soundEnabled: boolean;
         selectedCategories: string[];
     };
