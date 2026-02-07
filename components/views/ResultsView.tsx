@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { GameState, ThemeConfig } from '../../types';
 import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Sparkles, Zap, Network } from 'lucide-react';
@@ -108,6 +107,13 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
             if (navigator.vibrate) navigator.vibrate([50, 50, 200]);
         }
     }, [decryptProgress, isDecrypted]);
+
+    // --- CONFIRMATION HANDLER ---
+    const handleSafeBack = () => {
+        if (window.confirm("¿Seguro que quieres volver al inicio? Se perderá el resultado de la ronda.")) {
+            onBack();
+        }
+    };
 
     // --- RENDER: PRE-REVEAL (TIMER & BUTTON) ---
     if (!isDecrypted) {
@@ -502,7 +508,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
             {/* 4. ACTIONS */}
             <div className="w-full max-w-sm mt-12 grid grid-cols-2 gap-4">
                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); onBack(); }}
+                    onPointerDown={(e) => { e.preventDefault(); handleSafeBack(); }}
                     style={{ borderColor: theme.border, color: theme.sub }}
                     className="py-4 rounded-2xl border bg-black/20 font-bold uppercase tracking-widest text-xs hover:bg-white/5 active:scale-95 transition-all backdrop-blur-sm touch-manipulation"
                 >

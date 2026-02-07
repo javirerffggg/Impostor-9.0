@@ -1,3 +1,4 @@
+
 import { GameState, PartyIntensity, GamePlayer, SocialRole, Player, InfinityVault } from '../types';
 
 // --- CONFIGURATION ---
@@ -5,6 +6,13 @@ const INTENSITY_THRESHOLDS = {
     aperitivo: 2, // Rounds 1-2
     hora_punta: 6, // Rounds 3-6
     after_hours: 10, // Rounds 7+
+};
+
+const BARTENDER_WEIGHTS = {
+    LAST_ROUND: 0.001,
+    TWO_ROUNDS_AGO: 0.1,
+    THREE_ROUNDS_AGO: 0.3,
+    NEVER: 3.0
 };
 
 // --- CORE: INTENSITY CALCULATOR ---
@@ -38,10 +46,10 @@ export const assignPartyRoles = (
         let weight = 100;
         const lastBartenderRound = lastBartenders.indexOf(p.id);
         
-        if (lastBartenderRound === 0) weight *= 0.001; // Was bartender last round
-        else if (lastBartenderRound === 1) weight *= 0.1;
-        else if (lastBartenderRound === 2) weight *= 0.3;
-        else if (lastBartenderRound === -1) weight *= 3.0; // Never been bartender recently
+        if (lastBartenderRound === 0) weight *= BARTENDER_WEIGHTS.LAST_ROUND; 
+        else if (lastBartenderRound === 1) weight *= BARTENDER_WEIGHTS.TWO_ROUNDS_AGO;
+        else if (lastBartenderRound === 2) weight *= BARTENDER_WEIGHTS.THREE_ROUNDS_AGO;
+        else if (lastBartenderRound === -1) weight *= BARTENDER_WEIGHTS.NEVER; 
         
         return { player: p, weight };
     });
@@ -111,8 +119,10 @@ export const assignPartyRoles = (
 const getTargetPlayer = (gameState: GameState): string => {
     // Calculate Average View Time for current round (exclude 0s)
     const allViewTimes = gameState.gameData.map(p => p.viewTime || 0).filter(t => t > 0);
+    
+    // Prevent division by zero if all view times are 0
     const avgViewTime = allViewTimes.length > 0 
-        ? allViewTimes.reduce((a, b) => a + b, 0) / allViewTimes.length 
+        ? Math.max(allViewTimes.reduce((a, b) => a + b, 0) / allViewTimes.length, 1) // Minimum 1ms
         : 1000;
 
     const candidates = gameState.gameData.map(p => {
@@ -140,8 +150,12 @@ const getTargetPlayer = (gameState: GameState): string => {
         return { name: p.name, score };
     });
 
+    if (candidates.length === 0) {
+        return gameState.players[0]?.name || "alguien";
+    }
+
     candidates.sort((a, b) => b.score - a.score);
-    return candidates[0]?.name || "alguien";
+    return candidates[0].name;
 };
 
 // --- PROMPT GENERATION ---

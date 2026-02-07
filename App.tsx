@@ -1,21 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
 import { ArchitectCuration } from './components/ArchitectCuration';
 import { CardShuffle } from './components/CardShuffle';
 import { THEMES, PLAYER_COLORS } from './constants';
 import { ThemeName } from './types';
-import { getPartyMessage, getBatteryLevel } from './utils/partyLogic';
 import { useGameState } from './hooks/useGameState';
+import { useAudioSystem } from './hooks/useAudioSystem';
+import { usePartyPrompts } from './hooks/usePartyPrompts';
 
 // --- NEW VIEW IMPORTS ---
 import { SetupView } from './components/views/SetupView';
 import { RevealingView } from './components/views/RevealingView';
 import { ResultsView } from './components/views/ResultsView';
-import { OracleSelectionView } from './components/views/OracleSelectionView'; // New Import
-import { SettingsDrawer } from './components/SettingsDrawer';
-import { CategorySelector } from './components/CategorySelector';
-import { Manual } from './components/Manual';
+import { OracleSelectionView } from './components/views/OracleSelectionView';
+
+// --- LAZY IMPORTS ---
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer').then(m => ({ default: m.SettingsDrawer })));
+const CategorySelector = lazy(() => import('./components/CategorySelector').then(m => ({ default: m.CategorySelector })));
+const Manual = lazy(() => import('./components/Manual').then(m => ({ default: m.Manual })));
 
 function App() {
     // -- State from Custom Hook --
@@ -46,11 +50,12 @@ function App() {
     
     // -- Party Mode --
     const [batteryLevel, setBatteryLevel] = useState(100);
-    const promptTimeoutRef = useRef<number | null>(null);
     const [hydrationTimer, setHydrationTimer] = useState(0);
 
-    // -- Audio System --
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // -- Audio & Prompts Hooks --
+    useAudioSystem(gameState.settings.soundEnabled, actions.updateSettings);
+    const { triggerPartyMessage } = usePartyPrompts(gameState, setGameState, batteryLevel, setBatteryLevel);
+
     const debugTapTimerRef = useRef<number | null>(null);
     const [debugTapCount, setDebugTapCount] = useState(0);
 
@@ -63,101 +68,15 @@ function App() {
         localStorage.setItem('impostor_theme_v1', themeName);
     }, [themeName]);
 
-    // Audio Initialization & Playback Logic
+    // Hydration Timer
     useEffect(() => {
-        const initAudio = () => {
-            if (!audioRef.current) {
-                // Configuración automática del archivo de audio
-                audioRef.current = new Audio('/background.mp3');
-                audioRef.current.loop = true;
-                audioRef.current.volume = 0.15; // Volumen ambiental sutil
-                
-                audioRef.current.onerror = () => {
-                    console.warn("No se encontró background.mp3 en la carpeta public.");
-                    actions.updateSettings({ soundEnabled: false });
-                };
-            }
-
-            if (gameState.settings.soundEnabled && audioRef.current.paused) {
-                audioRef.current.play().catch(e => {
-                    // Los navegadores bloquean el autoplay hasta que hay interacción
-                    console.debug("Esperando interacción para reproducir audio...");
-                });
-            }
-        };
-
-        const handleInteraction = () => {
-            initAudio();
-            // Una vez inicializado, limpiamos los listeners para no saturar
-            window.removeEventListener('click', handleInteraction);
-            window.removeEventListener('touchstart', handleInteraction);
-            window.removeEventListener('keydown', handleInteraction);
-        };
-
-        // Escuchar la primera interacción del usuario para iniciar el audio
-        window.addEventListener('click', handleInteraction);
-        window.addEventListener('touchstart', handleInteraction);
-        window.addEventListener('keydown', handleInteraction);
-
-        return () => {
-            window.removeEventListener('click', handleInteraction);
-            window.removeEventListener('touchstart', handleInteraction);
-            window.removeEventListener('keydown', handleInteraction);
-        };
-    }, []);
-
-    // Reacción al cambio de ajustes de sonido
-    useEffect(() => {
-        if (audioRef.current) {
-            if (gameState.settings.soundEnabled) {
-                audioRef.current.play().catch(() => {});
-            } else {
-                audioRef.current.pause();
-            }
-        }
-    }, [gameState.settings.soundEnabled]);
-
-    // Battery
-    useEffect(() => {
-        const fetchBattery = async () => {
-            const level = await getBatteryLevel();
-            setBatteryLevel(level);
-        };
-        fetchBattery();
-        const interval = setInterval(fetchBattery, 60000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Periodic Party Prompts
-    const triggerPartyMessage = (phase: 'setup' | 'revealing' | 'discussion' | 'results', winState?: 'civil' | 'impostor' | 'troll') => {
-        if (!gameState.settings.partyMode) return;
-        if (promptTimeoutRef.current) clearTimeout(promptTimeoutRef.current);
-
-        const msg = getPartyMessage(phase, gameState, batteryLevel, winState);
-        setGameState(prev => ({ ...prev, currentDrinkingPrompt: msg }));
-
-        promptTimeoutRef.current = window.setTimeout(() => {
-            setGameState(prev => ({ ...prev, currentDrinkingPrompt: "" }));
-        }, 8000);
-    };
-
-    useEffect(() => {
-        if (!gameState.settings.partyMode) return;
-        const interval = setInterval(() => {
-            if (gameState.phase === 'setup') {
-                 triggerPartyMessage(gameState.phase);
-                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            }
-        }, 120000);
-        return () => clearInterval(interval);
-    }, [gameState.settings.partyMode, gameState.phase, batteryLevel, gameState.partyState.intensity]);
-
-    useEffect(() => {
-        let interval: number;
+        let interval: number | undefined;
         if (gameState.partyState.isHydrationLocked && hydrationTimer > 0) {
             interval = window.setInterval(() => setHydrationTimer(prev => prev - 1), 1000);
         }
-        return () => clearInterval(interval);
+        return () => {
+            if (interval !== undefined) clearInterval(interval);
+        };
     }, [gameState.partyState.isHydrationLocked, hydrationTimer]);
 
     // -- Handlers --
@@ -264,13 +183,13 @@ function App() {
         setTimeout(() => {
             setGameState(prev => ({...prev, phase: 'setup', currentDrinkingPrompt: ""}));
             setIsPixelating(false);
-        }, 400); // Velocidad duplicada para respuesta inmediata
+        }, 400); 
     };
 
     const handleReplay = () => {
         setIsPixelating(true);
         if (navigator.vibrate) navigator.vibrate(10);
-        setTimeout(() => handleStartGame(), 400); // Velocidad duplicada para respuesta inmediata
+        setTimeout(() => handleStartGame(), 400); 
     };
 
     const handleTitleTap = () => {
@@ -286,7 +205,8 @@ function App() {
             }
             return newCount;
         });
-        debugTapTimerRef.current = window.setTimeout(() => setDebugTapCount(0), 800);
+        // 1500ms window to make it easier on mobile
+        debugTapTimerRef.current = window.setTimeout(() => setDebugTapCount(0), 1500);
     };
 
     const handleHydrationUnlock = () => {
@@ -396,34 +316,36 @@ function App() {
                 />
             )}
             
-            {/* Common UI Components */}
-            <SettingsDrawer 
-                isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                theme={theme}
-                themeName={themeName}
-                setThemeName={setThemeName}
-                gameState={gameState}
-                onUpdateSettings={actions.updateSettings}
-                onOpenHowToPlay={() => setHowToPlayOpen(true)}
-                onBackToHome={() => { setSettingsOpen(false); handleBackToSetup(); }}
-            />
+            {/* Common UI Components Loaded Lazily */}
+            <Suspense fallback={<div className="fixed inset-0 pointer-events-none" />}>
+                <SettingsDrawer 
+                    isOpen={settingsOpen}
+                    onClose={() => setSettingsOpen(false)}
+                    theme={theme}
+                    themeName={themeName}
+                    setThemeName={setThemeName}
+                    gameState={gameState}
+                    onUpdateSettings={actions.updateSettings}
+                    onOpenHowToPlay={() => setHowToPlayOpen(true)}
+                    onBackToHome={() => { setSettingsOpen(false); handleBackToSetup(); }}
+                />
 
-            <CategorySelector 
-                isOpen={categoriesOpen}
-                onClose={() => setCategoriesOpen(false)}
-                selectedCategories={gameState.settings.selectedCategories}
-                onToggleCategory={actions.toggleCategory}
-                onToggleCollection={actions.toggleCollection}
-                onToggleAll={actions.toggleAllCategories}
-                theme={theme}
-            />
+                <CategorySelector 
+                    isOpen={categoriesOpen}
+                    onClose={() => setCategoriesOpen(false)}
+                    selectedCategories={gameState.settings.selectedCategories}
+                    onToggleCategory={actions.toggleCategory}
+                    onToggleCollection={actions.toggleCollection}
+                    onToggleAll={actions.toggleAllCategories}
+                    theme={theme}
+                />
 
-            <Manual 
-                isOpen={howToPlayOpen}
-                onClose={() => setHowToPlayOpen(false)}
-                theme={theme}
-            />
+                <Manual 
+                    isOpen={howToPlayOpen}
+                    onClose={() => setHowToPlayOpen(false)}
+                    theme={theme}
+                />
+            </Suspense>
             
             {/* Global CSS */}
             <style>{`

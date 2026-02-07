@@ -159,7 +159,7 @@ export interface OracleSetupData {
 }
 
 export interface GameState {
-    phase: 'setup' | 'architect' | 'oracle' | 'renuncia' | 'revealing' | 'discussion' | 'results';
+    phase: 'setup' | 'architect' | 'oracle' | 'revealing' | 'discussion' | 'results';
     players: Player[];
     gameData: GamePlayer[];
     impostorCount: number;

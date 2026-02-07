@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { GameState, ThemeConfig } from '../../types';
+import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
 import { SwipeRevealCard } from '../SwipeRevealCard';
 import { PartyNotification } from '../PartyNotification';
@@ -13,12 +14,12 @@ interface Props {
     currentPlayerColor: string;
     onNextPlayer: (viewTime: number) => void;
     onOracleConfirm: (hint: string) => void;
-    onRenunciaDecision: (decision: any) => void;
+    onRenunciaDecision: (decision: RenunciaDecision) => void;
     isExiting: boolean;
     transitionName?: string | null;
 }
 
-export const RevealingView: React.FC<Props> = ({ 
+export const RevealingView: React.FC<Props> = React.memo(({ 
     gameState, 
     theme, 
     currentPlayerColor, 
@@ -215,4 +216,16 @@ export const RevealingView: React.FC<Props> = ({
             `}</style>
         </div>
     );
-};
+}, (prevProps, nextProps) => {
+    // Custom comparison for React.memo
+    // Only re-render if key state changes, ignore object reference changes for functions
+    return (
+        prevProps.gameState.currentPlayerIndex === nextProps.gameState.currentPlayerIndex &&
+        prevProps.gameState.phase === nextProps.gameState.phase &&
+        prevProps.isExiting === nextProps.isExiting &&
+        prevProps.transitionName === nextProps.transitionName &&
+        prevProps.gameState.renunciaData === nextProps.gameState.renunciaData &&
+        prevProps.gameState.currentDrinkingPrompt === nextProps.gameState.currentDrinkingPrompt &&
+        prevProps.theme.name === nextProps.theme.name
+    );
+});

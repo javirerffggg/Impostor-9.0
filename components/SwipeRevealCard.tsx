@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity, GameState } from '../types';
 import { ChevronUp } from 'lucide-react';
@@ -35,6 +36,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     const [progress, setProgress] = useState(0);
     const [isExiting, setIsExiting] = useState(false);
     const [performanceMode, setPerformanceMode] = useState<'high' | 'medium' | 'low'>('high');
+    const [isBouncing, setIsBouncing] = useState(false); // New State for Bounce
 
     const [oracleSelectionMade, setOracleSelectionMade] = useState(false);
     const [oracleOptions, setOracleOptions] = useState<string[]>([]);
@@ -151,6 +153,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         startY.current = e.clientY;
         currentY.current = e.clientY;
         setIsDragging(true);
+        setIsBouncing(false); // Reset bounce
         
         lastHapticAt.current = { threshold30: false, threshold70: false };
         
@@ -181,11 +184,14 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         if (progress >= 100) {
             handleComplete();
         } else {
+            // Trigger feedback for incomplete swipe
+            setIsBouncing(true);
             setDragY(0);
             setProgress(0);
             if (settings.hapticFeedback && navigator.vibrate) {
                 navigator.vibrate([10, 5, 10]);
             }
+            setTimeout(() => setIsBouncing(false), 500); // Reset after animation
         }
     };
 
@@ -358,7 +364,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        className={`absolute inset-0 rounded-[2.5rem] border-2 touch-none select-none overflow-hidden transition-all ${isDragging ? 'duration-0' : 'duration-500'} ${isRevealed ? 'pointer-events-none opacity-0' : ''}`}
+                        className={`absolute inset-0 rounded-[2.5rem] border-2 touch-none select-none overflow-hidden transition-all ${isDragging ? 'duration-0' : 'duration-500'} ${isRevealed ? 'pointer-events-none opacity-0' : ''} ${isBouncing ? 'animate-bounce-short' : ''}`}
                         style={{
                             backgroundColor: theme.cardBg,
                             borderColor: theme.accent,
@@ -538,6 +544,13 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         </div>
 
                         <style>{`
+                            @keyframes bounce-short {
+                                0%, 100% { transform: translateY(0); }
+                                50% { transform: translateY(-10px); }
+                            }
+                            .animate-bounce-short {
+                                animation: bounce-short 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                            }
                             @keyframes float {
                                 0%, 100% { transform: translate3d(0, 0, 0); }
                                 50% { transform: translate3d(5px, -20px, 0); }

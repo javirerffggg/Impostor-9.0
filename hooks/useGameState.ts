@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { GameState, Player, InfinityVault, TrollScenario, CategoryData, RenunciaDecision } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
 import { generateGameData, generateArchitectOptions, generateSmartHint, generateVanguardHints, applyRenunciaDecision } from '../utils/gameLogic';
@@ -120,6 +121,9 @@ export const useGameState = () => {
     const [architectOptions, setArchitectOptions] = useState<[ { categoryName: string, wordPair: CategoryData }, { categoryName: string, wordPair: CategoryData } ] | null>(null);
     const [architectRegenCount, setArchitectRegenCount] = useState(0);
     const [currentWordPair, setCurrentWordPair] = useState<CategoryData | null>(null); // To support Renuncia logic
+    
+    // Ref for debouncing
+    const saveTimeoutRef = useRef<number | null>(null);
 
     // -- Persistence Effects --
     useEffect(() => {
@@ -127,7 +131,16 @@ export const useGameState = () => {
     }, [savedPlayers]);
 
     useEffect(() => {
-        localStorage.setItem('impostor_infinite_vault_v6', JSON.stringify(gameState.history));
+        // Debounce: guardar solo después de 500ms de inactividad
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        
+        saveTimeoutRef.current = window.setTimeout(() => {
+            localStorage.setItem('impostor_infinite_vault_v6', JSON.stringify(gameState.history));
+        }, 500);
+
+        return () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        };
     }, [gameState.history]);
 
     useEffect(() => {
