@@ -26,6 +26,24 @@ export const useGameState = () => {
             lastBreakProtocol: null
         };
 
+        // Default Settings
+        let loadedSettings: GameState['settings'] = {
+            hintMode: false,
+            trollMode: false,
+            partyMode: false,
+            architectMode: false,
+            oracleMode: false,
+            vanguardiaMode: false,
+            nexusMode: false,
+            passPhoneMode: false,
+            shuffleEnabled: true,
+            revealMethod: 'hold', 
+            swipeSensitivity: 'medium',
+            hapticFeedback: true,
+            soundEnabled: true,
+            selectedCategories: []
+        };
+
         // Try to recover The Infinity Vault from LocalStorage
         try {
             const savedVault = localStorage.getItem('impostor_infinite_vault_v6');
@@ -51,6 +69,16 @@ export const useGameState = () => {
             console.error("Protocol Infinitum: Memory Corrupted. Resetting Vault.", e);
         }
 
+        // Try to recover Settings from LocalStorage
+        try {
+            const savedSettings = localStorage.getItem('impostor_settings_v2');
+            if (savedSettings) {
+                loadedSettings = { ...loadedSettings, ...JSON.parse(savedSettings) };
+            }
+        } catch (e) {
+            console.error("Protocol Lexicon: Settings corrupted. Using defaults.", e);
+        }
+
         return {
             phase: 'setup',
             players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
@@ -62,22 +90,7 @@ export const useGameState = () => {
             trollScenario: null,
             isArchitectRound: false,
             history: loadedHistory,
-            settings: {
-                hintMode: false,
-                trollMode: false,
-                partyMode: false,
-                architectMode: false,
-                oracleMode: false,
-                vanguardiaMode: false,
-                nexusMode: false,
-                passPhoneMode: false,
-                shuffleEnabled: true,
-                revealMethod: 'hold', // Default to classic
-                swipeSensitivity: 'medium',
-                hapticFeedback: true,
-                soundEnabled: true,
-                selectedCategories: []
-            },
+            settings: loadedSettings,
             debugState: {
                 isEnabled: false,
                 forceTroll: null,
@@ -113,6 +126,10 @@ export const useGameState = () => {
     useEffect(() => {
         localStorage.setItem('impostor_infinite_vault_v6', JSON.stringify(gameState.history));
     }, [gameState.history]);
+
+    useEffect(() => {
+        localStorage.setItem('impostor_settings_v2', JSON.stringify(gameState.settings));
+    }, [gameState.settings]);
 
     // -- Actions --
 

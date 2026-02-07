@@ -25,7 +25,14 @@ function App() {
     } = useGameState();
 
     // -- UI State --
-    const [themeName, setThemeName] = useState<ThemeName>('luminous');
+    const [themeName, setThemeName] = useState<ThemeName>(() => {
+        try {
+            const savedTheme = localStorage.getItem('impostor_theme_v1');
+            return (savedTheme as ThemeName) || 'luminous';
+        } catch (e) {
+            return 'luminous';
+        }
+    });
     const theme = THEMES[themeName];
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -50,6 +57,11 @@ function App() {
     const currentPlayerColor = PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length];
 
     // -- Effects --
+
+    // Persist Theme
+    useEffect(() => {
+        localStorage.setItem('impostor_theme_v1', themeName);
+    }, [themeName]);
 
     // Audio Initialization & Playback Logic
     useEffect(() => {
