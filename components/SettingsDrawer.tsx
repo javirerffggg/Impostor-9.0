@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState } from '../types';
 import { THEMES } from '../constants';
@@ -229,41 +227,6 @@ export const SettingsDrawer: React.FC<Props> = ({
                                     <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">REGLAS</p>
                                 </div>
                             </button>
-                        </div>
-                    </section>
-
-                    {/* ADVANCED PROTOCOLS */}
-                    <section className="space-y-3">
-                        <div className="p-4 rounded-xl border" style={{
-                            backgroundColor: theme.cardBg,
-                            borderColor: theme.border
-                        }}>
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-sm" style={{ color: theme.text }}>
-                                        Protocolo RENUNCIA
-                                    </span>
-                                </div>
-                                
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={gameState.settings.renunciaMode}
-                                        onChange={(e) => onUpdateSettings({ renunciaMode: e.target.checked })}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"
-                                        style={{
-                                            backgroundColor: gameState.settings.renunciaMode ? theme.accent : 'rgba(255,255,255,0.1)'
-                                        }}
-                                    />
-                                </label>
-                            </div>
-                            
-                            <p className="text-[10px] leading-relaxed opacity-60" style={{ color: theme.sub }}>
-                                Permite a un impostor rechazar o transferir su rol antes de ver su palabra. 
-                                Solo activo con 2+ impostores y 4+ jugadores.
-                            </p>
                         </div>
                     </section>
 

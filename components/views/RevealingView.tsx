@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { GameState, ThemeConfig } from '../../types';
 import { IdentityCard } from '../IdentityCard';
@@ -6,6 +5,7 @@ import { SwipeRevealCard } from '../SwipeRevealCard';
 import { PartyNotification } from '../PartyNotification';
 import { PLAYER_COLORS } from '../../constants';
 import { Smartphone, ArrowRight } from 'lucide-react';
+import { RenunciaDecisionView } from '../RenunciaDecisionView';
 
 interface Props {
     gameState: GameState;
@@ -13,15 +13,30 @@ interface Props {
     currentPlayerColor: string;
     onNextPlayer: (viewTime: number) => void;
     onOracleConfirm: (hint: string) => void;
+    onRenunciaDecision: (decision: any) => void;
     isExiting: boolean;
     transitionName?: string | null;
 }
 
-export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayerColor, onNextPlayer, onOracleConfirm, isExiting, transitionName }) => {
+export const RevealingView: React.FC<Props> = ({ 
+    gameState, 
+    theme, 
+    currentPlayerColor, 
+    onNextPlayer, 
+    onOracleConfirm, 
+    onRenunciaDecision,
+    isExiting, 
+    transitionName 
+}) => {
     const [hasSeenCurrentCard, setHasSeenCurrentCard] = useState(false);
     const isParty = gameState.settings.partyMode;
     const currentPlayer = gameState.gameData[gameState.currentPlayerIndex];
     const isLastPlayer = gameState.currentPlayerIndex === gameState.players.length - 1;
+
+    // RENUNCIA: Check if current player is the candidate and hasn't decided yet
+    const isRenunciaCandidate = gameState.renunciaData && 
+        currentPlayer.id === gameState.renunciaData.candidatePlayerId &&
+        gameState.renunciaData.decision === 'pending';
 
     const auraExplosion = isExiting && (
         <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none">
@@ -97,6 +112,26 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                             </div>
                         </div>
                     </div>
+                ) : isRenunciaCandidate ? (
+                    // PROTOCOLO RENUNCIA: Show decision screen for candidate
+                    <RenunciaDecisionView
+                        candidatePlayer={currentPlayer}
+                        otherPlayers={gameState.gameData.filter(p => p.id !== currentPlayer.id)}
+                        theme={theme}
+                        canTransfer={
+                            gameState.gameData.filter((p, index) => 
+                                !p.isImp && 
+                                p.id !== currentPlayer.id &&
+                                p.id !== gameState.gameData.find(pl => pl.isArchitect)?.id &&
+                                p.id !== gameState.oracleSetup?.oraclePlayerId &&
+                                index > gameState.currentPlayerIndex
+                            ).length > 0
+                        }
+                        onDecision={(decision) => {
+                            // Process decision. Component updates and shows card in next render cycle.
+                            onRenunciaDecision(decision);
+                        }}
+                    />
                 ) : (
                     gameState.settings.revealMethod === 'swipe' ? (
                         <SwipeRevealCard 
@@ -127,7 +162,7 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                 )}
             </div>
             
-            {!transitionName && (
+            {!transitionName && !isRenunciaCandidate && (
                 <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
                     <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">
                         Jugador {gameState.currentPlayerIndex + 1} de {gameState.players.length}

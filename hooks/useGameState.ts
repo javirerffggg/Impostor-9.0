@@ -1,7 +1,3 @@
-
-
-
-
 import { useState, useEffect } from 'react';
 import { GameState, Player, InfinityVault, TrollScenario, CategoryData, RenunciaDecision } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
@@ -321,25 +317,8 @@ export const useGameState = () => {
              return { hydrationTimer };
         }
 
-        // v12.0 PROTOCOLO RENUNCIA
-        if (renunciaData) {
-            setGameState(prev => ({
-                ...prev,
-                phase: 'renuncia', // New Phase
-                gameData: players,
-                isTrollEvent,
-                trollScenario,
-                isArchitectRound: false,
-                currentPlayerIndex: 0,
-                startingPlayer: designatedStarter,
-                history: newHistory as GameState['history'],
-                renunciaData: renunciaData,
-                currentDrinkingPrompt: "",
-                debugState: cleanDebugState,
-                partyState: newPartyState
-            }));
-            return { hydrationTimer };
-        }
+        // v12.0 PROTOCOLO RENUNCIA - Data stored, shown during revealing phase
+        // NO cambiamos a fase 'renuncia', se mostrará cuando le toque revelar al candidato
 
         setGameState(prev => ({
             ...prev,
@@ -351,6 +330,7 @@ export const useGameState = () => {
             currentPlayerIndex: 0,
             startingPlayer: designatedStarter,
             history: newHistory as GameState['history'], 
+            renunciaData: renunciaData,
             currentDrinkingPrompt: "",
             debugState: cleanDebugState,
             partyState: newPartyState
@@ -433,11 +413,11 @@ export const useGameState = () => {
                 return p;
             });
 
-            // If Renuncia was triggered (e.g., generated but Oracle happened first), transition to it now
+            // If Renuncia was triggered (e.g., generated but Oracle happened first), transition to it now but stay in revealing phase so it triggers on turn
             if (prev.renunciaData) {
                 return {
                     ...prev,
-                    phase: 'renuncia', 
+                    phase: 'revealing', 
                     gameData: updatedGameData
                 };
             }
@@ -453,6 +433,11 @@ export const useGameState = () => {
     const handleRenunciaDecision = (decision: RenunciaDecision) => {
         if (!gameState.renunciaData || !currentWordPair) return;
 
+        // Find candidate's position in reveal order
+        const candidateRevealIndex = gameState.gameData.findIndex(
+            p => p.id === gameState.renunciaData!.candidatePlayerId
+        );
+
         // Apply Logic
         const result = applyRenunciaDecision(
             decision,
@@ -461,17 +446,38 @@ export const useGameState = () => {
             currentWordPair,
             gameState.history.playerStats,
             gameState.settings.hintMode,
+            candidateRevealIndex,
             gameState.gameData.find(p => p.isArchitect)?.id,
             gameState.oracleSetup?.oraclePlayerId
         );
 
-        setGameState(prev => ({
-            ...prev,
-            phase: 'revealing',
-            gameData: result.updatedGameData,
-            renunciaData: result.updatedRenunciaData,
-            impostorCount: result.actualImpostorCount
-        }));
+        // Update MatchLog with decision
+        setGameState(prev => {
+            const updatedMatchLogs = [...prev.history.matchLogs];
+            
+            if (updatedMatchLogs.length > 0) {
+                const latestLog = updatedMatchLogs[0];
+                updatedMatchLogs[0] = {
+                    ...latestLog,
+                    renunciaDecision: result.updatedRenunciaData.decision,
+                    renunciaWitness: result.updatedRenunciaData.witnessPlayerId 
+                        ? result.updatedGameData.find(p => p.id === result.updatedRenunciaData.witnessPlayerId)?.name
+                        : undefined
+                };
+            }
+
+            return {
+                ...prev,
+                phase: 'revealing',
+                gameData: result.updatedGameData,
+                renunciaData: result.updatedRenunciaData,
+                impostorCount: result.actualImpostorCount,
+                history: {
+                    ...prev.history,
+                    matchLogs: updatedMatchLogs
+                }
+            };
+        });
     };
 
     return {

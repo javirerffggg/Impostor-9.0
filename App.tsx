@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
@@ -17,7 +13,6 @@ import { SetupView } from './components/views/SetupView';
 import { RevealingView } from './components/views/RevealingView';
 import { ResultsView } from './components/views/ResultsView';
 import { OracleSelectionView } from './components/views/OracleSelectionView'; // New Import
-import { RenunciaDecisionView } from './components/RenunciaDecisionView'; // v12.0
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { CategorySelector } from './components/CategorySelector';
 import { Manual } from './components/Manual';
@@ -379,24 +374,6 @@ function App() {
                 />
             )}
 
-            {/* RENUNCIA PROTOCOL (v12.0) */}
-            {gameState.phase === 'renuncia' && gameState.renunciaData && !isShuffling && (
-                <RenunciaDecisionView
-                    candidatePlayer={gameState.gameData.find(p => p.id === gameState.renunciaData!.candidatePlayerId)!}
-                    otherPlayers={gameState.gameData.filter(p => p.id !== gameState.renunciaData!.candidatePlayerId)}
-                    theme={theme}
-                    canTransfer={
-                        gameState.gameData.filter(p => 
-                            !p.isImp && 
-                            p.id !== gameState.renunciaData!.candidatePlayerId &&
-                            p.id !== gameState.gameData.find(pl => pl.isArchitect)?.id &&
-                            p.id !== gameState.oracleSetup?.oraclePlayerId
-                        ).length > 0
-                    }
-                    onDecision={actions.handleRenunciaDecision}
-                />
-            )}
-
             {gameState.phase === 'revealing' && !isShuffling && (
                 <RevealingView 
                     gameState={gameState}
@@ -404,6 +381,7 @@ function App() {
                     currentPlayerColor={currentPlayerColor}
                     onNextPlayer={handleNextPlayer}
                     onOracleConfirm={actions.handleOracleConfirm}
+                    onRenunciaDecision={actions.handleRenunciaDecision}
                     isExiting={isExiting}
                     transitionName={transitionName}
                 />

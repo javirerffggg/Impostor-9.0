@@ -373,7 +373,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             zIndex: 20,
                             cursor: isDragging ? 'grabbing' : 'grab',
                             background: `
-                                linear-gradient(135deg, ${theme.accent}15 0%, ${theme.cardBg} 50%, ${theme.accentSecondary || theme.accent}10 100%),
+                                linear-gradient(135deg, ${theme.accent}15 0%, ${theme.cardBg} 50%, ${theme.accent}10 100%),
                                 repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.accent}03 10px, ${theme.accent}03 20px)
                             `,
                             backdropFilter: isDragging 

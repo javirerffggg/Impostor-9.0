@@ -193,8 +193,8 @@ export const RenunciaDecisionView: React.FC<Props> = ({
                   </div>
                   
                   {!canTransfer && (
-                    <p className="text-[10px] text-red-400 mt-2 font-bold">
-                      No hay jugadores disponibles para transferencia
+                    <p className="text-[10px] text-red-400 mt-2 font-bold leading-tight">
+                        No hay jugadores elegibles que aún no hayan visto su rol
                     </p>
                   )}
                 </div>

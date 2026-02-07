@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
@@ -1000,6 +994,7 @@ export const applyRenunciaDecision = (
     wordPair: CategoryData,
     stats: Record<string, InfinityVault>,
     useHintMode: boolean,
+    candidateRevealIndex: number,
     architectId?: string,
     oracleId?: string
   ): { 
@@ -1073,18 +1068,26 @@ export const applyRenunciaDecision = (
       }
       
       case 'transfer': {
-        // Buscar jugador con más Karma elegible
-        const eligiblePlayers = gameData.filter(p => 
-          !p.isImp &&
-          p.id !== candidateId &&
-          p.id !== architectId &&
-          p.id !== oracleId
+        // Find candidate's position in reveal order
+        const candidateIndex = gameData.findIndex(p => p.id === renunciaData.candidatePlayerId);
+        
+        // Find eligible players: 
+        // 1. Must be Civil
+        // 2. Not the candidate
+        // 3. Not architect or oracle
+        // 4. CRITICAL: Must be AFTER candidate in reveal order (haven't seen their card yet)
+        const eligiblePlayers = gameData.filter((p, index) => 
+            !p.isImp && 
+            p.id !== renunciaData.candidatePlayerId &&
+            p.id !== architectId &&
+            p.id !== oracleId &&
+            index > candidateIndex // Only players who haven't revealed yet
         );
         
         if (eligiblePlayers.length === 0) {
-          // Fallback a reject
+          // Fallback to reject
           console.warn('[RENUNCIA] No eligible players for transfer, falling back to reject');
-          return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, architectId, oracleId);
+          return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, candidateRevealIndex, architectId, oracleId);
         }
         
         // Ordenar por civilStreak

@@ -244,6 +244,14 @@ export const SetupView: React.FC<Props> = ({
                             onClick={() => onUpdateSettings({ vanguardiaMode: !gameState.settings.vanguardiaMode })} 
                             theme={theme} 
                         />
+
+                        <ModeToggle 
+                            type="renuncia" 
+                            isActive={gameState.settings.renunciaMode} 
+                            isDisabled={gameState.impostorCount < 2}
+                            onClick={() => onUpdateSettings({ renunciaMode: !gameState.settings.renunciaMode })} 
+                            theme={theme} 
+                        />
                     </div>
                 </div>
                 
