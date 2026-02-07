@@ -156,6 +156,10 @@ export interface GameState {
         vanguardiaMode: boolean; // v8.0 Protocolo VANGUARDIA
         nexusMode: boolean; // v6.5 Protocolo NEXUS
         passPhoneMode: boolean; // v9.0 Protocolo TRANSICIÓN
+        shuffleEnabled: boolean; // v10.0 Protocolo BARAJADO
+        revealMethod: 'hold' | 'swipe'; // v9.0 Reveal method
+        swipeSensitivity: 'low' | 'medium' | 'high'; // v9.0 Swipe Sensitivity
+        hapticFeedback: boolean; // v9.0 Haptic feedback setting
         soundEnabled: boolean;
         selectedCategories: string[];
     };

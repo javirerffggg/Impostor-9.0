@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
 import { ArchitectCuration } from './components/ArchitectCuration';
+import { CardShuffle } from './components/CardShuffle';
 import { THEMES, PLAYER_COLORS } from './constants';
 import { ThemeName } from './types';
 import { getPartyMessage, getBatteryLevel } from './utils/partyLogic';
@@ -28,6 +30,7 @@ function App() {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [categoriesOpen, setCategoriesOpen] = useState(false);
     const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+    const [isShuffling, setIsShuffling] = useState(false);
     
     // UI Transitions
     const [isExiting, setIsExiting] = useState(false); 
@@ -147,17 +150,51 @@ function App() {
 
     // -- Handlers --
 
+    const [pendingGameResult, setPendingGameResult] = useState<any>(null);
+
     const handleStartGame = () => {
         if (gameState.players.length < 3) return;
 
-        const result = actions.runGameGeneration();
-        if (result && result.hydrationTimer > 0) {
-            setHydrationTimer(result.hydrationTimer);
+        if (gameState.settings.shuffleEnabled) {
+            // Inicia la animación de barajado
+            setIsShuffling(true);
+            
+            // Generamos los datos pero no cambiamos la fase todavía visualmente
+            const result = actions.runGameGeneration();
+            setPendingGameResult(result);
+        } else {
+            // Generación instantánea sin animación
+            const result = actions.runGameGeneration();
+            if (result && result.hydrationTimer > 0) {
+                setHydrationTimer(result.hydrationTimer);
+            }
+            
+            setIsExiting(false);
+            setIsPixelating(false);
+            setTransitionName(null);
+
+            if (gameState.settings.partyMode) {
+                setTimeout(() => triggerPartyMessage('revealing'), 300);
+            }
         }
-        
+    };
+
+    const handleShuffleComplete = () => {
+        setIsShuffling(false);
+        if (pendingGameResult && pendingGameResult.hydrationTimer > 0) {
+            setHydrationTimer(pendingGameResult.hydrationTimer);
+        }
+        setPendingGameResult(null);
+
+        // Si es una ronda de arquitecto, useGameState ya puso la fase en 'architect'.
+        // Si no, ya la puso en 'revealing'. Al terminar el shuffle simplemente permitimos que se vea.
         setIsExiting(false);
         setIsPixelating(false);
         setTransitionName(null);
+
+        if (gameState.settings.partyMode) {
+            setTimeout(() => triggerPartyMessage('revealing'), 300);
+        }
     };
 
     const handleNextPlayer = (viewTime: number) => {
@@ -263,6 +300,15 @@ function App() {
                 isParty={gameState.settings.partyMode}
             />
             
+            {/* Shuffling Animation Transition */}
+            {isShuffling && (
+                <CardShuffle 
+                    players={gameState.players} 
+                    theme={theme} 
+                    onComplete={handleShuffleComplete} 
+                />
+            )}
+
             {/* Global Overlays */}
             {gameState.settings.partyMode && gameState.currentDrinkingPrompt && (
                 <div className="absolute top-20 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
@@ -294,7 +340,7 @@ function App() {
                 />
             )}
             
-            {gameState.phase === 'architect' && architectOptions && (
+            {gameState.phase === 'architect' && architectOptions && !isShuffling && (
                 <ArchitectCuration 
                     architect={gameState.gameData[gameState.currentPlayerIndex]}
                     currentOptions={architectOptions}
@@ -305,7 +351,7 @@ function App() {
                 />
             )}
 
-            {gameState.phase === 'revealing' && (
+            {gameState.phase === 'revealing' && !isShuffling && (
                 <RevealingView 
                     gameState={gameState}
                     theme={theme}

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { GameState, ThemeConfig } from '../../types';
 import { IdentityCard } from '../IdentityCard';
+import { SwipeRevealCard } from '../SwipeRevealCard';
 import { PartyNotification } from '../PartyNotification';
 import { PLAYER_COLORS } from '../../constants';
 import { Smartphone, ArrowRight } from 'lucide-react';
@@ -53,9 +54,7 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                 className={`w-full max-w-sm flex flex-col items-center ${isExiting ? 'card-exit' : 'card-enter'}`}
             >
                 {transitionName ? (
-                    // --- TRANSITION UI (PASS PHONE) ---
                     <div className="w-full aspect-[3/4] flex flex-col items-center justify-center relative animate-in zoom-in-95 duration-500">
-                        {/* Glass Card Container */}
                         <div 
                             className="absolute inset-0 rounded-[3rem] border border-white/10 backdrop-blur-xl"
                             style={{ 
@@ -63,16 +62,9 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                                 background: `linear-gradient(135deg, ${theme.cardBg} 0%, rgba(0,0,0,0) 100%)`
                             }}
                         />
-                        
-                        {/* Content */}
                         <div className="relative z-10 flex flex-col items-center gap-10 w-full px-8">
-                            
-                            {/* Icons Group */}
                             <div className="relative flex items-center justify-center">
-                                {/* Ambient Glow */}
                                 <div className="absolute inset-0 bg-white/10 blur-[60px] rounded-full" />
-                                
-                                {/* Phone */}
                                 <div className="relative z-10">
                                     <Smartphone 
                                         size={100} 
@@ -81,8 +73,6 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                                         className="transform -rotate-6 transition-transform duration-700" 
                                     />
                                 </div>
-
-                                {/* Arrow Badge - Positioned to the right, clearly separated */}
                                 <div className="absolute -right-8 top-1/2 -translate-y-1/2 z-20 animate-pass-arrow">
                                     <div 
                                         className="p-3 rounded-full border border-white/20 shadow-lg backdrop-blur-md"
@@ -92,8 +82,6 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                                     </div>
                                 </div>
                             </div>
-                            
-                            {/* Text Info */}
                             <div className="text-center w-full space-y-4">
                                 <div className="space-y-2">
                                     <p style={{ color: theme.text }} className="text-xs font-bold uppercase tracking-widest opacity-60">
@@ -101,11 +89,7 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                                     </p>
                                     <h2 
                                         className="text-4xl font-black uppercase tracking-tight leading-none break-words"
-                                        style={{ 
-                                            color: theme.text,
-                                            fontFamily: theme.font,
-                                            textShadow: `0 0 40px ${theme.accent}30`
-                                        }}
+                                        style={{ color: theme.text, fontFamily: theme.font, textShadow: `0 0 40px ${theme.accent}30` }}
                                     >
                                         {transitionName}
                                     </h2>
@@ -114,33 +98,35 @@ export const RevealingView: React.FC<Props> = ({ gameState, theme, currentPlayer
                         </div>
                     </div>
                 ) : (
-                    // --- STANDARD IDENTITY CARD ---
-                    <IdentityCard 
-                        player={currentPlayer}
-                        theme={theme}
-                        color={currentPlayerColor}
-                        onRevealStart={() => {}}
-                        onRevealEnd={() => {
-                            if (!currentPlayer.isOracle) setHasSeenCurrentCard(true);
-                        }}
-                        nextAction={(time) => {
-                            setHasSeenCurrentCard(false); // Reset for next
-                            onNextPlayer(time);
-                        }}
-                        readyForNext={hasSeenCurrentCard}
-                        isLastPlayer={isLastPlayer}
-                        isParty={gameState.settings.partyMode}
-                        partyIntensity={gameState.partyState.intensity} 
-                        debugMode={gameState.debugState.isEnabled}
-                        onOracleConfirm={(hint) => {
-                            setHasSeenCurrentCard(true);
-                            onOracleConfirm(hint);
-                        }}
-                    />
+                    gameState.settings.revealMethod === 'swipe' ? (
+                        <SwipeRevealCard 
+                            player={currentPlayer}
+                            theme={theme}
+                            color={currentPlayerColor}
+                            onRevealComplete={(time) => onNextPlayer(time)}
+                            settings={gameState.settings}
+                            isParty={isParty}
+                            partyIntensity={gameState.partyState.intensity}
+                        />
+                    ) : (
+                        <IdentityCard 
+                            player={currentPlayer}
+                            theme={theme}
+                            color={currentPlayerColor}
+                            onRevealStart={() => {}}
+                            onRevealEnd={() => { if (!currentPlayer.isOracle) setHasSeenCurrentCard(true); }}
+                            nextAction={(time) => { setHasSeenCurrentCard(false); onNextPlayer(time); }}
+                            readyForNext={hasSeenCurrentCard}
+                            isLastPlayer={isLastPlayer}
+                            isParty={gameState.settings.partyMode}
+                            partyIntensity={gameState.partyState.intensity} 
+                            debugMode={gameState.debugState.isEnabled}
+                            onOracleConfirm={(hint) => { setHasSeenCurrentCard(true); onOracleConfirm(hint); }}
+                        />
+                    )
                 )}
             </div>
             
-            {/* Progress Dots - Only show when NOT transitioning */}
             {!transitionName && (
                 <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
                     <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">

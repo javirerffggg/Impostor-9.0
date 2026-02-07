@@ -71,6 +71,10 @@ export const useGameState = () => {
                 vanguardiaMode: false,
                 nexusMode: false,
                 passPhoneMode: false,
+                shuffleEnabled: true,
+                revealMethod: 'hold', // Default to classic
+                swipeSensitivity: 'medium',
+                hapticFeedback: true,
                 soundEnabled: true,
                 selectedCategories: []
             },
