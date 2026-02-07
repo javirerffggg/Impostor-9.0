@@ -1,5 +1,6 @@
+
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog } from '../types';
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
 
 interface GameConfig {
@@ -106,7 +107,7 @@ const detectLinearPattern = (pastImpostorIds: string[], currentPlayers: Player[]
     return jumps[0] === jumps[1] && jumps[1] === jumps[2];
 };
 
-// --- FACTOR PARANOIA: PATTERN DETECTION (v2.0) ---
+// --- FACTOR PARANOIA: PATTERN DETECTION (v2.1) ---
 const calculateParanoiaScore = (
     pastImpostorIds: string[], 
     currentPlayers: Player[],
@@ -125,22 +126,30 @@ const calculateParanoiaScore = (
 
     // A. Detección de Secuencia Lineal (i_n = i_{n-1} + 1)
     let sequentialHits = 0;
+    // Adjusted Threshold: In small groups, sequences happen randomly more often.
+    const groupSize = currentPlayers.length;
+    const sequenceThreshold = groupSize <= 4 ? 3 : 2; 
+
     for (let i = 0; i < indices.length - 1; i++) {
         const diff = (indices[i] - indices[i+1]); // Checking reverse chronological
         if (Math.abs(diff) === 1 || Math.abs(diff) === currentPlayers.length - 1) {
             sequentialHits++;
         }
     }
-    if (sequentialHits >= 2) score += 50; // High Alert
-    if (sequentialHits >= 3) score += 50; // Critical
+    if (sequentialHits >= sequenceThreshold) score += 50; 
+    if (sequentialHits > sequenceThreshold) score += 50; 
 
     // B. Detección de Sub-clanes (Repetición de parejas/personas)
     const frequency: Record<string, number> = {};
     lastN.forEach(id => { frequency[id] = (frequency[id] || 0) + 1; });
     const maxFreq = Math.max(...Object.values(frequency));
     
-    if (maxFreq >= 3) score += 60; // Same person 3 times in 5 games? Sus.
-    else if (maxFreq >= 2) score += 20;
+    // Normalized for group size
+    const expectedFrequency = 5 / groupSize; 
+    const normalizedFreq = maxFreq / expectedFrequency;
+
+    if (normalizedFreq >= 2.5) score += 60; // Suspiciously high repetition
+    else if (normalizedFreq >= 1.8) score += 20;
 
     // C. Entropía de Sesión (Aburrimiento)
     // If round number is high and no anomaly detected, slowly creep paranoia up
@@ -230,12 +239,24 @@ export const getDebugPlayerStats = (
     })).sort((a, b) => b.weight - a.weight);
 };
 
-// D. Motor de Sinergia de Escuadrón (V_se)
-const applySynergyFactor = (candidateWeight: number, candidateVault: InfinityVault, alreadySelectedIds: string[]): number => {
+// D. Motor de Sinergia de Escuadrón (V_se) - UPDATED v2.0
+const applySynergyFactor = (
+    candidateWeight: number, 
+    candidateVault: InfinityVault, 
+    alreadySelectedIds: string[],
+    groupSize: number
+): number => {
     let synergyFactor = 1.0;
     const lastPartners = candidateVault.sequenceAnalytics.lastImpostorPartners;
     const hasConflict = alreadySelectedIds.some(id => lastPartners.includes(id));
-    if (hasConflict) synergyFactor = 0.1;
+    
+    if (hasConflict) {
+        // Penalidad escalada según tamaño del grupo
+        // Grupo de 3-4: penalidad suave (0.4) - permite repeticiones ocasionales
+        // Grupo de 8+: penalidad fuerte (0.1) - evita repeticiones casi totalmente
+        const penalty = Math.max(0.1, 1 - (groupSize / 10));
+        synergyFactor = penalty;
+    }
     return candidateWeight * synergyFactor;
 };
 
@@ -529,7 +550,7 @@ export const generateGameData = (config: GameConfig): {
         const vocalisStarter = runVocalisProtocol(players, history, false);
         const newStartingPlayers = [vocalisStarter.id, ...history.lastStartingPlayers].slice(0, 10);
 
-        // FIX: Update Vaults for Troll Events too
+        // Update Vaults for Troll Events
         const trollStats = { ...history.playerStats };
         const trollNewPastImpostorIds = [...pastImpostorIds];
 
@@ -612,7 +633,20 @@ export const generateGameData = (config: GameConfig): {
     const shuffledPlayers = shuffleArray(players);
 
     // --- LETEO SHADOW VAULT LOGIC ---
-    // If LETEO is active, we create a manipulated stats object for calculation only
+    /**
+     * PROTOCOLO LETEO - SHADOW VAULT LOGIC
+     * 
+     * Cuando se detecta paranoia alta (>70%), LETEO crea un "vault fantasma"
+     * manipulado para los CÁLCULOS de peso, pero actualiza el vault REAL
+     * para mantener la memoria histórica intacta.
+     * 
+     * Grados LETEO:
+     * - Grade I: Borra roleSequence (amnesia de recencia)
+     * - Grade II: Promedia civilStreak (socialismo de karma)
+     * - Grade III: Ambos + entropyLevel = 1.0 (colapso total → azar puro)
+     * 
+     * Esto permite "resetear" la percepción sin perder el historial real.
+     */
     let calculationStats = currentStats;
     
     if (breakProtocolType === 'leteo' && leteoGrade > 0) {
@@ -646,7 +680,7 @@ export const generateGameData = (config: GameConfig): {
     const avgWeight = totalEstimatedWeight / (shuffledPlayers.length || 1);
 
     // Calculate Final Weights (using Shadow Vault if LETEO active)
-    const playerWeights: { player: Player, weight: number, vault: InfinityVault }[] = [];
+    const playerWeights: { player: Player, weight: number, vault: InfinityVault, telemetry: SelectionTelemetry }[] = [];
     
     shuffledPlayers.forEach(p => {
         const key = p.name.trim().toLowerCase();
@@ -663,7 +697,20 @@ export const generateGameData = (config: GameConfig): {
         }
         
         // Pass original vault for updates later, but used weight derived from shadow vault
-        playerWeights.push({ player: p, weight, vault: getVault(key, currentStats) });
+        playerWeights.push({ 
+            player: p, 
+            weight, 
+            vault: getVault(key, currentStats),
+            telemetry: {
+                playerId: p.id,
+                playerName: p.name,
+                baseWeight: weight,
+                paranoiaAdjustment: 0,
+                synergyPenalty: 0,
+                finalWeight: weight,
+                probabilityPercent: 0
+            } 
+        });
     });
 
     // Mirror Inversion Logic
@@ -677,19 +724,34 @@ export const generateGameData = (config: GameConfig): {
     // Cascade Selection
     const selectedImpostors: Player[] = [];
     const selectedKeys: string[] = []; 
+    const telemetryData: SelectionTelemetry[] = [];
 
     for (let i = 0; i < impostorCount; i++) {
         let availableCandidates = playerWeights.filter(pw => !selectedKeys.includes(pw.player.name.trim().toLowerCase()));
         if (availableCandidates.length === 0) break;
 
         if (i > 0) {
-            availableCandidates = availableCandidates.map(pw => ({
-                ...pw,
-                weight: applySynergyFactor(pw.weight, pw.vault, selectedKeys)
-            }));
+            availableCandidates = availableCandidates.map(pw => {
+                const newWeight = applySynergyFactor(pw.weight, pw.vault, selectedKeys, players.length);
+                pw.telemetry.synergyPenalty = pw.weight - newWeight;
+                return {
+                    ...pw,
+                    weight: newWeight
+                };
+            });
         }
 
         const totalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
+        
+        // Calculate Probabilities for Telemetry
+        availableCandidates.forEach(pw => {
+            pw.telemetry.finalWeight = pw.weight;
+            pw.telemetry.probabilityPercent = totalWeight > 0 ? (pw.weight / totalWeight) * 100 : 0;
+            if (!telemetryData.find(t => t.playerId === pw.player.id)) {
+                telemetryData.push(pw.telemetry);
+            }
+        });
+
         let randomTicket = Math.random() * totalWeight;
         let selectedIndex = -1;
 
@@ -727,10 +789,8 @@ export const generateGameData = (config: GameConfig): {
             vault.metrics.civilStreak = 0;
             newPastImpostorIds.unshift(p.id); 
             
-            // Apply Quarantine if this was a Break Protocol
-            if (breakProtocolType) {
-                vault.metrics.quarantineRounds = 3; 
-            }
+            // Apply Quarantine: Stronger if Break Protocol was active
+            vault.metrics.quarantineRounds = breakProtocolType ? 4 : 2;
         } else {
             if (vault.metrics.quarantineRounds === 0) {
                 vault.metrics.civilStreak += 1;
@@ -797,7 +857,6 @@ export const generateGameData = (config: GameConfig): {
     if (useOracleMode && useHintMode && players.length > 2) {
         // We look at the generated gamePlayers order because that matches the reveal order
         // NOTE: At this stage `gamePlayers` is not yet built, but `players` argument is the base order.
-        // Wait! `players` in generateGameData is passed from GameState.players, which is the reveal order.
         
         let firstImpIndex = -1;
         
@@ -833,10 +892,23 @@ export const generateGameData = (config: GameConfig): {
         const probability = grandTotalWeight > 0 ? (rawWeight / grandTotalWeight) * 100 : 0;
         const isOracle = p.id === oracleId;
 
+        // VANGUARDIA LOGIC CHECK (v8.0)
+        let isVanguardia = false;
+        if (useVanguardiaMode && useHintMode && isImp) {
+            // Trigger condition: designated starter IS this impostor
+            if (p.id === vocalisStarter.id) {
+                isVanguardia = true;
+            }
+        }
+
         let displayWord = wordPair.civ;
         if (isImp) {
-            const hint = generateSmartHint(wordPair);
-            displayWord = useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR";
+            if (isVanguardia) {
+                 displayWord = generateVanguardHints(wordPair);
+            } else {
+                 const hint = generateSmartHint(wordPair);
+                 displayWord = useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR";
+            }
         }
 
         return {
@@ -850,22 +922,10 @@ export const generateGameData = (config: GameConfig): {
             areScore: rawWeight,
             impostorProbability: probability,
             viewTime: 0,
-            isOracle: isOracle
+            isOracle: isOracle,
+            isVanguardia: isVanguardia
         };
     });
-
-    // --- PROTOCOLO VANGUARDIA (v8.0) ---
-    // Trigger condition: useVanguardiaMode is true, useHintMode is true, and the designated starter is an impostor.
-    if (useVanguardiaMode && useHintMode) {
-        // Identify the starter player index
-        const starterIndex = gamePlayers.findIndex(p => p.id === vocalisStarter.id);
-        
-        if (starterIndex !== -1 && gamePlayers[starterIndex].isImp) {
-            // ACTIVATE VANGUARDIA
-            gamePlayers[starterIndex].isVanguardia = true;
-            gamePlayers[starterIndex].word = generateVanguardHints(wordPair);
-        }
-    }
 
     // --- PROTOCOLO NEXUS (v6.5) ---
     // Inject ally names if Nexus is active and multiple impostors exist
@@ -903,7 +963,8 @@ export const generateGameData = (config: GameConfig): {
         architect: architectId ? players.find(p => p.id === architectId)?.name || "Unknown" : null,
         oracle: oracleId ? players.find(p => p.id === oracleId)?.name || "Unknown" : null,
         leteoGrade: leteoGrade,
-        entropyLevel: entropyLevel
+        entropyLevel: entropyLevel,
+        telemetry: telemetryData // v6.4 Debug Telemetry
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);

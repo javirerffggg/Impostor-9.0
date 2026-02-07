@@ -72,6 +72,16 @@ export interface InfinityVault {
     sequenceAnalytics: SequenceAnalytics;
 }
 
+export interface SelectionTelemetry {
+    playerId: string;
+    playerName: string;
+    baseWeight: number;
+    paranoiaAdjustment: number; // Future use
+    synergyPenalty: number;
+    finalWeight: number;
+    probabilityPercent: number;
+}
+
 export interface MatchLog {
     id: string;
     timestamp: number;
@@ -88,6 +98,7 @@ export interface MatchLog {
     oracle?: string | null; // v7.0
     leteoGrade?: 0 | 1 | 2 | 3; // v6.3 LETEO Protocol
     entropyLevel?: number;      // v6.3 LETEO Protocol
+    telemetry?: SelectionTelemetry[]; // v6.4 Debugging
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
