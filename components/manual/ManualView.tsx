@@ -1,0 +1,171 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Search, Menu } from 'lucide-react';
+import { ThemeConfig } from '../../types';
+import { ManualSidebar } from './ManualSidebar';
+import { ManualSection } from './ManualSection';
+import { manualSections } from './manualData';
+import { manualTheme } from './manualTheme';
+
+interface Props {
+  theme: ThemeConfig;
+  onClose: () => void;
+  isOpen: boolean;
+}
+
+export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
+  const [activeSection, setActiveSection] = useState('introduccion');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when section changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [activeSection]);
+
+  // Filter sections by search
+  const filteredSections = searchQuery
+    ? manualSections.filter(section =>
+        section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.subsections.some(sub => 
+            sub.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            sub.content.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      )
+    : [manualSections.find(s => s.id === activeSection)!];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-bottom duration-500"
+      style={{ backgroundColor: manualTheme.bg.primary }}>
+      
+      {/* HEADER */}
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b pt-[calc(1rem+env(safe-area-inset-top))]"
+        style={{ 
+          borderColor: manualTheme.border.subtle,
+          backgroundColor: manualTheme.bg.secondary 
+        }}>
+        
+        {/* Mobile Menu Toggle */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="lg:hidden p-2 rounded-lg transition-all active:scale-95 bg-white/5"
+          style={{ color: theme.text }}>
+          <Menu size={20} />
+        </button>
+
+        {/* Title */}
+        <div className="flex items-center gap-3 flex-1 justify-center lg:justify-start lg:pl-4">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+            style={{ backgroundColor: theme.accent }}>
+            <span className="text-white font-black text-sm">i9</span>
+          </div>
+          <h1 className="hidden sm:block text-xl font-black uppercase tracking-wider"
+            style={{ color: theme.text }}>
+            Manual Impostor 9.0
+          </h1>
+        </div>
+
+        {/* Desktop Search */}
+        <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border mr-4"
+          style={{ 
+            backgroundColor: manualTheme.bg.card,
+            borderColor: manualTheme.border.subtle 
+          }}>
+          <Search size={16} style={{ color: manualTheme.text.secondary }} />
+          <input
+            type="text"
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent border-none outline-none text-sm w-32 sm:w-48 placeholder:text-gray-600"
+            style={{ color: theme.text }}
+          />
+        </div>
+
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="p-2 rounded-full transition-all active:scale-95 hover:bg-white/10 border border-white/5"
+          style={{ color: theme.text }}>
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Mobile Search */}
+      <div className="sm:hidden px-4 py-3 border-b"
+        style={{ 
+          borderColor: manualTheme.border.subtle,
+          backgroundColor: manualTheme.bg.secondary 
+        }}>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg border"
+          style={{ 
+            backgroundColor: manualTheme.bg.card,
+            borderColor: manualTheme.border.subtle 
+          }}>
+          <Search size={16} style={{ color: manualTheme.text.secondary }} />
+          <input
+            type="text"
+            placeholder="Buscar en el manual..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent border-none outline-none text-sm flex-1 placeholder:text-gray-600"
+            style={{ color: theme.text }}
+          />
+        </div>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="flex flex-1 overflow-hidden relative">
+        
+        {/* SIDEBAR */}
+        <ManualSidebar
+          theme={theme}
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+
+        {/* CONTENT AREA */}
+        <div 
+          ref={contentRef}
+          className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-10 scroll-smooth"
+        >
+          {filteredSections.map((section) => (
+            <ManualSection
+              key={section.id}
+              section={section}
+              theme={theme}
+              searchQuery={searchQuery}
+            />
+          ))}
+
+          {filteredSections.length === 0 && (
+            <div className="text-center py-20 flex flex-col items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                <Search size={32} className="opacity-30" />
+              </div>
+              <p className="text-lg opacity-50 font-medium" style={{ color: theme.text }}>
+                No se encontraron resultados para "{searchQuery}"
+              </p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="mt-16 pt-8 border-t text-center pb-12"
+            style={{ borderColor: manualTheme.border.subtle }}>
+            <p className="text-[10px] font-mono opacity-30 uppercase tracking-widest" style={{ color: theme.text }}>
+              Impostor 9.0 v12.1 - Manual Actualizado Febrero 2026
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

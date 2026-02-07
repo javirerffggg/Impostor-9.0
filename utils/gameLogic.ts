@@ -1,6 +1,18 @@
+
 import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
+
+// --- PROTOCOLO RENUNCIA v2.0: TELEMETRY ---
+interface RenunciaTelemetry {
+    baseProb: number;
+    vectorKarma: number;
+    vectorSession: number;
+    vectorFailure: number;
+    finalProb: number;
+    candidateStreak: number;
+    impostorLosses: number;
+}
 
 interface GameConfig {
     players: Player[];
@@ -417,6 +429,82 @@ const runVocalisProtocol = (
     return weightedCandidates[weightedCandidates.length - 1].player;
 };
 
+// ============================================================
+// PROTOCOLO RENUNCIA v2.0 - MOTOR DE DISPARO ADAPTATIVO (DA-1)
+// ============================================================
+
+const calculateRenunciaProbability = (
+    candidatePlayer: Player,
+    currentRound: number,
+    stats: Record<string, InfinityVault>,
+    history: GameConfig['history']
+): { probability: number; telemetry: RenunciaTelemetry } => {
+    
+    const BASE_PROB = 0.15; // 15% probabilidad base
+    
+    // --- VECTOR V_k: INTENSIDAD DE KARMA ---
+    const candidateKey = candidatePlayer.name.trim().toLowerCase();
+    const candidateVault = getVault(candidateKey, stats);
+    const candidateStreak = candidateVault.metrics.civilStreak;
+    
+    let vectorKarma = 0;
+    
+    // Caso "Impostor Reincidente" (streak 0-1)
+    if (candidateStreak <= 1) {
+        vectorKarma = 0.20; // +20% - Dale opción de escape
+    }
+    // Caso "Justicia del Civil" (streak 8+)
+    else if (candidateStreak >= 8) {
+        vectorKarma = -0.15; // -15% - Déjalo disfrutar su momento
+    }
+    // Caso intermedio (streak 2-7)
+    else {
+        vectorKarma = 0.05; // +5% neutral
+    }
+    
+    // --- VECTOR V_s: LONGEVIDAD DE SESIÓN ---
+    // +5% cada 3 rondas completadas
+    const vectorSession = Math.floor(currentRound / 3) * 0.05;
+    
+    // --- VECTOR V_f: FRACASO ACUMULADO ---
+    // Analizar últimas 3 rondas en matchLogs
+    let vectorFailure = 0;
+    let impostorLosses = 0;
+    
+    if (history.matchLogs && history.matchLogs.length >= 3) {
+        const lastThreeRounds = history.matchLogs.slice(0, 3);
+        
+        // Contar rondas donde los impostores perdieron
+        // NOTA: Usamos !isTroll como proxy, idealmente usar campo impostorWon
+        impostorLosses = lastThreeRounds.filter(log => {
+            return !log.isTroll; 
+        }).length;
+        
+        if (impostorLosses >= 3) {
+            vectorFailure = 0.15; // +15% bonus
+        }
+    }
+    
+    // --- ECUACIÓN FINAL ---
+    // P_final = BASE + V_k + V_s + V_f
+    // Con límites: mínimo 5%, máximo 70%
+    const finalProb = Math.max(0.05, Math.min(0.70, 
+        BASE_PROB + vectorKarma + vectorSession + vectorFailure
+    ));
+    
+    return {
+        probability: finalProb,
+        telemetry: {
+            baseProb: BASE_PROB,
+            vectorKarma,
+            vectorSession,
+            vectorFailure,
+            finalProb,
+            candidateStreak,
+            impostorLosses
+        }
+    };
+};
 
 // --- MAIN GENERATOR ---
 
@@ -588,7 +676,7 @@ export const generateGameData = (config: GameConfig): {
     const shuffledPlayers = shuffleArray(players);
 
     // --- LETEO SHADOW VAULT LOGIC ---
-    let calculationStats = currentStats;
+    let calculationStats: Record<string, InfinityVault> = currentStats;
     
     if (breakProtocolType === 'leteo' && leteoGrade > 0) {
         calculationStats = JSON.parse(JSON.stringify(currentStats));
@@ -846,6 +934,7 @@ export const generateGameData = (config: GameConfig): {
         const rawWeight = weightObj ? weightObj.weight : 0;
         const probability = grandTotalWeight > 0 ? (rawWeight / grandTotalWeight) * 100 : 0;
         const isOracle = p.id === oracleId;
+        const isArchitect = p.id === architectId;
 
         // VANGUARDIA LOGIC CHECK (v8.0)
         let isVanguardia = false;
@@ -878,7 +967,8 @@ export const generateGameData = (config: GameConfig): {
             impostorProbability: probability,
             viewTime: 0,
             isOracle: isOracle,
-            isVanguardia: isVanguardia
+            isVanguardia: isVanguardia,
+            isArchitect: isArchitect
         };
     });
 
@@ -892,9 +982,11 @@ export const generateGameData = (config: GameConfig): {
         });
     }
 
-    // --- PROTOCOLO RENUNCIA (v12.0) ---
+    // --- PROTOCOLO RENUNCIA v2.0 - ACTIVACIÓN ADAPTATIVA ---
     let renunciaData: RenunciaData | undefined;
-    const shouldActivateRenuncia = (
+    let renunciaTelemetry: RenunciaTelemetry | undefined;
+
+    const shouldTryRenuncia = (
         useRenunciaMode &&
         impostorCount >= 2 &&
         players.length >= 4 &&
@@ -902,16 +994,84 @@ export const generateGameData = (config: GameConfig): {
         selectedImpostors.length >= 2
     );
 
-    if (shouldActivateRenuncia) {
-        const candidateIndex = Math.floor(Math.random() * selectedImpostors.length);
-        const candidate = selectedImpostors[candidateIndex];
+    if (shouldTryRenuncia) {
+        // 1. Filtrar candidatos elegibles (mínimo 2 civiles por delante)
+        const eligibleCandidates = selectedImpostors.filter(impostor => {
+            const impostorIndex = players.findIndex(p => p.id === impostor.id);
+            if (impostorIndex === -1) return false;
+            
+            // Contar civiles ANTES de este impostor en el orden de revelación
+            const civiliansBeforeCount = players.slice(0, impostorIndex).filter(p => {
+                const key = p.name.trim().toLowerCase();
+                return !selectedKeys.includes(key); // Es civil
+            }).length;
+            
+            return civiliansBeforeCount >= 2;
+        });
         
-        renunciaData = {
-            candidatePlayerId: candidate.id,
-            originalImpostorIds: selectedImpostors.map(imp => imp.id),
-            decision: 'pending',
-            timestamp: Date.now()
-        };
+        // 2. Solo proceder si hay candidatos elegibles
+        if (eligibleCandidates.length > 0) {
+            // 3. Seleccionar candidato aleatorio del pool elegible
+            const candidateIndex = Math.floor(Math.random() * eligibleCandidates.length);
+            const candidate = eligibleCandidates[candidateIndex];
+            
+            // 4. Calcular probabilidad adaptativa según perfil del candidato
+            const { probability, telemetry } = calculateRenunciaProbability(
+                candidate,
+                currentRound,
+                newPlayerStats, // Usar stats actualizados
+                history
+            );
+            
+            renunciaTelemetry = telemetry;
+            
+            // 5. Tirar el dado
+            const roll = Math.random();
+            if (roll < probability) {
+                // ✅ RENUNCIA ACTIVADA
+                renunciaData = {
+                    candidatePlayerId: candidate.id,
+                    originalImpostorIds: selectedImpostors.map(imp => imp.id),
+                    decision: 'pending',
+                    timestamp: Date.now()
+                };
+                
+                // Debug log
+                if (config.debugOverrides) {
+                    console.log('[RENUNCIA v2.0] ✅ ACTIVATED', {
+                        candidate: candidate.name,
+                        streak: telemetry.candidateStreak,
+                        roll: `${(roll * 100).toFixed(1)}%`,
+                        threshold: `${(probability * 100).toFixed(1)}%`,
+                        breakdown: {
+                            base: `${(telemetry.baseProb * 100).toFixed(0)}%`,
+                            karma: `${(telemetry.vectorKarma * 100).toFixed(0)}%`,
+                            session: `${(telemetry.vectorSession * 100).toFixed(0)}%`,
+                            failure: `${(telemetry.vectorFailure * 100).toFixed(0)}%`
+                        }
+                    });
+                }
+            } else {
+                // ❌ RENUNCIA EN STANDBY
+                if (config.debugOverrides) {
+                    console.log('[RENUNCIA v2.0] ⏸️ STANDBY', {
+                        candidate: candidate.name,
+                        streak: telemetry.candidateStreak,
+                        roll: `${(roll * 100).toFixed(1)}%`,
+                        threshold: `${(probability * 100).toFixed(1)}%`,
+                        status: 'Not triggered'
+                    });
+                }
+            }
+        } else {
+            // No hay candidatos elegibles (todos los impostores tienen <2 civiles por delante)
+            if (config.debugOverrides) {
+                console.log('[RENUNCIA v2.0] ⚠️ NO ELIGIBLE CANDIDATES', {
+                    impostors: selectedImpostors.length,
+                    reason: 'All impostors have <2 civilians before them'
+                });
+            }
+        }
     }
 
     if (newPastImpostorIds.length > 20) newPastImpostorIds.length = 20;
@@ -949,7 +1109,15 @@ export const generateGameData = (config: GameConfig): {
         leteoGrade: leteoGrade,
         entropyLevel: entropyLevel,
         telemetry: telemetryData,
-        renunciaTriggered: !!renunciaData
+        renunciaTriggered: !!renunciaData,
+        // ✅ NUEVO v12.1 - Guardar telemetría de Renuncia
+        renunciaTelemetry: renunciaTelemetry ? {
+            finalProbability: renunciaTelemetry.finalProb,
+            karmaBonus: renunciaTelemetry.vectorKarma,
+            sessionBonus: renunciaTelemetry.vectorSession,
+            failureBonus: renunciaTelemetry.vectorFailure,
+            candidateStreak: renunciaTelemetry.candidateStreak
+        } : undefined
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
@@ -1100,16 +1268,15 @@ export const applyRenunciaDecision = (
         const newImpostor = sortedByKarma[0];
         
         const updatedGameData = gameData.map(p => {
-          // Candidato → Testigo Civil
+          // Candidato → Testigo Civil (BLIND TRANSFER)
           if (p.id === candidateId) {
             return {
               ...p,
               isImp: false,
               role: 'Civil' as const,
               word: p.realWord,
-              isWitness: true,
-              knownImpostorId: newImpostor.id,
-              knownImpostorName: newImpostor.name
+              isWitness: true
+              // NO knownImpostorId/Name
             };
           }
           

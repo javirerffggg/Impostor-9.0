@@ -1,235 +1,180 @@
-
-import { useState, useEffect, useRef } from 'react';
-import { GameState, Player, InfinityVault, TrollScenario, CategoryData, RenunciaDecision } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { 
+    GameState, 
+    Player, 
+    ThemeName, 
+    CategoryData, 
+    RenunciaDecision 
+} from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
-import { generateGameData, generateArchitectOptions, generateSmartHint, generateVanguardHints, applyRenunciaDecision } from '../utils/gameLogic';
-import { calculatePartyIntensity } from '../utils/partyLogic';
+import { 
+    generateGameData, 
+    generateArchitectOptions, 
+    applyRenunciaDecision,
+    generateSmartHint,
+    generateVanguardHints
+} from '../utils/gameLogic';
 import { CATEGORIES_DATA } from '../categories';
+import { calculatePartyIntensity } from '../utils/partyLogic';
+
+const DEFAULT_SETTINGS = {
+    hintMode: false,
+    trollMode: false,
+    partyMode: false,
+    architectMode: false,
+    oracleMode: false,
+    vanguardiaMode: false,
+    nexusMode: false,
+    passPhoneMode: false,
+    shuffleEnabled: false,
+    revealMethod: 'hold' as const,
+    swipeSensitivity: 'medium' as const,
+    hapticFeedback: true,
+    soundEnabled: true,
+    selectedCategories: [],
+    renunciaMode: false,
+};
+
+const INITIAL_STATE: GameState = {
+    phase: 'setup',
+    players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
+    gameData: [],
+    impostorCount: 1,
+    currentPlayerIndex: 0,
+    startingPlayer: "",
+    isTrollEvent: false,
+    trollScenario: null,
+    isArchitectRound: false,
+    history: {
+        roundCounter: 0,
+        lastWords: [],
+        lastCategories: [],
+        globalWordUsage: {},
+        playerStats: {},
+        lastTrollRound: 0,
+        lastArchitectRound: 0,
+        lastStartingPlayers: [],
+        pastImpostorIds: [],
+        lastBartenders: [],
+        paranoiaLevel: 0,
+        coolingDownRounds: 0,
+        lastBreakProtocol: null,
+        matchLogs: []
+    },
+    settings: DEFAULT_SETTINGS,
+    debugState: { isEnabled: false, forceTroll: null, forceArchitect: false },
+    partyState: { intensity: 'aperitivo', consecutiveHardcoreRounds: 0, isHydrationLocked: false },
+    currentDrinkingPrompt: "",
+    theme: 'luminous'
+};
 
 export const useGameState = () => {
-    // -- State --
-    const [gameState, setGameState] = useState<GameState>(() => {
-        // Default History
-        let loadedHistory: GameState['history'] = { 
-            roundCounter: 0,
-            lastWords: [],
-            lastCategories: [],
-            globalWordUsage: {},
-            playerStats: {}, // Infinity Vault
-            lastTrollRound: -10,
-            lastArchitectRound: -999,
-            lastStartingPlayers: [],
-            lastBartenders: [], // v4.0 BACCHUS
-            matchLogs: [], // v6.2
-            pastImpostorIds: [],
-            paranoiaLevel: 0,
-            coolingDownRounds: 0,
-            lastBreakProtocol: null
-        };
-
-        // Default Settings
-        let loadedSettings: GameState['settings'] = {
-            hintMode: false,
-            trollMode: false,
-            partyMode: false,
-            architectMode: false,
-            oracleMode: false,
-            vanguardiaMode: false,
-            nexusMode: false,
-            passPhoneMode: false,
-            shuffleEnabled: true,
-            revealMethod: 'hold', 
-            swipeSensitivity: 'medium',
-            hapticFeedback: true,
-            soundEnabled: true,
-            selectedCategories: [],
-            renunciaMode: false // v12.0
-        };
-
-        // Try to recover The Infinity Vault from LocalStorage
-        try {
-            const savedVault = localStorage.getItem('impostor_infinite_vault_v6');
-            if (savedVault) {
-                const parsed = JSON.parse(savedVault);
-                if (parsed.playerStats) {
-                    loadedHistory = {
-                        ...loadedHistory,
-                        ...parsed,
-                        globalWordUsage: parsed.globalWordUsage || {},
-                        lastCategories: parsed.lastCategories || [],
-                        lastArchitectRound: parsed.lastArchitectRound || -999,
-                        lastStartingPlayers: parsed.lastStartingPlayers || [],
-                        lastBartenders: parsed.lastBartenders || [],
-                        matchLogs: parsed.matchLogs || [],
-                        pastImpostorIds: parsed.pastImpostorIds || [],
-                        paranoiaLevel: parsed.paranoiaLevel || 0,
-                        coolingDownRounds: parsed.coolingDownRounds || 0,
-                        lastBreakProtocol: parsed.lastBreakProtocol || null
-                    };
-                }
-            }
-        } catch (e) {
-            console.error("Protocol Infinitum: Memory Corrupted. Resetting Vault.", e);
-        }
-
-        // Try to recover Settings from LocalStorage
-        try {
-            const savedSettings = localStorage.getItem('impostor_settings_v2');
-            if (savedSettings) {
-                loadedSettings = { ...loadedSettings, ...JSON.parse(savedSettings) };
-            }
-        } catch (e) {
-            console.error("Protocol Lexicon: Settings corrupted. Using defaults.", e);
-        }
-
-        return {
-            phase: 'setup',
-            players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
-            gameData: [],
-            impostorCount: 1,
-            currentPlayerIndex: 0,
-            startingPlayer: "",
-            isTrollEvent: false,
-            trollScenario: null,
-            isArchitectRound: false,
-            history: loadedHistory,
-            settings: loadedSettings,
-            debugState: {
-                isEnabled: false,
-                forceTroll: null,
-                forceArchitect: false
-            },
-            partyState: {
-                intensity: 'aperitivo',
-                consecutiveHardcoreRounds: 0,
-                isHydrationLocked: false
-            },
-            currentDrinkingPrompt: "",
-            theme: 'illojuan'
-        };
-    });
-
+    // Load saved players from local storage
     const [savedPlayers, setSavedPlayers] = useState<string[]>(() => {
         try {
-            const saved = localStorage.getItem('impostor_saved_players');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
+            return JSON.parse(localStorage.getItem('impostor_saved_players') || '[]');
+        } catch {
             return [];
         }
     });
 
+    const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
     const [architectOptions, setArchitectOptions] = useState<[ { categoryName: string, wordPair: CategoryData }, { categoryName: string, wordPair: CategoryData } ] | null>(null);
     const [architectRegenCount, setArchitectRegenCount] = useState(0);
-    const [currentWordPair, setCurrentWordPair] = useState<CategoryData | null>(null); // To support Renuncia logic
-    
-    // Ref for debouncing
-    const saveTimeoutRef = useRef<number | null>(null);
+    const [currentWordPair, setCurrentWordPair] = useState<CategoryData | null>(null);
 
-    // -- Persistence Effects --
+    // Save players effect
     useEffect(() => {
         localStorage.setItem('impostor_saved_players', JSON.stringify(savedPlayers));
     }, [savedPlayers]);
 
-    useEffect(() => {
-        // Debounce: guardar solo después de 500ms de inactividad
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        
-        saveTimeoutRef.current = window.setTimeout(() => {
-            localStorage.setItem('impostor_infinite_vault_v6', JSON.stringify(gameState.history));
-        }, 500);
+    // Actions
 
-        return () => {
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        };
-    }, [gameState.history]);
+    const addPlayer = useCallback((name: string) => {
+        if (!name.trim()) return;
+        setGameState(prev => ({
+            ...prev,
+            players: [...prev.players, { id: Date.now().toString(), name: name.trim() }]
+        }));
+    }, []);
 
-    useEffect(() => {
-        localStorage.setItem('impostor_settings_v2', JSON.stringify(gameState.settings));
-    }, [gameState.settings]);
+    const removePlayer = useCallback((id: string) => {
+        setGameState(prev => ({
+            ...prev,
+            players: prev.players.filter(p => p.id !== id)
+        }));
+    }, []);
 
-    // -- Actions --
+    const saveToBank = useCallback((name: string) => {
+        if (!name.trim() || savedPlayers.includes(name.trim())) return;
+        setSavedPlayers(prev => [...prev, name.trim()]);
+    }, [savedPlayers]);
 
-    const updateSettings = (newSettings: Partial<GameState['settings']>) => {
+    const deleteFromBank = useCallback((name: string) => {
+        setSavedPlayers(prev => prev.filter(p => p !== name));
+    }, []);
+
+    const updateSettings = useCallback((newSettings: Partial<GameState['settings']>) => {
         setGameState(prev => ({
             ...prev,
             settings: { ...prev.settings, ...newSettings }
         }));
-    };
+    }, []);
 
-    const addPlayer = (name: string) => {
-        if (!name.trim()) return;
-        if (gameState.players.some(p => p.name.toLowerCase() === name.trim().toLowerCase())) return;
-        const newPlayer: Player = { id: Date.now().toString() + Math.random(), name: name.trim() };
-        setGameState(prev => ({ ...prev, players: [...prev.players, newPlayer] }));
-    };
-
-    const removePlayer = (id: string) => {
-        setGameState(prev => ({ ...prev, players: prev.players.filter(p => p.id !== id) }));
-    };
-
-    const saveToBank = (name: string) => {
-        if (!name.trim()) return;
-        if (!savedPlayers.includes(name.trim())) {
-            setSavedPlayers(prev => [...prev, name.trim()]);
-        }
-    };
-
-    const deleteFromBank = (name: string) => {
-        setSavedPlayers(prev => prev.filter(p => p !== name));
-    };
-
-    const toggleCategory = (cat: string) => {
+    const toggleCategory = useCallback((cat: string) => {
         setGameState(prev => {
             const current = prev.settings.selectedCategories;
-            const updated = current.includes(cat) 
-                ? current.filter(c => c !== cat) 
-                : [...current, cat];
-            return { ...prev, settings: { ...prev.settings, selectedCategories: updated } };
-        });
-    };
-
-    const toggleCollection = (collectionId: string) => {
-        const collection = CURATED_COLLECTIONS.find(c => c.id === collectionId);
-        if (!collection) return;
-
-        setGameState(prev => {
-            const currentCatsSet = new Set(prev.settings.selectedCategories);
-            
-            // Si TODAS las categorías de la colección ya están seleccionadas, las quitamos (Toggle OFF)
-            // Si falta al menos una, las añadimos todas (Toggle ON)
-            const allSelected = collection.categories.every(cat => currentCatsSet.has(cat));
-
-            if (allSelected) {
-                collection.categories.forEach(cat => currentCatsSet.delete(cat));
-            } else {
-                collection.categories.forEach(cat => currentCatsSet.add(cat));
-            }
-
+            const exists = current.includes(cat);
             return {
                 ...prev,
                 settings: {
                     ...prev.settings,
-                    selectedCategories: Array.from(currentCatsSet)
+                    selectedCategories: exists 
+                        ? current.filter(c => c !== cat)
+                        : [...current, cat]
                 }
             };
         });
-    };
+    }, []);
 
-    const toggleAllCategories = () => {
-        const allCats = Object.keys(CATEGORIES_DATA);
-        const currentCount = gameState.settings.selectedCategories.length;
-        const allSelected = currentCount === allCats.length;
-        setGameState(prev => ({
-            ...prev,
-            settings: {
-                ...prev.settings,
-                selectedCategories: allSelected ? [] : allCats
+    const toggleCollection = useCallback((colId: string) => {
+        setGameState(prev => {
+            const collection = CURATED_COLLECTIONS.find(c => c.id === colId);
+            if (!collection) return prev;
+
+            const current = prev.settings.selectedCategories;
+            const allIn = collection.categories.every(c => current.includes(c));
+            
+            let newCats: string[];
+            if (allIn) {
+                newCats = current.filter(c => !collection.categories.includes(c));
+            } else {
+                newCats = [...new Set([...current, ...collection.categories])];
             }
-        }));
-    };
+            
+            return {
+                ...prev,
+                settings: { ...prev.settings, selectedCategories: newCats }
+            };
+        });
+    }, []);
 
-    const runGameGeneration = () => {
-        const { players, isTrollEvent, trollScenario, isArchitectTriggered, newHistory, designatedStarter, oracleSetup, renunciaData, wordPair } = generateGameData({
+    const toggleAllCategories = useCallback(() => {
+        setGameState(prev => {
+            const allCats = Object.keys(CATEGORIES_DATA);
+            const current = prev.settings.selectedCategories;
+            return {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    selectedCategories: current.length === allCats.length ? [] : allCats
+                }
+            };
+        });
+    }, []);
+
+    const runGameGeneration = useCallback(() => {
+        const result = generateGameData({
             players: gameState.players,
             impostorCount: gameState.impostorCount,
             useHintMode: gameState.settings.hintMode,
@@ -248,202 +193,136 @@ export const useGameState = () => {
             isPartyMode: gameState.settings.partyMode
         });
 
-        setCurrentWordPair(wordPair || null);
+        setCurrentWordPair(result.wordPair);
 
-        const cleanDebugState = {
-            ...gameState.debugState,
-            forceTroll: null,
-            forceArchitect: false
-        };
-
-        // Bacchus Logic
-        let newPartyState = { ...gameState.partyState };
-        let hydrationTimer = 0;
-
-        if (gameState.settings.partyMode) {
-            const newIntensity = calculatePartyIntensity(newHistory.roundCounter);
-            let consecutiveHardcore = newPartyState.consecutiveHardcoreRounds;
+        // Handle Architect
+        if (result.isArchitectTriggered) {
+            const options = generateArchitectOptions(gameState.settings.selectedCategories);
+            setArchitectOptions(options);
+            setArchitectRegenCount(0);
             
-            if (newIntensity === 'after_hours') {
-                consecutiveHardcore += 1;
-            } else {
-                consecutiveHardcore = 0;
-            }
-
-            if (consecutiveHardcore >= 4) {
-                newPartyState.isHydrationLocked = true;
-                consecutiveHardcore = 0;
-                hydrationTimer = 20; 
-            }
-
-            newPartyState = {
-                intensity: newIntensity,
-                consecutiveHardcoreRounds: consecutiveHardcore,
-                isHydrationLocked: newPartyState.isHydrationLocked
-            };
-        }
-
-        if (isArchitectTriggered) {
-            const firstCivilIndex = players.findIndex(p => !p.isImp);
-            if (firstCivilIndex !== -1) {
-                players[firstCivilIndex].isArchitect = true;
-                const initialOptions = generateArchitectOptions(gameState.settings.selectedCategories);
-                setArchitectOptions(initialOptions);
-                setArchitectRegenCount(0);
-
-                setGameState(prev => ({
-                    ...prev,
-                    phase: 'architect',
-                    gameData: players,
-                    isTrollEvent,
-                    trollScenario,
-                    isArchitectRound: true,
-                    currentPlayerIndex: firstCivilIndex,
-                    startingPlayer: designatedStarter,
-                    history: newHistory as GameState['history'],
-                    currentDrinkingPrompt: "",
-                    debugState: cleanDebugState,
-                    partyState: newPartyState
-                }));
-                return { hydrationTimer };
-            }
-        }
-
-        // v7.0 PROTOCOLO ORÁCULO INTERCEPTION
-        if (oracleSetup) {
-             setGameState(prev => ({
+            setGameState(prev => ({
                 ...prev,
-                phase: 'oracle', // New Phase
-                gameData: players,
-                isTrollEvent,
-                trollScenario,
-                isArchitectRound: false,
+                phase: 'architect',
+                gameData: result.players, // Initial assignment
+                isTrollEvent: result.isTrollEvent,
+                trollScenario: result.trollScenario,
+                isArchitectRound: true,
+                startingPlayer: result.designatedStarter,
                 currentPlayerIndex: 0,
-                startingPlayer: designatedStarter,
-                history: newHistory as GameState['history'],
-                oracleSetup: oracleSetup,
-                currentDrinkingPrompt: "",
-                debugState: cleanDebugState,
-                partyState: newPartyState,
-                renunciaData: renunciaData // Store but don't show yet if Oracle is active
-             }));
-             return { hydrationTimer };
+                history: result.newHistory,
+                partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
+                oracleSetup: result.oracleSetup,
+                renunciaData: result.renunciaData
+            }));
+            
+            // Adjust current player index to the architect
+            const architectIndex = result.players.findIndex(p => p.isArchitect);
+            if (architectIndex !== -1) {
+                 setGameState(prev => ({ ...prev, currentPlayerIndex: architectIndex }));
+            }
+            return;
         }
 
-        // v12.0 PROTOCOLO RENUNCIA - Data stored, shown during revealing phase
-        // NO cambiamos a fase 'renuncia', se mostrará cuando le toque revelar al candidato
-
+        // Standard Start
         setGameState(prev => ({
             ...prev,
-            phase: 'revealing',
-            gameData: players,
-            isTrollEvent,
-            trollScenario,
+            phase: prev.phase === 'oracle' ? 'oracle' : (result.oracleSetup ? 'oracle' : 'revealing'),
+            gameData: result.players,
+            isTrollEvent: result.isTrollEvent,
+            trollScenario: result.trollScenario,
             isArchitectRound: false,
+            startingPlayer: result.designatedStarter,
             currentPlayerIndex: 0,
-            startingPlayer: designatedStarter,
-            history: newHistory as GameState['history'], 
-            renunciaData: renunciaData,
-            currentDrinkingPrompt: "",
-            debugState: cleanDebugState,
-            partyState: newPartyState
+            history: result.newHistory,
+            partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
+            oracleSetup: result.oracleSetup,
+            renunciaData: result.renunciaData
         }));
 
-        return { hydrationTimer };
-    };
+        if (result.oracleSetup) {
+             setGameState(prev => ({ ...prev, phase: 'oracle' }));
+        }
 
-    const handleArchitectConfirm = (selection: { categoryName: string, wordPair: CategoryData }) => {
-        const updatedGameData = gameState.gameData.map(p => {
-            const hint = generateSmartHint(selection.wordPair);
-            let displayWord = selection.wordPair.civ;
-            
-            if (p.isImp) {
-                if (p.isVanguardia) {
-                    displayWord = generateVanguardHints(selection.wordPair);
-                } else {
-                    displayWord = gameState.settings.hintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR";
-                }
-            }
+        return { hydrationTimer: 0 }; 
+    }, [gameState.players, gameState.impostorCount, gameState.settings, gameState.history, gameState.debugState]);
 
-            return {
-                ...p,
-                word: displayWord,
-                realWord: selection.wordPair.civ,
-                category: selection.categoryName
-            };
-        });
-
-        const updatedHistory = { ...gameState.history };
-        updatedHistory.lastWords = [selection.wordPair.civ, ...updatedHistory.lastWords].slice(0, 15);
-        updatedHistory.lastCategories = [selection.categoryName, ...updatedHistory.lastCategories].slice(0, 3);
-        updatedHistory.globalWordUsage[selection.wordPair.civ] = (updatedHistory.globalWordUsage[selection.wordPair.civ] || 0) + 1;
-
-        setGameState(prev => ({
-            ...prev,
-            phase: 'revealing',
-            gameData: updatedGameData,
-            history: updatedHistory,
-        }));
-    };
-
-    const handleArchitectRegenerate = () => {
+    const handleArchitectRegenerate = useCallback(() => {
         if (architectRegenCount >= 3) return;
-        setArchitectRegenCount(prev => prev + 1);
         const newOptions = generateArchitectOptions(gameState.settings.selectedCategories);
         setArchitectOptions(newOptions);
-    };
+        setArchitectRegenCount(prev => prev + 1);
+    }, [architectRegenCount, gameState.settings.selectedCategories]);
 
-    const handleOracleConfirm = (hint: string) => {
+    const handleArchitectConfirm = useCallback((selection: { categoryName: string, wordPair: CategoryData }) => {
+        setCurrentWordPair(selection.wordPair);
+        
         setGameState(prev => {
-            const updatedGameData = prev.gameData.map(p => {
-                if (p.isImp) {
-                    return {
-                        ...p,
-                        word: `PISTA: ${hint}`,
-                        oracleTriggered: true
+            const newGameData = prev.gameData.map(p => {
+                if (!p.isImp) {
+                    return { 
+                        ...p, 
+                        realWord: selection.wordPair.civ, 
+                        word: selection.wordPair.civ, 
+                        category: selection.categoryName 
+                    };
+                } else {
+                    // Update Impostor
+                    let newWord = "ERES EL IMPOSTOR";
+                    if (prev.settings.hintMode) {
+                        if (p.isVanguardia) {
+                            newWord = generateVanguardHints(selection.wordPair);
+                        } else {
+                             newWord = `PISTA: ${generateSmartHint(selection.wordPair)}`;
+                        }
+                    }
+                    return { 
+                        ...p, 
+                        realWord: selection.wordPair.civ, 
+                        word: newWord, 
+                        category: selection.categoryName 
                     };
                 }
-                return p;
             });
+
             return {
                 ...prev,
-                gameData: updatedGameData
+                gameData: newGameData,
+                phase: prev.oracleSetup ? 'oracle' : 'revealing',
+                currentPlayerIndex: 0
             };
         });
-    };
+    }, []);
 
-    const handleOracleSelection = (selectedHint: string) => {
+    const handleOracleSelection = useCallback((selectedHint: string) => {
         setGameState(prev => {
-            const updatedGameData = prev.gameData.map(p => {
-                // Update all impostors with the chosen hint and mark them
+            const newGameData = prev.gameData.map(p => {
                 if (p.isImp) {
                     return {
                         ...p,
                         word: `PISTA: ${selectedHint}`,
-                        oracleChosen: true
+                        oracleChosen: true,
+                        oracleTriggered: true // For UI feedback
                     };
                 }
                 return p;
             });
 
-            // If Renuncia was triggered (e.g., generated but Oracle happened first), transition to it now but stay in revealing phase so it triggers on turn
-            if (prev.renunciaData) {
-                return {
-                    ...prev,
-                    phase: 'revealing', 
-                    gameData: updatedGameData
-                };
-            }
-
             return {
                 ...prev,
-                phase: 'revealing', // Move to reveal phase
-                gameData: updatedGameData
+                gameData: newGameData,
+                phase: 'revealing',
+                currentPlayerIndex: 0,
+                oracleSetup: undefined // Clear setup so we don't loop back
             };
         });
-    };
+    }, []);
 
-    const handleRenunciaDecision = (decision: RenunciaDecision) => {
+    const handleOracleConfirm = useCallback((hint: string) => {
+        handleOracleSelection(hint);
+    }, [handleOracleSelection]);
+
+    const handleRenunciaDecision = useCallback((decision: RenunciaDecision) => {
         if (!gameState.renunciaData || !currentWordPair) return;
 
         // Find candidate's position in reveal order
@@ -484,14 +363,13 @@ export const useGameState = () => {
                 phase: 'revealing',
                 gameData: result.updatedGameData,
                 renunciaData: result.updatedRenunciaData,
-                impostorCount: result.actualImpostorCount,
                 history: {
                     ...prev.history,
                     matchLogs: updatedMatchLogs
                 }
             };
         });
-    };
+    }, [gameState.renunciaData, gameState.gameData, gameState.history, gameState.settings.hintMode, gameState.oracleSetup, currentWordPair]);
 
     return {
         gameState,
@@ -514,7 +392,7 @@ export const useGameState = () => {
             setArchitectRegenCount,
             handleOracleConfirm,
             handleOracleSelection,
-            handleRenunciaDecision // Export new action
+            handleRenunciaDecision
         }
     };
 };

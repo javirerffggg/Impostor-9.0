@@ -1,6 +1,15 @@
 
+export interface SelectionTelemetry {
+    playerId: string;
+    playerName: string;
+    baseWeight: number;
+    paranoiaAdjustment: number;
+    synergyPenalty: number;
+    finalWeight: number;
+    probabilityPercent: number;
+}
 
-export type ThemeName = 'midnight' | 'obsidian' | 'solar' | 'cyber' | 'bond' | 'turing' | 'illojuan' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub' | 'aura' | 'luminous' | 'silk_soul' | 'nebula_dream' | 'crystal_garden' | 'aurora_borealis' | 'liquid_gold' | 'luminescent_ocean' | 'zen_sunset';
+export type RenunciaDecision = 'pending' | 'accept' | 'reject' | 'transfer';
 
 export interface ThemeConfig {
     name: string;
@@ -9,17 +18,27 @@ export interface ThemeConfig {
     accent: string;
     text: string;
     sub: string;
-    radius: string; // Tailwind class equivalent or CSS value
+    radius: string;
     font: string;
     border: string;
-    particleType: 'circle' | 'binary' | 'rain' | 'aura' | 'silk' | 'stardust' | 'foliage' | 'aurora' | 'goldleaf' | 'plankton' | 'ember';
-    // Optional extended properties for premium themes
+    particleType: 'aura' | 'silk' | 'stardust' | 'foliage' | 'aurora' | 'goldleaf' | 'plankton' | 'ember' | 'circle' | 'binary' | 'rain';
+    blur?: string;
+    shadow?: string;
     particleColor?: string | string[];
     particleCount?: number;
     particleSpeed?: number;
-    blur?: string;
-    shadow?: string;
     pulseInterval?: number;
+}
+
+export type ThemeName = 'aura' | 'luminous' | 'silk_soul' | 'nebula_dream' | 'crystal_garden' | 'aurora_borealis' | 'liquid_gold' | 'luminescent_ocean' | 'zen_sunset' | 'midnight' | 'bond' | 'turing' | 'solar' | 'illojuan' | 'obsidian' | 'cyber' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub';
+
+export interface CuratedCollection {
+    id: string;
+    name: string;
+    description: string;
+    vibe: string;
+    icon: string;
+    categories: string[];
 }
 
 export interface Player {
@@ -27,58 +46,30 @@ export interface Player {
     name: string;
 }
 
-export type SocialRole = 'bartender' | 'vip' | 'alguacil' | 'bufon' | 'civil';
-
-// --- PROTOCOLO RENUNCIA (v12.0) ---
-export type RenunciaDecision = 'pending' | 'accept' | 'reject' | 'transfer';
-
-export interface RenunciaData {
-    candidatePlayerId: string;        // ID del jugador con la opción
-    originalImpostorIds: string[];    // IDs originales antes de cualquier cambio
-    decision: RenunciaDecision;       // Estado de la decisión
-    witnessPlayerId?: string;         // Si transfer, quién es el testigo
-    transferredToId?: string;         // Si transfer, quién es el nuevo impostor
-    timestamp: number;                // Cuándo se tomó la decisión
-}
+export type SocialRole = 'civil' | 'bartender' | 'vip' | 'alguacil' | 'bufon';
 
 export interface GamePlayer extends Player {
-    role: 'Civil' | 'Impostor';
-    word: string; // What they see on the card
-    realWord: string; // The actual civil word (for results)
+    role: 'Impostor' | 'Civil';
+    word: string;
+    realWord: string;
     isImp: boolean;
     category: string;
-    areScore: number; // Represents the INFINITUM weight for this round
-    impostorProbability: number; // The calculated % chance they had to be selected
-    viewTime: number; // Milliseconds spent looking at the card
-    isArchitect?: boolean; // v5.0 Flag
-    isOracle?: boolean; // v7.0 Protocolo ORÁCULO
-    oracleChosen?: boolean; // v7.0 If true, the Impostor knows their hint was chosen by Oracle
-    isVanguardia?: boolean; // v8.0 Protocolo VANGUARDIA
-    oracleTriggered?: boolean; // v7.0 If true, the hint they see was chosen by Oracle
-    partyRole?: SocialRole; // v4.0 BACCHUS
-    nexusPartners?: string[]; // v6.5 Protocolo NEXUS (Names of other impostors)
-    
-    // v12.0 RENUNCIA Flags
-    hasRejectedImpRole?: boolean;     // Rechazó ser impostor
-    isWitness?: boolean;              // Transfirió y conoce al impostor
-    knownImpostorId?: string;         // ID del impostor conocido (si es Testigo)
-    knownImpostorName?: string;       // Nombre del impostor conocido (si es Testigo)
-    wasTransferred?: boolean;         // Recibió el rol por transferencia
+    areScore: number;
+    impostorProbability: number;
+    viewTime: number;
+    isOracle?: boolean;
+    isVanguardia?: boolean;
+    oracleChosen?: boolean;
+    oracleTriggered?: boolean;
+    partyRole?: SocialRole;
+    isArchitect?: boolean;
+    nexusPartners?: string[];
+    isWitness?: boolean;
+    hasRejectedImpRole?: boolean;
+    wasTransferred?: boolean;
 }
 
-// --- PROTOCOL INFINITUM STRUCTURES ---
-
-export interface CategoryDNA {
-    timesAsImpostor: number;
-    lastTimeAsImpostor: number; // Timestamp
-    affinityScore: number;
-}
-
-export interface SequenceAnalytics {
-    lastImpostorPartners: string[]; // IDs of partners in last imp game
-    roleSequence: boolean[]; // True = Impostor, False = Civil (Last 20 games)
-    averageWaitTime: number;
-}
+export type PartyIntensity = 'aperitivo' | 'hora_punta' | 'after_hours' | 'resaca';
 
 export interface InfinityVault {
     uid: string;
@@ -86,21 +77,37 @@ export interface InfinityVault {
         totalSessions: number;
         impostorRatio: number;
         civilStreak: number;
-        totalImpostorWins: number; // Placeholder for future logic
-        quarantineRounds: number; // v6.1: Post-Paranoia Lockdown
+        totalImpostorWins: number;
+        quarantineRounds: number;
     };
-    categoryDNA: Record<string, CategoryDNA>;
-    sequenceAnalytics: SequenceAnalytics;
+    categoryDNA: Record<string, { timesAsImpostor: number; lastTimeAsImpostor: number; affinityScore: number }>;
+    sequenceAnalytics: {
+        lastImpostorPartners: string[];
+        roleSequence: boolean[];
+        averageWaitTime: number;
+    };
 }
 
-export interface SelectionTelemetry {
-    playerId: string;
-    playerName: string;
-    baseWeight: number;
-    paranoiaAdjustment: number; // Future use
-    synergyPenalty: number;
-    finalWeight: number;
-    probabilityPercent: number;
+export interface CategoryData {
+    civ: string;
+    imp: string;
+    hints?: string[];
+    hint?: string;
+}
+
+export interface OracleSetupData {
+    oraclePlayerId: string;
+    availableHints: string[];
+    civilWord: string;
+}
+
+export interface RenunciaData {
+    candidatePlayerId: string;
+    originalImpostorIds: string[];
+    decision: RenunciaDecision;
+    timestamp: number;
+    witnessPlayerId?: string;
+    transferredToId?: string;
 }
 
 export interface MatchLog {
@@ -125,41 +132,21 @@ export interface MatchLog {
     renunciaTriggered?: boolean;      
     renunciaDecision?: RenunciaDecision; 
     renunciaWitness?: string;         
+    
+    // v12.1 RENUNCIA v2.0 Telemetry
+    renunciaTelemetry?: {
+        finalProbability: number;
+        karmaBonus: number;
+        sessionBonus: number;
+        failureBonus: number;
+        candidateStreak: number;
+    };
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
 
-export interface DebugState {
-    isEnabled: boolean;
-    forceTroll: TrollScenario | null;
-    forceArchitect: boolean;
-}
-
-export type PartyIntensity = 'aperitivo' | 'hora_punta' | 'after_hours' | 'resaca';
-
-export interface PartyState {
-    intensity: PartyIntensity;
-    consecutiveHardcoreRounds: number; // To trigger water break
-    isHydrationLocked: boolean; // Safety lock
-}
-
-export interface CuratedCollection {
-    id: string;
-    name: string;
-    description: string;
-    vibe: string;
-    categories: string[];
-    icon: string; // Lucide icon name
-}
-
-export interface OracleSetupData {
-    oraclePlayerId: string;
-    availableHints: string[];
-    civilWord: string;
-}
-
 export interface GameState {
-    phase: 'setup' | 'architect' | 'oracle' | 'revealing' | 'discussion' | 'results';
+    phase: 'setup' | 'revealing' | 'architect' | 'oracle' | 'discussion' | 'results';
     players: Player[];
     gameData: GamePlayer[];
     impostorCount: number;
@@ -167,59 +154,53 @@ export interface GameState {
     startingPlayer: string;
     isTrollEvent: boolean;
     trollScenario: TrollScenario | null;
-    isArchitectRound: boolean; // v5.0 Flag 
-    oracleSetup?: OracleSetupData; // v7.0
-    renunciaData?: RenunciaData; // v12.0
-    
+    isArchitectRound: boolean;
     history: {
-        roundCounter: number; 
-        lastWords: string[]; // Session Exclusion (Last 15)
-        lastCategories: string[]; // Omniscient Filter (Last 3)
-        globalWordUsage: Record<string, number>; // Vital Penalty (Lexicon Engine)
-        playerStats: Record<string, InfinityVault>; // The Infinity Vault (Infinitum Engine)
-        lastTrollRound: number; 
-        lastArchitectRound: number; // MDE v5.0 Tracking
-        lastStartingPlayers: string[]; // VOCALIS: Oratory Fatigue Tracking
-        lastBartenders?: string[]; // v4.0 BACCHUS: Track last 10 bartenders
-        
-        // v6.1 Paranoia Engine
-        pastImpostorIds: string[]; // Track actual impostor IDs for pattern detection
-        paranoiaLevel: number; // 0-100%
-        coolingDownRounds: number; // 3, 2, 1, 0 (Rebote Post-Crisis)
-        lastBreakProtocol: string | null; // For Debug/Logging
-        
-        // v6.3 LETEO Protocol
+        roundCounter: number;
+        lastWords: string[];
+        lastCategories: string[];
+        globalWordUsage: Record<string, number>;
+        playerStats: Record<string, InfinityVault>;
+        lastTrollRound: number;
+        lastArchitectRound: number;
+        lastStartingPlayers: string[];
+        lastBartenders: string[];
+        pastImpostorIds: string[];
+        paranoiaLevel: number;
+        coolingDownRounds: number;
+        lastBreakProtocol: string | null;
+        matchLogs: MatchLog[];
         lastLeteoRound?: number;
-        
-        // v6.2 Black Box Logs
-        matchLogs: MatchLog[]; 
     };
     settings: {
         hintMode: boolean;
         trollMode: boolean;
         partyMode: boolean;
-        architectMode: boolean; 
-        oracleMode: boolean; // v7.0 Protocolo ORÁCULO
-        vanguardiaMode: boolean; // v8.0 Protocolo VANGUARDIA
-        nexusMode: boolean; // v6.5 Protocolo NEXUS
-        passPhoneMode: boolean; // v9.0 Protocolo TRANSICIÓN
-        shuffleEnabled: boolean; // v10.0 Protocolo BARAJADO
-        revealMethod: 'hold' | 'swipe'; // v9.0 Reveal method
-        swipeSensitivity: 'low' | 'medium' | 'high'; // v9.0 Swipe Sensitivity
-        hapticFeedback: boolean; // v9.0 Haptic feedback setting
+        architectMode: boolean;
+        oracleMode: boolean;
+        vanguardiaMode: boolean;
+        nexusMode: boolean;
+        passPhoneMode: boolean;
+        shuffleEnabled: boolean;
+        revealMethod: 'hold' | 'swipe';
+        swipeSensitivity: 'low' | 'medium' | 'high';
+        hapticFeedback: boolean;
         soundEnabled: boolean;
         selectedCategories: string[];
-        renunciaMode: boolean; // v12.0 Protocolo RENUNCIA
+        renunciaMode: boolean;
     };
-    debugState: DebugState; // PROTOCOL CENTINELA
-    partyState: PartyState; // v4.0 BACCHUS
+    debugState: {
+        isEnabled: boolean;
+        forceTroll: TrollScenario | null;
+        forceArchitect: boolean;
+    };
+    partyState: {
+        intensity: PartyIntensity;
+        consecutiveHardcoreRounds: number;
+        isHydrationLocked: boolean;
+    };
     currentDrinkingPrompt: string;
     theme: ThemeName;
-}
-
-export interface CategoryData {
-    civ: string;
-    imp: string;
-    hints: string[]; // Protocol LEXICON support for dynamic hints
-    hint?: string; // Legacy support
+    oracleSetup?: OracleSetupData;
+    renunciaData?: RenunciaData;
 }

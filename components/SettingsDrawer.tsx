@@ -14,12 +14,14 @@ interface Props {
     onUpdateSettings: (s: Partial<GameState['settings']>) => void;
     onOpenHowToPlay: () => void;
     onBackToHome: () => void;
+    volume?: number;
+    setVolume?: (v: number) => void;
 }
 
 type ThemeCategory = 'exclusivo' | 'sensorial' | 'oscuro' | 'vibrante' | 'retro';
 
 export const SettingsDrawer: React.FC<Props> = ({ 
-    isOpen, onClose, theme, themeName, setThemeName, gameState, onUpdateSettings, onOpenHowToPlay, onBackToHome 
+    isOpen, onClose, theme, themeName, setThemeName, gameState, onUpdateSettings, onOpenHowToPlay, onBackToHome, volume, setVolume 
 }) => {
     const themeCategories: Record<ThemeCategory, ThemeName[]> = {
         exclusivo: ['luminous', 'aura'],
@@ -155,24 +157,37 @@ export const SettingsDrawer: React.FC<Props> = ({
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={() => onUpdateSettings({ soundEnabled: !gameState.settings.soundEnabled })}
-                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
+                            <div
+                                className="col-span-1 relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 flex flex-col items-center text-center"
                                 style={{ 
                                     backgroundColor: gameState.settings.soundEnabled ? `${theme.accent}15` : theme.cardBg,
                                     borderColor: gameState.settings.soundEnabled ? theme.accent : theme.border,
                                 }}
                             >
-                                <div className="mb-3">
-                                    <div className={`p-2 rounded-full transition-colors ${gameState.settings.soundEnabled ? 'bg-white/20' : 'bg-black/20'}`} style={{ color: theme.text }}>
-                                        {gameState.settings.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                                <button
+                                    onClick={() => onUpdateSettings({ soundEnabled: !gameState.settings.soundEnabled })}
+                                    className="w-full flex flex-col items-center"
+                                >
+                                    <div className="mb-3">
+                                        <div className={`p-2 rounded-full transition-colors ${gameState.settings.soundEnabled ? 'bg-white/20' : 'bg-black/20'}`} style={{ color: theme.text }}>
+                                            {gameState.settings.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Audio</p>
-                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">{gameState.settings.soundEnabled ? 'On' : 'Off'}</p>
-                                </div>
-                            </button>
+                                    <div className="space-y-0.5">
+                                        <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Audio</p>
+                                        <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">{gameState.settings.soundEnabled ? 'On' : 'Off'}</p>
+                                    </div>
+                                </button>
+
+                                {/* Visual Indicator */}
+                                {gameState.settings.soundEnabled && (
+                                    <div className="flex items-center gap-1 absolute top-3 right-3 opacity-50">
+                                        <div className="w-0.5 h-2 bg-current rounded-full animate-[bounce_1s_infinite] delay-0" style={{ color: theme.text }} />
+                                        <div className="w-0.5 h-3 bg-current rounded-full animate-[bounce_1.2s_infinite] delay-100" style={{ color: theme.text }} />
+                                        <div className="w-0.5 h-2 bg-current rounded-full animate-[bounce_0.8s_infinite] delay-200" style={{ color: theme.text }} />
+                                    </div>
+                                )}
+                            </div>
 
                             <button
                                 onClick={() => onUpdateSettings({ shuffleEnabled: !gameState.settings.shuffleEnabled })}
@@ -228,6 +243,27 @@ export const SettingsDrawer: React.FC<Props> = ({
                                 </div>
                             </button>
                         </div>
+
+                        {/* Volume Slider - Only show if volume prop is available and sound enabled */}
+                        {setVolume && volume !== undefined && gameState.settings.soundEnabled && (
+                            <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-2 animate-in fade-in zoom-in duration-300">
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                                    <span style={{ color: theme.text }}>Volumen Maestro</span>
+                                    <span style={{ color: theme.sub }}>{Math.round(volume * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={volume * 100}
+                                    onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
+                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                                    style={{
+                                        accentColor: theme.accent
+                                    }}
+                                />
+                            </div>
+                        )}
                     </section>
 
                     {/* SECTION 2: MOTOR VISUAL (THEMES) */}

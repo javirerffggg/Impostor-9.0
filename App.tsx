@@ -19,7 +19,8 @@ import { OracleSelectionView } from './components/views/OracleSelectionView';
 // --- LAZY IMPORTS ---
 const SettingsDrawer = lazy(() => import('./components/SettingsDrawer').then(m => ({ default: m.SettingsDrawer })));
 const CategorySelector = lazy(() => import('./components/CategorySelector').then(m => ({ default: m.CategorySelector })));
-const Manual = lazy(() => import('./components/Manual').then(m => ({ default: m.Manual })));
+// Updated Manual Import
+const ManualView = lazy(() => import('./components/manual/ManualView').then(m => ({ default: m.ManualView })));
 
 function App() {
     // -- State from Custom Hook --
@@ -53,7 +54,8 @@ function App() {
     const [hydrationTimer, setHydrationTimer] = useState(0);
 
     // -- Audio & Prompts Hooks --
-    useAudioSystem(gameState.settings.soundEnabled, actions.updateSettings);
+    const [volume, setVolume] = useState(0.15); // Default Volume 15%
+    useAudioSystem(gameState.settings.soundEnabled, volume, actions.updateSettings);
     const { triggerPartyMessage } = usePartyPrompts(gameState, setGameState, batteryLevel, setBatteryLevel);
 
     const debugTapTimerRef = useRef<number | null>(null);
@@ -328,6 +330,8 @@ function App() {
                     onUpdateSettings={actions.updateSettings}
                     onOpenHowToPlay={() => setHowToPlayOpen(true)}
                     onBackToHome={() => { setSettingsOpen(false); handleBackToSetup(); }}
+                    volume={volume}
+                    setVolume={setVolume}
                 />
 
                 <CategorySelector 
@@ -340,7 +344,7 @@ function App() {
                     theme={theme}
                 />
 
-                <Manual 
+                <ManualView
                     isOpen={howToPlayOpen}
                     onClose={() => setHowToPlayOpen(false)}
                     theme={theme}

@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig } from '../../types';
-import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Sparkles, Zap, Network } from 'lucide-react';
+import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu } from 'lucide-react';
 import { PLAYER_COLORS } from '../../constants';
 
 interface Props {
@@ -40,6 +40,10 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
 
     // --- STOPWATCH STATE ---
     const [timerSeconds, setTimerSeconds] = useState(0);
+
+    // --- MENU CONFIRMATION STATE ---
+    const [showMenuConfirm, setShowMenuConfirm] = useState(false);
+    const confirmTimeoutRef = useRef<number | null>(null);
 
     // Timer Logic
     useEffect(() => {
@@ -109,11 +113,30 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     }, [decryptProgress, isDecrypted]);
 
     // --- CONFIRMATION HANDLER ---
-    const handleSafeBack = () => {
-        if (window.confirm("¿Seguro que quieres volver al inicio? Se perderá el resultado de la ronda.")) {
+    const handleMenuClick = (e: React.MouseEvent | React.PointerEvent) => {
+        e.preventDefault();
+        
+        if (showMenuConfirm) {
+            if (navigator.vibrate) navigator.vibrate(50);
             onBack();
+        } else {
+            if (navigator.vibrate) navigator.vibrate(20);
+            setShowMenuConfirm(true);
+            
+            // Auto-reset after 3 seconds if not confirmed
+            if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+            confirmTimeoutRef.current = window.setTimeout(() => {
+                setShowMenuConfirm(false);
+            }, 3000);
         }
     };
+
+    // Clean up timeout
+    useEffect(() => {
+        return () => {
+            if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+        };
+    }, []);
 
     // --- RENDER: PRE-REVEAL (TIMER & BUTTON) ---
     if (!isDecrypted) {
@@ -508,20 +531,68 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
             {/* 4. ACTIONS */}
             <div className="w-full max-w-sm mt-12 grid grid-cols-2 gap-4">
                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); handleSafeBack(); }}
-                    style={{ borderColor: theme.border, color: theme.sub }}
-                    className="py-4 rounded-2xl border bg-black/20 font-bold uppercase tracking-widest text-xs hover:bg-white/5 active:scale-95 transition-all backdrop-blur-sm touch-manipulation"
+                    onClick={handleMenuClick}
+                    style={{ 
+                        borderColor: showMenuConfirm ? '#ef4444' : theme.border, 
+                        color: showMenuConfirm ? '#ef4444' : theme.sub,
+                        backgroundColor: showMenuConfirm ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0,0,0,0.2)'
+                    }}
+                    className="py-4 rounded-2xl border font-bold uppercase tracking-widest text-xs hover:bg-white/5 active:scale-95 transition-all backdrop-blur-sm touch-manipulation flex items-center justify-center gap-2"
                 >
-                    Menú
+                    {showMenuConfirm ? (
+                        <span className="animate-pulse">¿SEGURO?</span>
+                    ) : (
+                        <>
+                            <Menu size={14} /> MENÚ
+                        </>
+                    )}
                 </button>
                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); onReplay(); }}
+                    onClick={(e) => { e.preventDefault(); onReplay(); }}
                     style={{ backgroundColor: theme.accent, color: '#ffffff' }}
                     className="py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 hover:brightness-110 touch-manipulation"
                 >
                     <RotateCcw size={14} strokeWidth={3} /> REJUGAR
                 </button>
             </div>
+
+            {/* RENUNCIA v2.0 Debug Panel */}
+            {gameState.debugState.isEnabled && gameState.history.matchLogs.length > 0 && gameState.history.matchLogs[0].renunciaTelemetry && (
+                <div className="mt-6 p-4 rounded-xl border-2 backdrop-blur-xl"
+                    style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        borderColor: 'rgba(139, 92, 246, 0.3)'
+                    }}>
+                    <p className="text-[10px] font-mono text-purple-300 mb-3 font-bold">
+                        &gt;&gt; RENUNCIA v2.0 TELEMETRY
+                    </p>
+                    {(() => {
+                        const t = gameState.history.matchLogs[0].renunciaTelemetry!;
+                        return (
+                            <>
+                                <p className="text-[9px] font-mono text-purple-300">
+                                    &gt;&gt; CANDIDATE_STREAK: {t.candidateStreak}
+                                </p>
+                                <p className="text-[9px] font-mono text-purple-300">
+                                    &gt;&gt; KARMA_VECTOR: {(t.karmaBonus * 100).toFixed(0)}%
+                                </p>
+                                <p className="text-[9px] font-mono text-purple-300">
+                                    &gt;&gt; SESSION_VECTOR: {(t.sessionBonus * 100).toFixed(0)}%
+                                </p>
+                                <p className="text-[9px] font-mono text-purple-300">
+                                    &gt;&gt; FAILURE_VECTOR: {(t.failureBonus * 100).toFixed(0)}%
+                                </p>
+                                <p className="text-[9px] font-mono text-green-400 mt-2 font-bold">
+                                    &gt;&gt; FINAL_PROBABILITY: {(t.finalProbability * 100).toFixed(1)}%
+                                </p>
+                                <p className="text-[9px] font-mono text-purple-300 mt-1">
+                                    &gt;&gt; STATUS: {gameState.history.matchLogs[0].renunciaTriggered ? 'ACTIVE ✓' : 'STANDBY'}
+                                </p>
+                            </>
+                        );
+                    })()}
+                </div>
+            )}
             
              <style>{`
                 .glitch-text-anim {

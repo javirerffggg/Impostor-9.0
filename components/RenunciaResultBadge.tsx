@@ -32,7 +32,7 @@ export const RenunciaResultBadge: React.FC<Props> = ({
         </div>
         
         <p className="text-[8px] text-center mt-2 text-purple-400/80 font-bold">
-          Conoces al impostor
+          Transferencia realizada
         </p>
       </div>
     );
