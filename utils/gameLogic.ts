@@ -1,7 +1,11 @@
 
 
+
+
+
+
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState } from '../types';
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
 
 interface GameConfig {
@@ -13,6 +17,7 @@ interface GameConfig {
     useOracleMode: boolean; // v7.0
     useVanguardiaMode: boolean; // v8.0
     useNexusMode: boolean; // v6.5
+    useRenunciaMode: boolean; // v12.0
     selectedCats: string[];
     history: GameState['history'];
     debugOverrides?: {
@@ -429,8 +434,10 @@ export const generateGameData = (config: GameConfig): {
     designatedStarter: string; 
     newHistory: GameConfig['history'];
     oracleSetup?: OracleSetupData;
+    renunciaData?: RenunciaData; // v12.0
+    wordPair: CategoryData; // Exposed for logic that needs it
 } => {
-    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, selectedCats, history, debugOverrides, isPartyMode } = config;
+    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, selectedCats, history, debugOverrides, isPartyMode } = config;
     
     const currentRound = history.roundCounter + 1;
     const availableCategories = selectedCats.length > 0 ? selectedCats : Object.keys(CATEGORIES_DATA);
@@ -573,7 +580,8 @@ export const generateGameData = (config: GameConfig): {
                 coolingDownRounds: 2, // Slight cooldown
                 lastBreakProtocol: breakProtocolType || 'manual',
                 matchLogs: updatedLogs
-            } 
+            },
+            wordPair: basePair
         };
     }
 
@@ -890,6 +898,28 @@ export const generateGameData = (config: GameConfig): {
         });
     }
 
+    // --- PROTOCOLO RENUNCIA (v12.0) ---
+    let renunciaData: RenunciaData | undefined;
+    const shouldActivateRenuncia = (
+        useRenunciaMode &&
+        impostorCount >= 2 &&
+        players.length >= 4 &&
+        !isTrollEvent &&
+        selectedImpostors.length >= 2
+    );
+
+    if (shouldActivateRenuncia) {
+        const candidateIndex = Math.floor(Math.random() * selectedImpostors.length);
+        const candidate = selectedImpostors[candidateIndex];
+        
+        renunciaData = {
+            candidatePlayerId: candidate.id,
+            originalImpostorIds: selectedImpostors.map(imp => imp.id),
+            decision: 'pending',
+            timestamp: Date.now()
+        };
+    }
+
     if (newPastImpostorIds.length > 20) newPastImpostorIds.length = 20;
     
     // --- BACCHUS PROTOCOL (Updated v2.0) ---
@@ -924,7 +954,8 @@ export const generateGameData = (config: GameConfig): {
         oracle: oracleId ? players.find(p => p.id === oracleId)?.name || "Unknown" : null,
         leteoGrade: leteoGrade,
         entropyLevel: entropyLevel,
-        telemetry: telemetryData
+        telemetry: telemetryData,
+        renunciaTriggered: !!renunciaData
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
@@ -940,6 +971,7 @@ export const generateGameData = (config: GameConfig): {
         isArchitectTriggered: isArchitectTriggered,
         designatedStarter: vocalisStarter.name,
         oracleSetup: oracleSetup, // Return setup data
+        renunciaData: renunciaData, // Return Renuncia data
         newHistory: {
             roundCounter: currentRound, 
             lastWords: newHistoryWords,
@@ -956,6 +988,163 @@ export const generateGameData = (config: GameConfig): {
             lastBreakProtocol: breakProtocolType,
             matchLogs: updatedLogs,
             lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : history.lastLeteoRound
-        }
+        },
+        wordPair
     };
 };
+
+export const applyRenunciaDecision = (
+    decision: RenunciaDecision,
+    gameData: GamePlayer[],
+    renunciaData: RenunciaData,
+    wordPair: CategoryData,
+    stats: Record<string, InfinityVault>,
+    useHintMode: boolean,
+    architectId?: string,
+    oracleId?: string
+  ): { 
+    updatedGameData: GamePlayer[]; 
+    updatedRenunciaData: RenunciaData;
+    actualImpostorCount: number; // Número real de impostores después de la decisión
+  } => {
+    
+    const candidateId = renunciaData.candidatePlayerId;
+    
+    switch (decision) {
+      case 'accept': {
+        // No hay cambios, flujo normal
+        return {
+          updatedGameData: gameData,
+          updatedRenunciaData: {
+            ...renunciaData,
+            decision: 'accept',
+            timestamp: Date.now()
+          },
+          actualImpostorCount: gameData.filter(p => p.isImp).length
+        };
+      }
+      
+      case 'reject': {
+        const updatedGameData = gameData.map(p => {
+          if (p.id === candidateId) {
+            return {
+              ...p,
+              isImp: false,
+              role: 'Civil' as const,
+              word: p.realWord, // Palabra civil
+              hasRejectedImpRole: true
+            };
+          }
+          return p;
+        });
+        
+        const newImpostorCount = updatedGameData.filter(p => p.isImp).length;
+        
+        // SAFETY CHECK: Si quedan 0 impostores, forzar 1
+        if (newImpostorCount === 0) {
+          console.warn('[RENUNCIA] Reject would leave 0 impostors, forcing 1');
+          
+          const forcedImpostorIndex = updatedGameData.findIndex(p => 
+            p.id !== candidateId && 
+            p.id !== architectId && 
+            p.id !== oracleId
+          );
+          
+          if (forcedImpostorIndex !== -1) {
+            const hint = generateSmartHint(wordPair);
+            updatedGameData[forcedImpostorIndex] = {
+                ...updatedGameData[forcedImpostorIndex],
+                isImp: true,
+                role: 'Impostor',
+                word: useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR"
+            };
+          }
+        }
+        
+        return {
+          updatedGameData,
+          updatedRenunciaData: {
+            ...renunciaData,
+            decision: 'reject',
+            timestamp: Date.now()
+          },
+          actualImpostorCount: updatedGameData.filter(p => p.isImp).length
+        };
+      }
+      
+      case 'transfer': {
+        // Buscar jugador con más Karma elegible
+        const eligiblePlayers = gameData.filter(p => 
+          !p.isImp &&
+          p.id !== candidateId &&
+          p.id !== architectId &&
+          p.id !== oracleId
+        );
+        
+        if (eligiblePlayers.length === 0) {
+          // Fallback a reject
+          console.warn('[RENUNCIA] No eligible players for transfer, falling back to reject');
+          return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, architectId, oracleId);
+        }
+        
+        // Ordenar por civilStreak
+        const sortedByKarma = [...eligiblePlayers].sort((a, b) => {
+          const vaultA = getVault(a.name.trim().toLowerCase(), stats);
+          const vaultB = getVault(b.name.trim().toLowerCase(), stats);
+          return (vaultB?.metrics.civilStreak || 0) - (vaultA?.metrics.civilStreak || 0);
+        });
+        
+        const newImpostor = sortedByKarma[0];
+        
+        const updatedGameData = gameData.map(p => {
+          // Candidato → Testigo Civil
+          if (p.id === candidateId) {
+            return {
+              ...p,
+              isImp: false,
+              role: 'Civil' as const,
+              word: p.realWord,
+              isWitness: true,
+              knownImpostorId: newImpostor.id,
+              knownImpostorName: newImpostor.name
+            };
+          }
+          
+          // Nuevo impostor
+          if (p.id === newImpostor.id) {
+            const hint = generateSmartHint(wordPair);
+            return {
+              ...p,
+              isImp: true,
+              role: 'Impostor' as const,
+              word: useHintMode 
+                ? `PISTA: ${hint}` 
+                : "ERES EL IMPOSTOR",
+              wasTransferred: true
+            };
+          }
+          
+          return p;
+        });
+        
+        return {
+          updatedGameData,
+          updatedRenunciaData: {
+            ...renunciaData,
+            decision: 'transfer',
+            witnessPlayerId: candidateId,
+            transferredToId: newImpostor.id,
+            timestamp: Date.now()
+          },
+          actualImpostorCount: updatedGameData.filter(p => p.isImp).length
+        };
+      }
+      
+      default:
+        return {
+          updatedGameData: gameData,
+          updatedRenunciaData: renunciaData,
+          actualImpostorCount: gameData.filter(p => p.isImp).length
+        };
+    }
+  };

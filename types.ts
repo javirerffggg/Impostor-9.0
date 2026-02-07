@@ -29,6 +29,18 @@ export interface Player {
 
 export type SocialRole = 'bartender' | 'vip' | 'alguacil' | 'bufon' | 'civil';
 
+// --- PROTOCOLO RENUNCIA (v12.0) ---
+export type RenunciaDecision = 'pending' | 'accept' | 'reject' | 'transfer';
+
+export interface RenunciaData {
+    candidatePlayerId: string;        // ID del jugador con la opción
+    originalImpostorIds: string[];    // IDs originales antes de cualquier cambio
+    decision: RenunciaDecision;       // Estado de la decisión
+    witnessPlayerId?: string;         // Si transfer, quién es el testigo
+    transferredToId?: string;         // Si transfer, quién es el nuevo impostor
+    timestamp: number;                // Cuándo se tomó la decisión
+}
+
 export interface GamePlayer extends Player {
     role: 'Civil' | 'Impostor';
     word: string; // What they see on the card
@@ -45,6 +57,13 @@ export interface GamePlayer extends Player {
     oracleTriggered?: boolean; // v7.0 If true, the hint they see was chosen by Oracle
     partyRole?: SocialRole; // v4.0 BACCHUS
     nexusPartners?: string[]; // v6.5 Protocolo NEXUS (Names of other impostors)
+    
+    // v12.0 RENUNCIA Flags
+    hasRejectedImpRole?: boolean;     // Rechazó ser impostor
+    isWitness?: boolean;              // Transfirió y conoce al impostor
+    knownImpostorId?: string;         // ID del impostor conocido (si es Testigo)
+    knownImpostorName?: string;       // Nombre del impostor conocido (si es Testigo)
+    wasTransferred?: boolean;         // Recibió el rol por transferencia
 }
 
 // --- PROTOCOL INFINITUM STRUCTURES ---
@@ -102,6 +121,10 @@ export interface MatchLog {
     entropyLevel?: number;      // v6.3 LETEO Protocol
     telemetry?: SelectionTelemetry[]; // v6.4 Debugging
     affectsINFINITUM?: boolean; // v11.0: If false, stats are not updated (Troll events)
+    // v12.0 RENUNCIA Logging
+    renunciaTriggered?: boolean;      
+    renunciaDecision?: RenunciaDecision; 
+    renunciaWitness?: string;         
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
@@ -136,7 +159,7 @@ export interface OracleSetupData {
 }
 
 export interface GameState {
-    phase: 'setup' | 'architect' | 'oracle' | 'revealing' | 'discussion' | 'results';
+    phase: 'setup' | 'architect' | 'oracle' | 'renuncia' | 'revealing' | 'discussion' | 'results';
     players: Player[];
     gameData: GamePlayer[];
     impostorCount: number;
@@ -146,6 +169,8 @@ export interface GameState {
     trollScenario: TrollScenario | null;
     isArchitectRound: boolean; // v5.0 Flag 
     oracleSetup?: OracleSetupData; // v7.0
+    renunciaData?: RenunciaData; // v12.0
+    
     history: {
         roundCounter: number; 
         lastWords: string[]; // Session Exclusion (Last 15)
@@ -184,6 +209,7 @@ export interface GameState {
         hapticFeedback: boolean; // v9.0 Haptic feedback setting
         soundEnabled: boolean;
         selectedCategories: string[];
+        renunciaMode: boolean; // v12.0 Protocolo RENUNCIA
     };
     debugState: DebugState; // PROTOCOL CENTINELA
     partyState: PartyState; // v4.0 BACCHUS

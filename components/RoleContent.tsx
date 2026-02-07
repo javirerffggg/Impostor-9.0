@@ -1,8 +1,13 @@
 
 
+
+
+
+
 import React from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
 import { Shield, Skull, Eye, Beer, Network, AlertCircle, Check, Crown, Siren, Smile } from 'lucide-react';
+import { RenunciaResultBadge } from './RenunciaResultBadge';
 
 interface RoleContentProps {
     player: GamePlayer;
@@ -55,6 +60,14 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* Renuncia Result Badge */}
+            <RenunciaResultBadge 
+              isWitness={player.isWitness || false}
+              hasRejectedRole={player.hasRejectedImpRole || false}
+              wasTransferred={player.wasTransferred || false}
+              theme={theme}
+            />
 
             {/* TOP SECTION: Role & Icon */}
             <div className="flex-none flex flex-col items-center justify-center gap-2 w-full pt-1">
@@ -227,6 +240,30 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                                 <Check size={12} className="text-violet-500" />
                                 <p className="text-[9px] font-bold text-violet-400 uppercase">Destino Manipulado</p>
                             </div>
+                        )}
+
+                        {player.isWitness && player.knownImpostorId && (
+                          <div className="mt-6 w-full bg-purple-900/20 border border-purple-500/30 rounded-xl p-4 backdrop-blur-md animate-in fade-in slide-in-from-bottom duration-500">
+                            <div className="flex items-center gap-2 mb-2 border-b border-purple-500/20 pb-2">
+                              <Eye size={14} className="text-purple-400 animate-pulse" />
+                              <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">
+                                INFORMACIÓN PRIVILEGIADA
+                              </span>
+                            </div>
+                            
+                            <div className="text-center">
+                              <p className="text-[9px] text-purple-300 uppercase tracking-wide mb-2">
+                                Conoces al impostor:
+                              </p>
+                              <span className="text-base font-black text-white bg-purple-600/80 px-4 py-2 rounded-lg shadow-md inline-block uppercase tracking-wider">
+                                {player.knownImpostorName || "DESCONOCIDO"}
+                              </span>
+                            </div>
+                            
+                            <p className="text-[8px] text-purple-400/70 text-center mt-3 leading-relaxed">
+                              Puedes elegir delatarlo, protegerlo o usarlo como escudo estratégico
+                            </p>
+                          </div>
                         )}
                     </>
                 )}

@@ -1,9 +1,11 @@
 
 
+
+
 import { useState, useEffect } from 'react';
-import { GameState, Player, InfinityVault, TrollScenario, CategoryData } from '../types';
+import { GameState, Player, InfinityVault, TrollScenario, CategoryData, RenunciaDecision } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
-import { generateGameData, generateArchitectOptions, generateSmartHint, generateVanguardHints } from '../utils/gameLogic';
+import { generateGameData, generateArchitectOptions, generateSmartHint, generateVanguardHints, applyRenunciaDecision } from '../utils/gameLogic';
 import { calculatePartyIntensity } from '../utils/partyLogic';
 import { CATEGORIES_DATA } from '../categories';
 
@@ -43,7 +45,8 @@ export const useGameState = () => {
             swipeSensitivity: 'medium',
             hapticFeedback: true,
             soundEnabled: true,
-            selectedCategories: []
+            selectedCategories: [],
+            renunciaMode: false // v12.0
         };
 
         // Try to recover The Infinity Vault from LocalStorage
@@ -120,6 +123,7 @@ export const useGameState = () => {
 
     const [architectOptions, setArchitectOptions] = useState<[ { categoryName: string, wordPair: CategoryData }, { categoryName: string, wordPair: CategoryData } ] | null>(null);
     const [architectRegenCount, setArchitectRegenCount] = useState(0);
+    const [currentWordPair, setCurrentWordPair] = useState<CategoryData | null>(null); // To support Renuncia logic
 
     // -- Persistence Effects --
     useEffect(() => {
@@ -216,7 +220,7 @@ export const useGameState = () => {
     };
 
     const runGameGeneration = () => {
-        const { players, isTrollEvent, trollScenario, isArchitectTriggered, newHistory, designatedStarter, oracleSetup } = generateGameData({
+        const { players, isTrollEvent, trollScenario, isArchitectTriggered, newHistory, designatedStarter, oracleSetup, renunciaData, wordPair } = generateGameData({
             players: gameState.players,
             impostorCount: gameState.impostorCount,
             useHintMode: gameState.settings.hintMode,
@@ -225,6 +229,7 @@ export const useGameState = () => {
             useOracleMode: gameState.settings.oracleMode,
             useVanguardiaMode: gameState.settings.vanguardiaMode,
             useNexusMode: gameState.settings.nexusMode,
+            useRenunciaMode: gameState.settings.renunciaMode,
             selectedCats: gameState.settings.selectedCategories,
             history: gameState.history,
             debugOverrides: gameState.debugState.isEnabled ? {
@@ -233,6 +238,8 @@ export const useGameState = () => {
             } : undefined,
             isPartyMode: gameState.settings.partyMode
         });
+
+        setCurrentWordPair(wordPair || null);
 
         const cleanDebugState = {
             ...gameState.debugState,
@@ -308,9 +315,30 @@ export const useGameState = () => {
                 oracleSetup: oracleSetup,
                 currentDrinkingPrompt: "",
                 debugState: cleanDebugState,
-                partyState: newPartyState
+                partyState: newPartyState,
+                renunciaData: renunciaData // Store but don't show yet if Oracle is active
              }));
              return { hydrationTimer };
+        }
+
+        // v12.0 PROTOCOLO RENUNCIA
+        if (renunciaData) {
+            setGameState(prev => ({
+                ...prev,
+                phase: 'renuncia', // New Phase
+                gameData: players,
+                isTrollEvent,
+                trollScenario,
+                isArchitectRound: false,
+                currentPlayerIndex: 0,
+                startingPlayer: designatedStarter,
+                history: newHistory as GameState['history'],
+                renunciaData: renunciaData,
+                currentDrinkingPrompt: "",
+                debugState: cleanDebugState,
+                partyState: newPartyState
+            }));
+            return { hydrationTimer };
         }
 
         setGameState(prev => ({
@@ -405,12 +433,45 @@ export const useGameState = () => {
                 return p;
             });
 
+            // If Renuncia was triggered (e.g., generated but Oracle happened first), transition to it now
+            if (prev.renunciaData) {
+                return {
+                    ...prev,
+                    phase: 'renuncia', 
+                    gameData: updatedGameData
+                };
+            }
+
             return {
                 ...prev,
                 phase: 'revealing', // Move to reveal phase
                 gameData: updatedGameData
             };
         });
+    };
+
+    const handleRenunciaDecision = (decision: RenunciaDecision) => {
+        if (!gameState.renunciaData || !currentWordPair) return;
+
+        // Apply Logic
+        const result = applyRenunciaDecision(
+            decision,
+            gameState.gameData,
+            gameState.renunciaData,
+            currentWordPair,
+            gameState.history.playerStats,
+            gameState.settings.hintMode,
+            gameState.gameData.find(p => p.isArchitect)?.id,
+            gameState.oracleSetup?.oraclePlayerId
+        );
+
+        setGameState(prev => ({
+            ...prev,
+            phase: 'revealing',
+            gameData: result.updatedGameData,
+            renunciaData: result.updatedRenunciaData,
+            impostorCount: result.actualImpostorCount
+        }));
     };
 
     return {
@@ -433,7 +494,8 @@ export const useGameState = () => {
             handleArchitectRegenerate,
             setArchitectRegenCount,
             handleOracleConfirm,
-            handleOracleSelection // Export new action
+            handleOracleSelection,
+            handleRenunciaDecision // Export new action
         }
     };
 };
