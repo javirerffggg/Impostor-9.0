@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
@@ -13,6 +14,7 @@ import { useGameState } from './hooks/useGameState';
 import { SetupView } from './components/views/SetupView';
 import { RevealingView } from './components/views/RevealingView';
 import { ResultsView } from './components/views/ResultsView';
+import { OracleSelectionView } from './components/views/OracleSelectionView'; // New Import
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { CategorySelector } from './components/CategorySelector';
 import { Manual } from './components/Manual';
@@ -360,6 +362,17 @@ function App() {
                     onConfirm={actions.handleArchitectConfirm}
                     regenCount={architectRegenCount}
                     theme={theme}
+                />
+            )}
+
+            {gameState.phase === 'oracle' && gameState.oracleSetup && !isShuffling && (
+                <OracleSelectionView 
+                    oraclePlayerId={gameState.oracleSetup.oraclePlayerId}
+                    players={gameState.gameData}
+                    availableHints={gameState.oracleSetup.availableHints}
+                    civilWord={gameState.oracleSetup.civilWord}
+                    theme={theme}
+                    onHintSelected={actions.handleOracleSelection}
                 />
             )}
 

@@ -1,7 +1,7 @@
 
 
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry } from '../types';
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
 
 interface GameConfig {
@@ -14,26 +14,7 @@ interface GameConfig {
     useVanguardiaMode: boolean; // v8.0
     useNexusMode: boolean; // v6.5
     selectedCats: string[];
-    history: { 
-        roundCounter: number;
-        lastWords: string[]; 
-        lastCategories: string[]; // LEXICON Omniscient Filter
-        globalWordUsage: Record<string, number>; // LEXICON Vital Penalty
-        playerStats: Record<string, InfinityVault>;
-        lastTrollRound: number;
-        lastArchitectRound: number;
-        lastStartingPlayers: string[];
-        
-        // v6.1
-        pastImpostorIds?: string[];
-        paranoiaLevel?: number;
-        coolingDownRounds?: number;
-        lastBreakProtocol?: string | null;
-        matchLogs?: MatchLog[];
-        
-        // v6.3 LETEO
-        lastLeteoRound?: number;
-    };
+    history: GameState['history'];
     debugOverrides?: {
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
@@ -447,6 +428,7 @@ export const generateGameData = (config: GameConfig): {
     isArchitectTriggered: boolean; 
     designatedStarter: string; 
     newHistory: GameConfig['history'];
+    oracleSetup?: OracleSetupData;
 } => {
     const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, selectedCats, history, debugOverrides, isPartyMode } = config;
     
@@ -552,8 +534,9 @@ export const generateGameData = (config: GameConfig): {
         const newStartingPlayers = [vocalisStarter.id, ...history.lastStartingPlayers].slice(0, 10);
 
         // Apply BACCHUS Roles if Party Mode
+        // NOTE: For troll events we pass empty stats because stats don't matter/update in troll rounds
         if (isPartyMode) {
-            trollPlayers = assignPartyRoles(trollPlayers);
+            trollPlayers = assignPartyRoles(trollPlayers, history, history.playerStats);
         }
 
         const newLog: MatchLog = {
@@ -603,70 +586,45 @@ export const generateGameData = (config: GameConfig): {
     const shuffledPlayers = shuffleArray(players);
 
     // --- LETEO SHADOW VAULT LOGIC ---
-    /**
-     * PROTOCOLO LETEO - SHADOW VAULT LOGIC
-     * 
-     * Cuando se detecta paranoia alta (>70%), LETEO crea un "vault fantasma"
-     * manipulado para los CÁLCULOS de peso, pero actualiza el vault REAL
-     * para mantener la memoria histórica intacta.
-     * 
-     * Grados LETEO:
-     * - Grade I: Borra roleSequence (amnesia de recencia)
-     * - Grade II: Promedia civilStreak (socialismo de karma)
-     * - Grade III: Ambos + entropyLevel = 1.0 (colapso total → azar puro)
-     * 
-     * Esto permite "resetear" la percepción sin perder el historial real.
-     */
     let calculationStats = currentStats;
     
     if (breakProtocolType === 'leteo' && leteoGrade > 0) {
-        // Create deep copy for the "Ghost Vault"
         calculationStats = JSON.parse(JSON.stringify(currentStats));
-        
         if (leteoGrade >= 1) { 
-            // Grade I: Recency Entropy (Clear role sequence)
-            Object.values(calculationStats).forEach(v => {
-                v.sequenceAnalytics.roleSequence = []; // Amnesia
-            });
+            Object.values(calculationStats).forEach(v => { v.sequenceAnalytics.roleSequence = []; });
         }
-        
         if (leteoGrade >= 2) {
-            // Grade II: Karma Entropy (Average streaks)
             const allStreaks = Object.values(calculationStats).map(v => v.metrics.civilStreak);
             const avgStreak = allStreaks.reduce((a, b) => a + b, 0) / (allStreaks.length || 1);
-            Object.values(calculationStats).forEach(v => {
-                v.metrics.civilStreak = avgStreak; // Socialism
-            });
+            Object.values(calculationStats).forEach(v => { v.metrics.civilStreak = avgStreak; });
         }
     }
 
-    // Average Weight Calculation for Quantum Noise
+    // Average Weight Calculation
     let totalEstimatedWeight = 0;
     shuffledPlayers.forEach(p => {
         const key = p.name.trim().toLowerCase();
         const vault = getVault(key, calculationStats);
-        totalEstimatedWeight += calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, 0, 0); // No noise, no entropy for estimate
+        totalEstimatedWeight += calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, 0, 0); 
     });
     const avgWeight = totalEstimatedWeight / (shuffledPlayers.length || 1);
 
-    // Calculate Final Weights (using Shadow Vault if LETEO active)
+    // Calculate Final Weights
     const playerWeights: { player: Player, weight: number, vault: InfinityVault, telemetry: SelectionTelemetry }[] = [];
     
     shuffledPlayers.forEach(p => {
         const key = p.name.trim().toLowerCase();
-        const vault = getVault(key, calculationStats); // Use shadow vault if Leteo active
+        const vault = getVault(key, calculationStats);
         let weight = 0;
 
         if (breakProtocolType === 'blind') {
             weight = 100;
         } else {
-            // Pass entropyLevel to master equation
             weight = (vault.metrics.totalSessions === 0) 
                 ? 100 
                 : calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, avgWeight, entropyLevel);
         }
         
-        // Pass original vault for updates later, but used weight derived from shadow vault
         playerWeights.push({ 
             player: p, 
             weight, 
@@ -704,16 +662,12 @@ export const generateGameData = (config: GameConfig): {
             availableCandidates = availableCandidates.map(pw => {
                 const newWeight = applySynergyFactor(pw.weight, pw.vault, selectedKeys, players.length);
                 pw.telemetry.synergyPenalty = pw.weight - newWeight;
-                return {
-                    ...pw,
-                    weight: newWeight
-                };
+                return { ...pw, weight: newWeight };
             });
         }
 
         const totalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
         
-        // Calculate Probabilities for Telemetry
         availableCandidates.forEach(pw => {
             pw.telemetry.finalWeight = pw.weight;
             pw.telemetry.probabilityPercent = totalWeight > 0 ? (pw.weight / totalWeight) * 100 : 0;
@@ -739,7 +693,7 @@ export const generateGameData = (config: GameConfig): {
         selectedKeys.push(chosen.player.name.trim().toLowerCase());
     }
 
-    // Update REAL Vaults (Core Memory) - Always update real stats
+    // Update REAL Vaults (Core Memory)
     const newPlayerStats = { ...currentStats };
     const newPastImpostorIds = [...pastImpostorIds];
 
@@ -758,8 +712,6 @@ export const generateGameData = (config: GameConfig): {
         if (isImp) {
             vault.metrics.civilStreak = 0;
             newPastImpostorIds.unshift(p.id); 
-            
-            // Apply Quarantine: Stronger if Break Protocol was active
             vault.metrics.quarantineRounds = breakProtocolType ? 4 : 2;
         } else {
             if (vault.metrics.quarantineRounds === 0) {
@@ -819,18 +771,14 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
-    // --- PROTOCOLO ORÁCULO (v7.0) ---
-    // Only works if Hint Mode is enabled and Oracle Mode is enabled
-    // Only triggers if there is a Civilian BEFORE the first Impostor in the turn order (Sequence Rule)
+    // --- PROTOCOLO ORÁCULO (v7.0 EXPANDED) ---
     let oracleId: string | undefined;
+    let oracleSetup: OracleSetupData | undefined;
     
     if (useOracleMode && useHintMode && players.length > 2) {
-        // We look at the generated gamePlayers order because that matches the reveal order
-        // NOTE: At this stage `gamePlayers` is not yet built, but `players` argument is the base order.
-        
         let firstImpIndex = -1;
         
-        // Find where the chosen impostors are sitting
+        // Find where the chosen impostors are sitting based on the original shuffled list for fair selection context
         for (let i = 0; i < players.length; i++) {
             const key = players[i].name.trim().toLowerCase();
             if (selectedKeys.includes(key)) {
@@ -841,12 +789,47 @@ export const generateGameData = (config: GameConfig): {
 
         // SEQUENCE RULE: Oracle must be before the first impostor.
         if (firstImpIndex > 0) {
-            // Pick a random civilian strictly before the first impostor
             const potentialOracles = players.slice(0, firstImpIndex).filter(p => p.id !== architectId);
             
             if (potentialOracles.length > 0) {
-                const chosenOracle = potentialOracles[Math.floor(Math.random() * potentialOracles.length)];
-                oracleId = chosenOracle.id;
+                // Weighted selection based on streak using INFINITUM
+                const oracleWeights = potentialOracles.map(p => {
+                    const key = p.name.trim().toLowerCase();
+                    const vault = getVault(key, newPlayerStats); // Use updated stats
+                    return {
+                        player: p,
+                        weight: Math.max(1, vault.metrics.civilStreak) // Streak increases oracle chance
+                    };
+                });
+                
+                const totalWeight = oracleWeights.reduce((sum, w) => sum + w.weight, 0);
+                let ticket = Math.random() * totalWeight;
+                let chosenOracle: Player | undefined;
+                
+                for (const item of oracleWeights) {
+                    ticket -= item.weight;
+                    if (ticket <= 0) {
+                        chosenOracle = item.player;
+                        break;
+                    }
+                }
+                
+                if (!chosenOracle && oracleWeights.length > 0) chosenOracle = oracleWeights[0].player;
+
+                if (chosenOracle) {
+                    oracleId = chosenOracle.id;
+                    
+                    // Generate potential hints
+                    const hints = wordPair.hints && wordPair.hints.length >= 3 
+                        ? wordPair.hints.slice(0, 3) 
+                        : shuffleArray([...(wordPair.hints || []), wordPair.hint || "Sin Pista", "RUIDO"]).slice(0, 3);
+
+                    oracleSetup = {
+                        oraclePlayerId: oracleId,
+                        availableHints: hints,
+                        civilWord: wordPair.civ
+                    };
+                }
             }
         }
     }
@@ -865,7 +848,6 @@ export const generateGameData = (config: GameConfig): {
         // VANGUARDIA LOGIC CHECK (v8.0)
         let isVanguardia = false;
         if (useVanguardiaMode && useHintMode && isImp) {
-            // Trigger condition: designated starter IS this impostor
             if (p.id === vocalisStarter.id) {
                 isVanguardia = true;
             }
@@ -876,6 +858,7 @@ export const generateGameData = (config: GameConfig): {
             if (isVanguardia) {
                  displayWord = generateVanguardHints(wordPair);
             } else {
+                 // Standard hint generation if Oracle didn't intervene yet
                  const hint = generateSmartHint(wordPair);
                  displayWord = useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR";
             }
@@ -898,26 +881,33 @@ export const generateGameData = (config: GameConfig): {
     });
 
     // --- PROTOCOLO NEXUS (v6.5) ---
-    // Inject ally names if Nexus is active and multiple impostors exist
     if (useNexusMode && impostorCount > 1) {
         const impostorNames = gamePlayers.filter(p => p.isImp).map(p => p.name);
-        
         gamePlayers.forEach(p => {
             if (p.isImp) {
-                // Filter out self name to find partners
                 p.nexusPartners = impostorNames.filter(name => name !== p.name);
             }
         });
     }
 
     if (newPastImpostorIds.length > 20) newPastImpostorIds.length = 20;
-
-    // Apply BACCHUS Roles if Party Mode
+    
+    // --- BACCHUS PROTOCOL (Updated v2.0) ---
+    const lastBartenders = history.lastBartenders || [];
+    let newBartenderId: string | null = null;
+    
     if (isPartyMode) {
-        gamePlayers = assignPartyRoles(gamePlayers);
+        // Pass the updated stats to the role assigner so it can calculate VIP/Alguacil correctly
+        gamePlayers = assignPartyRoles(gamePlayers, history, newPlayerStats);
+        const bartender = gamePlayers.find(p => p.partyRole === 'bartender');
+        if (bartender) newBartenderId = bartender.id;
     }
+    
+    // Update Bartender History
+    const newLastBartenders = newBartenderId 
+        ? [newBartenderId, ...lastBartenders].slice(0, 10) 
+        : lastBartenders;
 
-    // --- BLACK BOX LOGGING ---
     const newLog: MatchLog = {
         id: Date.now().toString(),
         timestamp: Date.now(),
@@ -934,13 +924,11 @@ export const generateGameData = (config: GameConfig): {
         oracle: oracleId ? players.find(p => p.id === oracleId)?.name || "Unknown" : null,
         leteoGrade: leteoGrade,
         entropyLevel: entropyLevel,
-        telemetry: telemetryData // v6.4 Debug Telemetry
+        telemetry: telemetryData
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
 
-    // RESET LOGIC
-    // If LETEO was active (Grade III especially), we must HARD RESET cooling to 4 rounds.
     const finalCoolingRounds = (breakProtocolType === 'leteo' && leteoGrade === 3) 
         ? 4 // Hard Reset
         : (breakProtocolType ? 3 : Math.max(0, coolingRounds - 1));
@@ -951,6 +939,7 @@ export const generateGameData = (config: GameConfig): {
         trollScenario: trollScenario,
         isArchitectTriggered: isArchitectTriggered,
         designatedStarter: vocalisStarter.name,
+        oracleSetup: oracleSetup, // Return setup data
         newHistory: {
             roundCounter: currentRound, 
             lastWords: newHistoryWords,
@@ -960,8 +949,7 @@ export const generateGameData = (config: GameConfig): {
             lastTrollRound: isTrollEvent ? currentRound : history.lastTrollRound,
             lastArchitectRound: isArchitectTriggered ? currentRound : history.lastArchitectRound,
             lastStartingPlayers: newStartingPlayers,
-            
-            // Update v6.1 & v6.3 State
+            lastBartenders: newLastBartenders, // v4.0 Track bartenders
             pastImpostorIds: newPastImpostorIds,
             paranoiaLevel: breakProtocolType ? 0 : paranoiaLevel, 
             coolingDownRounds: finalCoolingRounds,

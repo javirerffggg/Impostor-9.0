@@ -40,6 +40,7 @@ export interface GamePlayer extends Player {
     viewTime: number; // Milliseconds spent looking at the card
     isArchitect?: boolean; // v5.0 Flag
     isOracle?: boolean; // v7.0 Protocolo ORÁCULO
+    oracleChosen?: boolean; // v7.0 If true, the Impostor knows their hint was chosen by Oracle
     isVanguardia?: boolean; // v8.0 Protocolo VANGUARDIA
     oracleTriggered?: boolean; // v7.0 If true, the hint they see was chosen by Oracle
     partyRole?: SocialRole; // v4.0 BACCHUS
@@ -128,8 +129,14 @@ export interface CuratedCollection {
     icon: string; // Lucide icon name
 }
 
+export interface OracleSetupData {
+    oraclePlayerId: string;
+    availableHints: string[];
+    civilWord: string;
+}
+
 export interface GameState {
-    phase: 'setup' | 'architect' | 'revealing' | 'discussion' | 'results';
+    phase: 'setup' | 'architect' | 'oracle' | 'revealing' | 'discussion' | 'results';
     players: Player[];
     gameData: GamePlayer[];
     impostorCount: number;
@@ -138,6 +145,7 @@ export interface GameState {
     isTrollEvent: boolean;
     trollScenario: TrollScenario | null;
     isArchitectRound: boolean; // v5.0 Flag 
+    oracleSetup?: OracleSetupData; // v7.0
     history: {
         roundCounter: number; 
         lastWords: string[]; // Session Exclusion (Last 15)
@@ -147,6 +155,7 @@ export interface GameState {
         lastTrollRound: number; 
         lastArchitectRound: number; // MDE v5.0 Tracking
         lastStartingPlayers: string[]; // VOCALIS: Oratory Fatigue Tracking
+        lastBartenders?: string[]; // v4.0 BACCHUS: Track last 10 bartenders
         
         // v6.1 Paranoia Engine
         pastImpostorIds: string[]; // Track actual impostor IDs for pattern detection

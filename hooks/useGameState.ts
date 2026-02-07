@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { GameState, Player, InfinityVault, TrollScenario, CategoryData } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
@@ -19,6 +20,7 @@ export const useGameState = () => {
             lastTrollRound: -10,
             lastArchitectRound: -999,
             lastStartingPlayers: [],
+            lastBartenders: [], // v4.0 BACCHUS
             matchLogs: [], // v6.2
             pastImpostorIds: [],
             paranoiaLevel: 0,
@@ -57,6 +59,7 @@ export const useGameState = () => {
                         lastCategories: parsed.lastCategories || [],
                         lastArchitectRound: parsed.lastArchitectRound || -999,
                         lastStartingPlayers: parsed.lastStartingPlayers || [],
+                        lastBartenders: parsed.lastBartenders || [],
                         matchLogs: parsed.matchLogs || [],
                         pastImpostorIds: parsed.pastImpostorIds || [],
                         paranoiaLevel: parsed.paranoiaLevel || 0,
@@ -213,7 +216,7 @@ export const useGameState = () => {
     };
 
     const runGameGeneration = () => {
-        const { players, isTrollEvent, trollScenario, isArchitectTriggered, newHistory, designatedStarter } = generateGameData({
+        const { players, isTrollEvent, trollScenario, isArchitectTriggered, newHistory, designatedStarter, oracleSetup } = generateGameData({
             players: gameState.players,
             impostorCount: gameState.impostorCount,
             useHintMode: gameState.settings.hintMode,
@@ -288,6 +291,26 @@ export const useGameState = () => {
                 }));
                 return { hydrationTimer };
             }
+        }
+
+        // v7.0 PROTOCOLO ORÁCULO INTERCEPTION
+        if (oracleSetup) {
+             setGameState(prev => ({
+                ...prev,
+                phase: 'oracle', // New Phase
+                gameData: players,
+                isTrollEvent,
+                trollScenario,
+                isArchitectRound: false,
+                currentPlayerIndex: 0,
+                startingPlayer: designatedStarter,
+                history: newHistory as GameState['history'],
+                oracleSetup: oracleSetup,
+                currentDrinkingPrompt: "",
+                debugState: cleanDebugState,
+                partyState: newPartyState
+             }));
+             return { hydrationTimer };
         }
 
         setGameState(prev => ({
@@ -368,6 +391,28 @@ export const useGameState = () => {
         });
     };
 
+    const handleOracleSelection = (selectedHint: string) => {
+        setGameState(prev => {
+            const updatedGameData = prev.gameData.map(p => {
+                // Update all impostors with the chosen hint and mark them
+                if (p.isImp) {
+                    return {
+                        ...p,
+                        word: `PISTA: ${selectedHint}`,
+                        oracleChosen: true
+                    };
+                }
+                return p;
+            });
+
+            return {
+                ...prev,
+                phase: 'revealing', // Move to reveal phase
+                gameData: updatedGameData
+            };
+        });
+    };
+
     return {
         gameState,
         setGameState,
@@ -387,7 +432,8 @@ export const useGameState = () => {
             handleArchitectConfirm,
             handleArchitectRegenerate,
             setArchitectRegenCount,
-            handleOracleConfirm
+            handleOracleConfirm,
+            handleOracleSelection // Export new action
         }
     };
 };

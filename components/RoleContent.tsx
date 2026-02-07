@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
-import { Shield, Skull, Eye, Beer, Network, AlertCircle, Check } from 'lucide-react';
+import { Shield, Skull, Eye, Beer, Network, AlertCircle, Check, Crown, Siren, Smile } from 'lucide-react';
 
 interface RoleContentProps {
     player: GamePlayer;
@@ -38,7 +39,23 @@ export const RoleContent: React.FC<RoleContentProps> = ({
     };
 
     return (
-        <div className="flex flex-col items-center h-full animate-in fade-in duration-200">
+        <div className="flex flex-col items-center h-full animate-in fade-in duration-200 relative">
+            
+            {/* Oracle Warning Badge (Top Right of Card Content) */}
+            {player.isImp && player.oracleChosen && (
+                <div className="absolute -top-2 -right-4 z-30 animate-in slide-in-from-top fade-in duration-500 delay-300">
+                    <div 
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur-xl border border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.4)] animate-pulse"
+                        style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)' }}
+                    >
+                        <Eye size={12} className="text-violet-300" />
+                        <span className="text-[8px] font-black uppercase tracking-wider text-violet-300">
+                            FILTRADO
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* TOP SECTION: Role & Icon */}
             <div className="flex-none flex flex-col items-center justify-center gap-2 w-full pt-1">
                 {player.isImp ? (
@@ -76,9 +93,33 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                 )}
 
                 {isParty && player.partyRole && player.partyRole !== 'civil' && (
-                    <div className="bg-pink-500/20 border border-pink-500/50 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse mb-1">
-                        <Beer size={10} className="text-pink-400" />
-                        <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">
+                    <div 
+                        className="border px-3 py-1 rounded-full flex items-center gap-1.5 animate-pulse mb-1 mt-1"
+                        style={{
+                            backgroundColor: player.partyRole === 'bartender' ? 'rgba(236, 72, 153, 0.2)' :
+                                             player.partyRole === 'vip' ? 'rgba(234, 179, 8, 0.2)' :
+                                             player.partyRole === 'alguacil' ? 'rgba(59, 130, 246, 0.2)' :
+                                             'rgba(168, 85, 247, 0.2)',
+                            borderColor: player.partyRole === 'bartender' ? 'rgba(236, 72, 153, 0.5)' :
+                                         player.partyRole === 'vip' ? 'rgba(234, 179, 8, 0.5)' :
+                                         player.partyRole === 'alguacil' ? 'rgba(59, 130, 246, 0.5)' :
+                                         'rgba(168, 85, 247, 0.5)'
+                        }}
+                    >
+                        {player.partyRole === 'bartender' ? <Beer size={12} className="text-pink-400" /> :
+                         player.partyRole === 'vip' ? <Crown size={12} className="text-yellow-400" /> :
+                         player.partyRole === 'alguacil' ? <Siren size={12} className="text-blue-400" /> :
+                         <Smile size={12} className="text-purple-400" />}
+                         
+                        <span 
+                            className="text-[10px] font-black uppercase tracking-widest"
+                            style={{
+                                color: player.partyRole === 'bartender' ? '#f472b6' :
+                                       player.partyRole === 'vip' ? '#facc15' :
+                                       player.partyRole === 'alguacil' ? '#60a5fa' :
+                                       '#c084fc'
+                            }}
+                        >
                             ROL: {player.partyRole}
                         </span>
                     </div>
@@ -151,6 +192,12 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                         >
                             {player.word}
                         </p>
+
+                        {player.isImp && player.oracleChosen && (
+                             <p className="mt-2 text-[9px] font-bold text-violet-400 uppercase tracking-widest text-center animate-pulse">
+                                 Pista elegida por el Oráculo
+                             </p>
+                        )}
 
                         {player.isImp && player.nexusPartners && player.nexusPartners.length > 0 && (
                             <div className="mt-6 w-full bg-black/40 border border-red-500/50 rounded-xl p-4 backdrop-blur-md animate-in fade-in slide-in-from-bottom duration-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
