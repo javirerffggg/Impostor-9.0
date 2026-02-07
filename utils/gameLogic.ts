@@ -1,28 +1,19 @@
 
-
-
-
-
-
-
-
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision, MagistradoData } from '../types';
-import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, MagistradoData } from '../types';
+import { assignPartyRoles } from './partyLogic';
 import { generateMemoryWords } from './memoryWordGenerator';
 
-// ============================================================
-// PROTOCOLO RENUNCIA v2.0 - TELEMETRY INTERFACE
-// ============================================================
-interface RenunciaTelemetry {
-    baseProb: number;           // Probabilidad base (15%)
-    vectorKarma: number;        // Ajuste por V_k (karma/streak)
-    vectorSession: number;      // Ajuste por V_s (longevidad de sesión)
-    vectorFailure: number;      // Ajuste por V_f (fracaso acumulado)
-    finalProb: number;          // Probabilidad final calculada
-    candidateStreak: number;    // Racha de civil del candidato
-    impostorLosses: number;     // Derrotas consecutivas de impostores
-}
+// MODULOS IMPORTADOS
+import { shuffleArray } from './utils/helpers';
+import { getVault, createNewVault } from './core/vault';
+import { calculateParanoiaScore, detectLinearPattern } from './core/paranoia';
+import { calculateInfinitumWeight, applySynergyFactor, getDebugPlayerStats } from './core/infinitum';
+import { selectAlcalde } from './protocols/magistrado';
+import { calculateRenunciaProbability, applyRenunciaDecision } from './protocols/renuncia';
+import { runVocalisProtocol } from './protocols/vocalis';
+import { calculateArchitectTrigger } from './protocols/architect';
+import { selectLexiconWord, generateSmartHint, generateVanguardHints, generateArchitectOptions } from './lexicon/wordSelection';
 
 interface GameConfig {
     players: Player[];
@@ -30,11 +21,11 @@ interface GameConfig {
     useHintMode: boolean;
     useTrollMode: boolean;
     useArchitectMode: boolean;
-    useOracleMode: boolean; // v7.0
-    useVanguardiaMode: boolean; // v8.0
-    useNexusMode: boolean; // v6.5
-    useRenunciaMode: boolean; // v12.0
-    useMagistradoMode: boolean; // ✨ NUEVO v10.0
+    useOracleMode: boolean;
+    useVanguardiaMode: boolean;
+    useNexusMode: boolean;
+    useRenunciaMode: boolean;
+    useMagistradoMode: boolean;
     selectedCats: string[];
     history: GameState['history'];
     debugOverrides?: {
@@ -42,528 +33,9 @@ interface GameConfig {
         forceArchitect: boolean;
         forceRenuncia?: boolean;
     }
-    // v4.0 BACCHUS Config
     isPartyMode?: boolean;
-    memoryModeConfig?: GameState['settings']['memoryModeConfig']; // v9.0
+    memoryModeConfig?: GameState['settings']['memoryModeConfig'];
 }
-
-// --- HELPER: Fisher-Yates Shuffle ---
-const shuffleArray = <T>(array: T[]): T[] => {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-};
-
-// --- INFINITUM HELPERS ---
-
-const createNewVault = (uid: string): InfinityVault => ({
-    uid,
-    metrics: {
-        totalSessions: 0,
-        impostorRatio: 0,
-        civilStreak: 0,
-        totalImpostorWins: 0,
-        quarantineRounds: 0, // v6.1
-        timesAsAlcalde: 0
-    },
-    categoryDNA: {},
-    sequenceAnalytics: {
-        lastImpostorPartners: [],
-        roleSequence: [],
-        averageWaitTime: 0
-    }
-});
-
-const getVault = (uid: string, stats: Record<string, InfinityVault>): InfinityVault => {
-    return stats[uid] || createNewVault(uid);
-};
-
-// --- PROTOCOLO MAGISTRADO (v10.0) ---
-const selectAlcalde = (
-    players: Player[], 
-    impostorIds: string[], 
-    stats: Record<string, InfinityVault>
-): Player | null => {
-    // 1. Filtrar solo civiles
-    const civilPlayers = players.filter(p => !impostorIds.includes(p.id));
-    
-    if (civilPlayers.length === 0) return null;
-    if (civilPlayers.length === 1) return civilPlayers[0];
-
-    // 2. Calcular pesos (quien menos haya sido alcalde tiene mas probabilidad)
-    const weights = civilPlayers.map(player => {
-        const key = player.name.trim().toLowerCase();
-        const vault = getVault(key, stats);
-        const timesAsAlcalde = vault.metrics.timesAsAlcalde || 0;
-        
-        // Peso base: 100 dividido por (veces + 1)
-        // 0 veces = 100
-        // 1 vez = 50
-        // 2 veces = 33
-        return Math.max(10, 100 / (timesAsAlcalde + 1));
-    });
-
-    // 3. Selección ponderada
-    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (let i = 0; i < civilPlayers.length; i++) {
-        random -= weights[i];
-        if (random <= 0) {
-            return civilPlayers[i];
-        }
-    }
-    
-    return civilPlayers[civilPlayers.length - 1];
-};
-
-// --- PROTOCOLO LETEO: Regularidad Aritmética ---
-const detectLinearPattern = (pastImpostorIds: string[], currentPlayers: Player[]): boolean => {
-    if (pastImpostorIds.length < 4) return false;
-    
-    const idToIndex = new Map(currentPlayers.map((p, i) => [p.id, i]));
-    const indices: number[] = [];
-    
-    // Get latest 4 impostors
-    for (let i = 0; i < 4; i++) {
-        const idx = idToIndex.get(pastImpostorIds[i]);
-        if (idx === undefined) return false; // Player missing, pattern broken
-        indices.push(idx);
-    }
-    
-    // Calculate jumps between rounds. Note: pastImpostorIds is [Recent, ..., Old]
-    // Jump 1: From Imp[1] to Imp[0]
-    // Jump 2: From Imp[2] to Imp[1]
-    // Jump 3: From Imp[3] to Imp[2]
-    
-    const N = currentPlayers.length;
-    const jumps: number[] = [];
-    
-    for (let i = 0; i < 3; i++) {
-        // Calculate forward jump in modular arithmetic
-        let jump = (indices[i] - indices[i+1]) % N;
-        if (jump < 0) jump += N;
-        jumps.push(jump);
-    }
-    
-    // Check if jumps are constant
-    return jumps[0] === jumps[1] && jumps[1] === jumps[2];
-};
-
-// --- FACTOR PARANOIA: PATTERN DETECTION (v2.1) ---
-const calculateParanoiaScore = (
-    pastImpostorIds: string[], 
-    currentPlayers: Player[],
-    currentRound: number
-): number => {
-    if (pastImpostorIds.length < 4) return 0; // Need data
-
-    // Map IDs to current indices to detect linear patterns
-    const idToIndex = new Map(currentPlayers.map((p, i) => [p.id, i]));
-    const lastN = pastImpostorIds.slice(0, 5); // Look at last 5
-    const indices = lastN.map(id => idToIndex.get(id)).filter(i => i !== undefined) as number[];
-
-    if (indices.length < 3) return 0;
-
-    let score = 0;
-
-    // A. Detección de Secuencia Lineal (i_n = i_{n-1} + 1)
-    let sequentialHits = 0;
-    // Adjusted Threshold: In small groups, sequences happen randomly more often.
-    const groupSize = currentPlayers.length;
-    const sequenceThreshold = groupSize <= 4 ? 3 : 2; 
-
-    for (let i = 0; i < indices.length - 1; i++) {
-        const diff = (indices[i] - indices[i+1]); // Checking reverse chronological
-        if (Math.abs(diff) === 1 || Math.abs(diff) === currentPlayers.length - 1) {
-            sequentialHits++;
-        }
-    }
-    if (sequentialHits >= sequenceThreshold) score += 50; 
-    if (sequentialHits > sequenceThreshold) score += 50; 
-
-    // B. Detección de Sub-clanes (Repetición de parejas/personas)
-    const frequency: Record<string, number> = {};
-    lastN.forEach(id => { frequency[id] = (frequency[id] || 0) + 1; });
-    const maxFreq = Math.max(...Object.values(frequency));
-    
-    // Normalized for group size
-    const expectedFrequency = 5 / groupSize; 
-    const normalizedFreq = maxFreq / expectedFrequency;
-
-    if (normalizedFreq >= 2.5) score += 60; // Suspiciously high repetition
-    else if (normalizedFreq >= 1.8) score += 20;
-
-    // C. Entropía de Sesión (Aburrimiento)
-    // If round number is high and no anomaly detected, slowly creep paranoia up
-    if (currentRound > 8) score += (currentRound % 5) * 5;
-
-    return Math.min(100, score);
-};
-
-// 4. La Ecuación Maestra de INFINITUM (v6.3 - LETEO COMPATIBLE)
-export const calculateInfinitumWeight = (
-    player: Player, 
-    vault: InfinityVault, 
-    category: string, 
-    currentRound: number,
-    coolingDownFactor: number = 1.0, 
-    averageWeightEstimate: number = 100,
-    entropyLevel: number = 0 // LETEO Variable (0 to 1)
-): number => {
-    
-    // Z. Quarantine Check
-    if (vault.metrics.quarantineRounds > 0) {
-        return 0.01; 
-    }
-
-    // A. Motor de Frecuencia y Karma (V_fk)
-    const base = 100;
-    const ratio = Math.max(vault.metrics.impostorRatio, 0.01); 
-    const effectiveStreak = vault.metrics.civilStreak * coolingDownFactor; 
-    const v_fk = base * Math.log(effectiveStreak + 2) * (1 / ratio);
-
-    // B. Motor de Recencia y Secuencia (V_rs)
-    let v_rs = 1.0;
-    const history = vault.sequenceAnalytics.roleSequence; 
-    
-    if (history[0]) v_rs *= 0.05;      
-    else if (history[1]) v_rs *= 0.30; 
-    else if (history[2]) v_rs *= 0.60; 
-    else if (history[3]) v_rs *= 1.0;  
-
-    // C. Motor de Afinidad de Categoría (V_ac)
-    let v_ac = 1.0;
-    const catDNA = vault.categoryDNA[category];
-    if (catDNA && catDNA.timesAsImpostor > 0) {
-        v_ac *= 0.8; 
-    }
-
-    // D. Cálculo Ponderado Estándar
-    const calculatedWeight = (v_fk * v_rs * v_ac);
-
-    // E. Ruido Cuántico
-    const noise = Math.random() * (averageWeightEstimate * 0.3);
-
-    // --- ECUACIÓN LETEO (v6.3) ---
-    // Peso_Final = (Calculated) * (1 - Entropía) + (100 * Entropía)
-    // Si Entropía es 1 (Grade III), el peso es 100 para todos (Azar Puro).
-    const finalWeight = (calculatedWeight * (1 - entropyLevel)) + (100 * entropyLevel);
-
-    return finalWeight + noise;
-};
-
-// Helper for Debug Console
-export const getDebugPlayerStats = (
-    players: Player[], 
-    stats: Record<string, InfinityVault>, 
-    round: number
-): { name: string, weight: number, prob: number, streak: number }[] => {
-    const weights: number[] = [];
-    const dummyCat = "General"; 
-    
-    // First pass
-    const playerWeights = players.map(p => {
-        const key = p.name.trim().toLowerCase();
-        const vault = getVault(key, stats);
-        // Estimate avg weight as 100 for debug vis
-        const w = calculateInfinitumWeight(p, vault, dummyCat, round, 1.0, 100, 0);
-        weights.push(w);
-        return { p, w, v: vault };
-    });
-
-    const totalW = weights.reduce((a, b) => a + b, 0);
-
-    return playerWeights.map(item => ({
-        name: item.p.name,
-        weight: Math.round(item.w),
-        prob: totalW > 0 ? (item.w / totalW) * 100 : 0,
-        streak: item.v.metrics.civilStreak
-    })).sort((a, b) => b.weight - a.weight);
-};
-
-// D. Motor de Sinergia de Escuadrón (V_se) - UPDATED v2.0
-const applySynergyFactor = (
-    candidateWeight: number, 
-    candidateVault: InfinityVault, 
-    alreadySelectedIds: string[],
-    groupSize: number
-): number => {
-    let synergyFactor = 1.0;
-    const lastPartners = candidateVault.sequenceAnalytics.lastImpostorPartners;
-    const hasConflict = alreadySelectedIds.some(id => lastPartners.includes(id));
-    
-    if (hasConflict) {
-        // Penalidad escalada según tamaño del grupo
-        // Grupo de 3-4: penalidad suave (0.4) - permite repeticiones ocasionales
-        // Grupo de 8+: penalidad fuerte (0.1) - evita repeticiones casi totalmente
-        const penalty = Math.max(0.1, 1 - (groupSize / 10));
-        synergyFactor = penalty;
-    }
-    return candidateWeight * synergyFactor;
-};
-
-// --- MOTOR DE DISPARO ENTRÓPICO (MDE v5.0) ---
-const calculateArchitectTrigger = (
-    history: GameConfig['history'], 
-    firstCivilStreak: number
-): boolean => {
-    const currentRound = history.roundCounter + 1;
-    const roundsSinceLast = currentRound - (history.lastArchitectRound || -999);
-    
-    // A. Coeficiente de Recencia Vital (C_rv)
-    if (roundsSinceLast <= 1) return false; 
-
-    let baseProb = 0.15; 
-
-    if (roundsSinceLast >= 2 && roundsSinceLast <= 5) {
-        baseProb = 0.05; 
-    } else if (roundsSinceLast > 10) {
-        baseProb = 0.25; 
-    }
-
-    if (currentRound > 10) baseProb = Math.max(baseProb, 0.20); 
-    if (firstCivilStreak > 8) baseProb += 0.10; 
-
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 3) baseProb *= 2; 
-
-    return Math.random() < baseProb;
-};
-
-// --- PROTOCOL LEXICON ENGINE (v1.0) ---
-
-interface LexiconSelection {
-    categoryName: string;
-    wordPair: CategoryData;
-}
-
-export const generateArchitectOptions = (selectedCats: string[]): [LexiconSelection, LexiconSelection] => {
-    const allCategories = Object.keys(CATEGORIES_DATA);
-    let pool = selectedCats.length > 0 ? selectedCats : allCategories;
-    if (pool.length === 0) pool = allCategories;
-
-    const getOption = (): LexiconSelection => {
-        const categoryName = pool[Math.floor(Math.random() * pool.length)];
-        const catWords = CATEGORIES_DATA[categoryName];
-        const wordPair = catWords[Math.floor(Math.random() * catWords.length)];
-        return { categoryName, wordPair };
-    };
-
-    const option1 = getOption();
-    let option2 = getOption();
-
-    let attempts = 0;
-    while (option1.wordPair.civ === option2.wordPair.civ && attempts < 10) {
-        option2 = getOption();
-        attempts++;
-    }
-
-    return [option1, option2];
-};
-
-const selectLexiconWord = (
-    selectedCats: string[], 
-    history: GameConfig['history']
-): LexiconSelection => {
-    const allCategories = Object.keys(CATEGORIES_DATA);
-    let activePoolCategories: string[] = [];
-
-    const isSingleMode = selectedCats.length === 1;
-    const isOmniscientMode = selectedCats.length === 0 || selectedCats.length === allCategories.length;
-
-    if (isSingleMode) {
-        activePoolCategories = selectedCats;
-    } else if (isOmniscientMode) {
-        activePoolCategories = allCategories.filter(cat => !history.lastCategories.includes(cat));
-        if (activePoolCategories.length === 0) activePoolCategories = allCategories;
-    } else {
-        activePoolCategories = selectedCats;
-    }
-
-    const chosenCategoryName = activePoolCategories[Math.floor(Math.random() * activePoolCategories.length)];
-    const categoryWords = CATEGORIES_DATA[chosenCategoryName];
-
-    const validWords = categoryWords.filter(w => !history.lastWords.includes(w.civ));
-    const poolToWeight = validWords.length > 0 ? validWords : categoryWords;
-
-    const weightedPool = poolToWeight.map(w => {
-        const usage = history.globalWordUsage[w.civ] || 0;
-        const weight = 1 / (usage + 1);
-        return { word: w, weight };
-    });
-
-    const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
-    let randomTicket = Math.random() * totalWeight;
-    let selectedPair: CategoryData = weightedPool[0].word;
-
-    for (const item of weightedPool) {
-        randomTicket -= item.weight;
-        if (randomTicket <= 0) {
-            selectedPair = item.word;
-            break;
-        }
-    }
-
-    return { categoryName: chosenCategoryName, wordPair: selectedPair };
-};
-
-export const generateSmartHint = (pair: CategoryData): string => {
-    if (pair.hints && pair.hints.length > 0) {
-        const randomIndex = Math.floor(Math.random() * pair.hints.length);
-        return pair.hints[randomIndex];
-    }
-    return pair.hint || "Sin Pista";
-};
-
-// v8.0 Helper for Vanguard Protocol
-export const generateVanguardHints = (pair: CategoryData): string => {
-    let hintsToUse = pair.hints || [];
-    // Ensure we have at least 2 items to pick from
-    if (hintsToUse.length < 2) {
-        hintsToUse = [...hintsToUse, pair.hint || "Sin Pista", "RUIDO"];
-    }
-    
-    // Shuffle and pick 2
-    const shuffled = shuffleArray(hintsToUse);
-    const selected = shuffled.slice(0, 2);
-    
-    return `PISTAS: ${selected[0]} | ${selected[1]}`;
-};
-
-// --- PROTOCOLO VOCALIS (v1.0) ---
-const runVocalisProtocol = (
-    players: Player[],
-    history: GameConfig['history'],
-    isParty: boolean,
-    architectId?: string
-): Player => {
-    if (isParty) {
-        const sortedByLength = [...players].sort((a, b) => b.name.length - a.name.length);
-        const maxLength = sortedByLength[0].name.length;
-        const candidates = sortedByLength.filter(p => p.name.length === maxLength);
-        return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-    let candidates = players;
-    if (architectId && players.length > 2) {
-        if (Math.random() < 0.9) {
-            candidates = players.filter(p => p.id !== architectId);
-        }
-    }
-
-    const weightedCandidates = candidates.map(p => {
-        let weight = 100;
-        const lastStartRound = history.lastStartingPlayers.indexOf(p.id); 
-        
-        if (lastStartRound === 0) weight *= 0.001; 
-        else if (lastStartRound === 1) weight *= 0.05; 
-        else if (lastStartRound === 2) weight *= 0.25;
-        else if (lastStartRound === -1) weight *= 3.0; 
-
-        const nameEntropy = p.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        weight += (nameEntropy % 20); 
-        weight *= (0.8 + Math.random() * 0.4); 
-
-        return { player: p, weight };
-    });
-
-    const totalWeight = weightedCandidates.reduce((sum, item) => sum + item.weight, 0);
-    let ticket = Math.random() * totalWeight;
-    
-    for (const item of weightedCandidates) {
-        ticket -= item.weight;
-        if (ticket <= 0) return item.player;
-    }
-    
-    return weightedCandidates[weightedCandidates.length - 1].player;
-};
-
-// ============================================================
-// PROTOCOLO RENUNCIA v2.0 - MOTOR DE DISPARO ADAPTATIVO (DA-1)
-// ============================================================
-
-const calculateRenunciaProbability = (
-    candidatePlayer: Player,
-    currentRound: number,
-    stats: Record<string, InfinityVault>,
-    history: GameConfig['history']
-): { probability: number; telemetry: RenunciaTelemetry } => {
-    
-    const BASE_PROB = 0.15; // 15% probabilidad base
-    
-    // --- VECTOR V_k: INTENSIDAD DE KARMA ---
-    const candidateKey = candidatePlayer.name.trim().toLowerCase();
-    const candidateVault = getVault(candidateKey, stats);
-    const candidateStreak = candidateVault.metrics.civilStreak;
-    
-    let vectorKarma = 0;
-    
-    // Caso "Impostor Reincidente" (streak 0-1)
-    if (candidateStreak <= 1) {
-        vectorKarma = 0.20; // +20% - Dale opción de escape
-    }
-    // Caso "Justicia del Civil" (streak 8+)
-    else if (candidateStreak >= 8) {
-        vectorKarma = -0.15; // -15% - Déjalo disfrutar su momento
-    }
-    // Caso intermedio (streak 2-7)
-    else {
-        vectorKarma = 0.05; // +5% neutral
-    }
-    
-    // --- VECTOR V_s: LONGEVIDAD DE SESIÓN ---
-    // +5% cada 3 rondas completadas
-    const vectorSession = Math.floor(currentRound / 3) * 0.05;
-    
-    // --- VECTOR V_f: FRACASO ACUMULADO ---
-    // Analizar últimas 3 rondas en matchLogs
-    let vectorFailure = 0;
-    let impostorLosses = 0;
-    
-    if (history.matchLogs && history.matchLogs.length >= 3) {
-        const lastThreeRounds = history.matchLogs.slice(0, 3);
-        
-        // Contar rondas donde los impostores perdieron
-        // NOTA: Por ahora usamos un placeholder. Necesitarás añadir 
-        // un campo "impostorWon" a MatchLog para rastrear esto correctamente
-        impostorLosses = lastThreeRounds.filter(log => {
-            // Placeholder: asumir que si no es troll, hubo resultado normal
-            // En el futuro, usar: return log.impostorWon === false
-            return !log.isTroll;
-        }).length;
-        
-        // Si 3 derrotas seguidas (placeholder - ajustar cuando tengas el campo real)
-        if (impostorLosses >= 3) {
-            vectorFailure = 0.15; // +15% bonus
-        }
-    }
-    
-    // --- ECUACIÓN FINAL ---
-    // P_final = BASE + V_k + V_s + V_f
-    // Con límites: mínimo 5%, máximo 70%
-    const finalProb = Math.max(0.05, Math.min(0.70, 
-        BASE_PROB + vectorKarma + vectorSession + vectorFailure
-    ));
-    
-    return {
-        probability: finalProb,
-        telemetry: {
-            baseProb: BASE_PROB,
-            vectorKarma,
-            vectorSession,
-            vectorFailure,
-            finalProb,
-            candidateStreak,
-            impostorLosses
-        }
-    };
-};
-
-// --- MAIN GENERATOR ---
 
 export const generateGameData = (config: GameConfig): { 
     players: GamePlayer[]; 
@@ -571,19 +43,17 @@ export const generateGameData = (config: GameConfig): {
     trollScenario: TrollScenario | null;
     isArchitectTriggered: boolean; 
     designatedStarter: string; 
-    newHistory: GameConfig['history'];
+    newHistory: GameState['history'];
     oracleSetup?: OracleSetupData;
-    renunciaData?: RenunciaData; // v12.0
-    magistradoData?: MagistradoData; // v10.0
-    wordPair: CategoryData; // Exposed for logic that needs it
+    renunciaData?: RenunciaData;
+    magistradoData?: MagistradoData;
+    wordPair: CategoryData;
 } => {
     const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig } = config;
     
     const currentRound = history.roundCounter + 1;
     const availableCategories = selectedCats.length > 0 ? selectedCats : Object.keys(CATEGORIES_DATA);
 
-    // --- PROTOCOLO PANDORA & DEBUG ---
-    
     let isTrollEvent = false;
     let trollScenario: TrollScenario | null = null;
 
@@ -592,55 +62,42 @@ export const generateGameData = (config: GameConfig): {
         trollScenario = debugOverrides.forceTroll;
     }
 
-    // --- PARANOIA ENGINE v2.0 & LETEO INTEGRATION ---
-    
-    // 1. Calculate Paranoia
     const pastImpostorIds = history.pastImpostorIds || [];
     const paranoiaLevel = calculateParanoiaScore(pastImpostorIds, players, currentRound);
     
-    // 3. Post-Crisis Stabilization
     let coolingRounds = history.coolingDownRounds || 0;
     const coolingFactor = coolingRounds > 0 ? (1 - (coolingRounds * 0.25)) : 1.0;
 
-    // 2. Determine if Break Protocol is needed (Red Level: > 70%)
     let breakProtocolType: 'pandora' | 'mirror' | 'blind' | 'leteo' | null = null;
     let leteoGrade: 0 | 1 | 2 | 3 = 0;
-    let entropyLevel = 0; // 0 to 1
+    let entropyLevel = 0;
     
-    // Ensure we do NOT trigger a new Break Protocol if we are actively cooling down.
     if (!isTrollEvent && paranoiaLevel > 70 && coolingRounds === 0) {
         const roll = Math.random() * 100;
         
-        // PROTOCOLO LETEO (40% Probability)
         if (roll < 40) {
             breakProtocolType = 'leteo';
-            
-            // Determine LETEO Grade based on Linear Patterns or Paranoia Intensity
             const hasLinearPattern = detectLinearPattern(pastImpostorIds, players);
-            
             if (paranoiaLevel > 90) {
-                leteoGrade = 3; // Colapso Total
+                leteoGrade = 3; 
                 entropyLevel = 1.0;
             } else if (hasLinearPattern) {
-                // If a strict mathematical pattern exists, apply strong entropy
-                leteoGrade = 2; // Entropía de Karma
+                leteoGrade = 2;
                 entropyLevel = 0.6;
             } else {
-                leteoGrade = 1; // Entropía de Recencia
+                leteoGrade = 1;
                 entropyLevel = 0.3;
             }
-
-        } else if (useTrollMode && roll < 65) { // 25% chance for Troll if enabled
+        } else if (useTrollMode && roll < 65) {
             breakProtocolType = 'pandora';
             isTrollEvent = true;
-        } else if (roll < 90) { // Mirror
+        } else if (roll < 90) {
             breakProtocolType = 'mirror';
         } else {
             breakProtocolType = 'blind';
         }
     }
 
-    // --- TROLL EVENT EXECUTION ---
     if (isTrollEvent) {
         if (!trollScenario) { 
             const roll = Math.random() * 100;
@@ -680,8 +137,6 @@ export const generateGameData = (config: GameConfig): {
         const vocalisStarter = runVocalisProtocol(players, history, false);
         const newStartingPlayers = [vocalisStarter.id, ...history.lastStartingPlayers].slice(0, 10);
 
-        // Apply BACCHUS Roles if Party Mode
-        // NOTE: For troll events we pass empty stats because stats don't matter/update in troll rounds
         if (isPartyMode) {
             trollPlayers = assignPartyRoles(trollPlayers, history, history.playerStats);
         }
@@ -696,17 +151,16 @@ export const generateGameData = (config: GameConfig): {
             civilians: trollPlayers.filter(p => !p.isImp).map(p => p.name),
             isTroll: true,
             trollScenario: trollScenario,
-            paranoiaLevel: 0, // Reset
+            paranoiaLevel: 0,
             breakProtocol: null,
             architect: null,
             leteoGrade: 0,
             entropyLevel: 0,
-            affectsINFINITUM: false // 🔥 Stats not updated
+            affectsINFINITUM: false
         };
         const currentLogs = history.matchLogs || [];
         const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
 
-        // 🔥 CRITICAL CHANGE: Do not update playerStats or pastImpostorIds for Troll Events
         return { 
             players: trollPlayers, isTrollEvent: true, trollScenario: trollScenario, isArchitectTriggered: false, designatedStarter: vocalisStarter.name,
             newHistory: { 
@@ -714,10 +168,10 @@ export const generateGameData = (config: GameConfig): {
                 roundCounter: currentRound, 
                 lastTrollRound: currentRound, 
                 lastStartingPlayers: newStartingPlayers,
-                playerStats: history.playerStats, // KEEP ORIGINAL
-                pastImpostorIds: history.pastImpostorIds || [], // KEEP ORIGINAL
-                paranoiaLevel: 0, // Reset
-                coolingDownRounds: 2, // Slight cooldown
+                playerStats: history.playerStats,
+                pastImpostorIds: history.pastImpostorIds || [],
+                paranoiaLevel: 0,
+                coolingDownRounds: 2,
                 lastBreakProtocol: breakProtocolType || 'manual',
                 matchLogs: updatedLogs
             },
@@ -725,15 +179,10 @@ export const generateGameData = (config: GameConfig): {
         };
     }
 
-    // --- INFINITUM CORE LOGIC (Standard or Modified) ---
-    
     const { categoryName: catName, wordPair } = selectLexiconWord(selectedCats, history);
     const currentStats = { ...history.playerStats };
-    
-    // Shuffle Pre-Pick (v6.1 Feature C)
     const shuffledPlayers = shuffleArray(players);
 
-    // --- LETEO SHADOW VAULT LOGIC ---
     let calculationStats: Record<string, InfinityVault> = currentStats;
     
     if (breakProtocolType === 'leteo' && leteoGrade > 0) {
@@ -748,7 +197,6 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
-    // Average Weight Calculation
     let totalEstimatedWeight = 0;
     shuffledPlayers.forEach(p => {
         const key = p.name.trim().toLowerCase();
@@ -757,7 +205,6 @@ export const generateGameData = (config: GameConfig): {
     });
     const avgWeight = totalEstimatedWeight / (shuffledPlayers.length || 1);
 
-    // Calculate Final Weights
     const playerWeights: { player: Player, weight: number, vault: InfinityVault, telemetry: SelectionTelemetry }[] = [];
     
     shuffledPlayers.forEach(p => {
@@ -789,7 +236,6 @@ export const generateGameData = (config: GameConfig): {
         });
     });
 
-    // Mirror Inversion Logic
     if (breakProtocolType === 'mirror') {
         playerWeights.sort((a, b) => a.weight - b.weight); 
         playerWeights[0].weight = 999999; 
@@ -797,7 +243,6 @@ export const generateGameData = (config: GameConfig): {
 
     const grandTotalWeight = playerWeights.reduce((sum, pw) => sum + pw.weight, 0);
 
-    // Cascade Selection
     const selectedImpostors: Player[] = [];
     const selectedKeys: string[] = []; 
     const telemetryData: SelectionTelemetry[] = [];
@@ -841,7 +286,6 @@ export const generateGameData = (config: GameConfig): {
         selectedKeys.push(chosen.player.name.trim().toLowerCase());
     }
 
-    // Update REAL Vaults (Core Memory)
     const newPlayerStats = { ...currentStats };
     const newPastImpostorIds = [...pastImpostorIds];
 
@@ -888,7 +332,6 @@ export const generateGameData = (config: GameConfig): {
         newPlayerStats[key] = vault;
     });
 
-    // --- PROTOCOLO MAGISTRADO (v10.0) ---
     let magistradoData: MagistradoData | undefined;
     let alcaldePlayer: Player | null = null;
 
@@ -905,7 +348,6 @@ export const generateGameData = (config: GameConfig): {
                 }
             };
             
-            // Update stats
             const alcaldeKey = alcaldePlayer.name.trim().toLowerCase();
             const alcaldeVault = getVault(alcaldeKey, newPlayerStats);
             alcaldeVault.metrics.timesAsAlcalde = (alcaldeVault.metrics.timesAsAlcalde || 0) + 1;
@@ -918,7 +360,6 @@ export const generateGameData = (config: GameConfig): {
     const newGlobalWordUsage = { ...history.globalWordUsage };
     newGlobalWordUsage[wordPair.civ] = (newGlobalWordUsage[wordPair.civ] || 0) + 1;
 
-    // Check Architect
     let isArchitectTriggered = false;
     let architectId: string | undefined;
 
@@ -944,14 +385,12 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
-    // --- PROTOCOLO ORÁCULO (v7.0 EXPANDED) ---
     let oracleId: string | undefined;
     let oracleSetup: OracleSetupData | undefined;
     
     if (useOracleMode && useHintMode && players.length > 2) {
         let firstImpIndex = -1;
         
-        // Find where the chosen impostors are sitting based on the original shuffled list for fair selection context
         for (let i = 0; i < players.length; i++) {
             const key = players[i].name.trim().toLowerCase();
             if (selectedKeys.includes(key)) {
@@ -960,18 +399,16 @@ export const generateGameData = (config: GameConfig): {
             }
         }
 
-        // SEQUENCE RULE: Oracle must be before the first impostor.
         if (firstImpIndex > 0) {
             const potentialOracles = players.slice(0, firstImpIndex).filter(p => p.id !== architectId && p.id !== alcaldePlayer?.id);
             
             if (potentialOracles.length > 0) {
-                // Weighted selection based on streak using INFINITUM
                 const oracleWeights = potentialOracles.map(p => {
                     const key = p.name.trim().toLowerCase();
-                    const vault = getVault(key, newPlayerStats); // Use updated stats
+                    const vault = getVault(key, newPlayerStats);
                     return {
                         player: p,
-                        weight: Math.max(1, vault.metrics.civilStreak) // Streak increases oracle chance
+                        weight: Math.max(1, vault.metrics.civilStreak)
                     };
                 });
                 
@@ -992,7 +429,6 @@ export const generateGameData = (config: GameConfig): {
                 if (chosenOracle) {
                     oracleId = chosenOracle.id;
                     
-                    // Generate potential hints
                     const hints = wordPair.hints && wordPair.hints.length >= 3 
                         ? wordPair.hints.slice(0, 3) 
                         : shuffleArray([...(wordPair.hints || []), wordPair.hint || "Sin Pista", "RUIDO"]).slice(0, 3);
@@ -1020,7 +456,6 @@ export const generateGameData = (config: GameConfig): {
         const isArchitect = p.id === architectId;
         const isAlcalde = p.id === alcaldePlayer?.id;
 
-        // VANGUARDIA LOGIC CHECK (v8.0)
         let isVanguardia = false;
         if (useVanguardiaMode && useHintMode && isImp) {
             if (p.id === vocalisStarter.id) {
@@ -1033,13 +468,11 @@ export const generateGameData = (config: GameConfig): {
             if (isVanguardia) {
                  displayWord = generateVanguardHints(wordPair);
             } else {
-                 // Standard hint generation if Oracle didn't intervene yet
                  const hint = generateSmartHint(wordPair);
                  displayWord = useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR";
             }
         }
 
-        // MEMORY MODE GENERATION (v9.0)
         let memoryWords: string[] | undefined;
         let memoryCorrectIndex: number | undefined;
 
@@ -1075,7 +508,6 @@ export const generateGameData = (config: GameConfig): {
         };
     });
 
-    // --- PROTOCOLO NEXUS (v6.5) ---
     if (useNexusMode && impostorCount > 1) {
         const impostorNames = gamePlayers.filter(p => p.isImp).map(p => p.name);
         gamePlayers.forEach(p => {
@@ -1085,11 +517,8 @@ export const generateGameData = (config: GameConfig): {
         });
     }
 
-    // ============================================================
-    // PROTOCOLO RENUNCIA v2.0 - ACTIVACIÓN ADAPTATIVA
-    // ============================================================
     let renunciaData: RenunciaData | undefined;
-    let renunciaTelemetry: RenunciaTelemetry | undefined;
+    let renunciaTelemetry: any | undefined;
 
     const shouldTryRenuncia = (
         (useRenunciaMode || debugOverrides?.forceRenuncia) &&
@@ -1100,46 +529,39 @@ export const generateGameData = (config: GameConfig): {
     );
 
     if (shouldTryRenuncia) {
-        // 1. Filtrar candidatos elegibles (mínimo 2 civiles por delante)
         const eligibleCandidates = selectedImpostors.filter(impostor => {
             const impostorIndex = players.findIndex(p => p.id === impostor.id);
             if (impostorIndex === -1) return false;
             
-            // Contar civiles ANTES de este impostor en el orden de revelación
             const civiliansBeforeCount = players.slice(0, impostorIndex).filter(p => {
                 const key = p.name.trim().toLowerCase();
-                return !selectedKeys.includes(key); // Es civil
+                return !selectedKeys.includes(key); 
             }).length;
             
             return civiliansBeforeCount >= 2;
         });
         
-        // 2. Solo proceder si hay candidatos elegibles
         if (eligibleCandidates.length > 0) {
-            // 3. Seleccionar candidato aleatorio del pool elegible
             const candidateIndex = Math.floor(Math.random() * eligibleCandidates.length);
             const candidate = eligibleCandidates[candidateIndex];
             
-            // 4. Calcular probabilidad adaptativa según perfil del candidato
             const { probability, telemetry } = calculateRenunciaProbability(
                 candidate,
                 currentRound,
-                newPlayerStats, // Usar stats actualizados
+                newPlayerStats,
                 history
             );
             
             renunciaTelemetry = telemetry;
             
-            // 5. Tirar el dado o Forzar
             const roll = Math.random();
             if (debugOverrides?.forceRenuncia || roll < probability) {
-                // ✅ RENUNCIA ACTIVADA
                 renunciaData = {
                     candidatePlayerId: candidate.id,
                     originalImpostorIds: selectedImpostors.map(imp => imp.id),
                     decision: 'pending',
                     timestamp: Date.now(),
-                    hasSeenInitialRole: false // NEW: Initialize as false
+                    hasSeenInitialRole: false 
                 };
             }
         }
@@ -1147,18 +569,15 @@ export const generateGameData = (config: GameConfig): {
 
     if (newPastImpostorIds.length > 20) newPastImpostorIds.length = 20;
     
-    // --- BACCHUS PROTOCOL (Updated v2.0) ---
     const lastBartenders = history.lastBartenders || [];
     let newBartenderId: string | null = null;
     
     if (isPartyMode) {
-        // Pass the updated stats to the role assigner so it can calculate VIP/Alguacil correctly
         gamePlayers = assignPartyRoles(gamePlayers, history, newPlayerStats);
         const bartender = gamePlayers.find(p => p.partyRole === 'bartender');
         if (bartender) newBartenderId = bartender.id;
     }
     
-    // Update Bartender History
     const newLastBartenders = newBartenderId 
         ? [newBartenderId, ...lastBartenders].slice(0, 10) 
         : lastBartenders;
@@ -1194,7 +613,7 @@ export const generateGameData = (config: GameConfig): {
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
 
     const finalCoolingRounds = (breakProtocolType === 'leteo' && leteoGrade === 3) 
-        ? 4 // Hard Reset
+        ? 4 
         : (breakProtocolType ? 3 : Math.max(0, coolingRounds - 1));
 
     return { 
@@ -1203,9 +622,9 @@ export const generateGameData = (config: GameConfig): {
         trollScenario: trollScenario,
         isArchitectTriggered: isArchitectTriggered,
         designatedStarter: vocalisStarter.name,
-        oracleSetup: oracleSetup, // Return setup data
-        renunciaData: renunciaData, // Return Renuncia data
-        magistradoData: magistradoData, // ✨ NUEVO
+        oracleSetup: oracleSetup, 
+        renunciaData: renunciaData, 
+        magistradoData: magistradoData,
         newHistory: {
             roundCounter: currentRound, 
             lastWords: newHistoryWords,
@@ -1215,7 +634,7 @@ export const generateGameData = (config: GameConfig): {
             lastTrollRound: isTrollEvent ? currentRound : history.lastTrollRound,
             lastArchitectRound: isArchitectTriggered ? currentRound : history.lastArchitectRound,
             lastStartingPlayers: newStartingPlayers,
-            lastBartenders: newLastBartenders, // v4.0 Track bartenders
+            lastBartenders: newLastBartenders, 
             pastImpostorIds: newPastImpostorIds,
             paranoiaLevel: breakProtocolType ? 0 : paranoiaLevel, 
             coolingDownRounds: finalCoolingRounds,
@@ -1227,158 +646,10 @@ export const generateGameData = (config: GameConfig): {
     };
 };
 
-export const applyRenunciaDecision = (
-    decision: RenunciaDecision,
-    gameData: GamePlayer[],
-    renunciaData: RenunciaData,
-    wordPair: CategoryData,
-    stats: Record<string, InfinityVault>,
-    useHintMode: boolean,
-    candidateRevealIndex: number,
-    architectId?: string,
-    oracleId?: string
-  ): { 
-    updatedGameData: GamePlayer[]; 
-    updatedRenunciaData: RenunciaData;
-    actualImpostorCount: number; // Número real de impostores después de la decisión
-  } => {
-    
-    const candidateId = renunciaData.candidatePlayerId;
-    
-    switch (decision) {
-      case 'accept': {
-        // No hay cambios, flujo normal
-        return {
-          updatedGameData: gameData,
-          updatedRenunciaData: {
-            ...renunciaData,
-            decision: 'accept',
-            timestamp: Date.now()
-          },
-          actualImpostorCount: gameData.filter(p => p.isImp).length
-        };
-      }
-      
-      case 'reject': {
-        const updatedGameData = gameData.map(p => {
-          if (p.id === candidateId) {
-            return {
-              ...p,
-              isImp: false,
-              role: 'Civil' as const,
-              word: p.realWord, // Palabra civil
-              hasRejectedImpRole: true
-            };
-          }
-          return p;
-        });
-        
-        const newImpostorCount = updatedGameData.filter(p => p.isImp).length;
-        
-        // SAFETY CHECK: Si quedan 0 impostores, forzar 1
-        if (newImpostorCount === 0) {
-          
-          const forcedImpostorIndex = updatedGameData.findIndex(p => 
-            p.id !== candidateId && 
-            p.id !== architectId && 
-            p.id !== oracleId
-          );
-          
-          if (forcedImpostorIndex !== -1) {
-            const hint = generateSmartHint(wordPair);
-            updatedGameData[forcedImpostorIndex] = {
-                ...updatedGameData[forcedImpostorIndex],
-                isImp: true,
-                role: 'Impostor',
-                word: useHintMode ? `PISTA: ${hint}` : "ERES EL IMPOSTOR"
-            };
-          }
-        }
-        
-        return {
-          updatedGameData,
-          updatedRenunciaData: {
-            ...renunciaData,
-            decision: 'reject',
-            timestamp: Date.now()
-          },
-          actualImpostorCount: updatedGameData.filter(p => p.isImp).length
-        };
-      }
-      
-      case 'transfer': {
-        const candidateIndex = gameData.findIndex(p => p.id === renunciaData.candidatePlayerId);
-        
-        const eligiblePlayers = gameData.filter((p, index) => 
-            !p.isImp && 
-            p.id !== renunciaData.candidatePlayerId &&
-            p.id !== architectId &&
-            p.id !== oracleId &&
-            index > candidateIndex // Only players who haven't revealed yet
-        );
-        
-        if (eligiblePlayers.length === 0) {
-          // Fallback to reject
-          return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, candidateRevealIndex, architectId, oracleId);
-        }
-        
-        // Ordenar por civilStreak
-        const sortedByKarma = [...eligiblePlayers].sort((a, b) => {
-          const vaultA = getVault(a.name.trim().toLowerCase(), stats);
-          const vaultB = getVault(b.name.trim().toLowerCase(), stats);
-          return (vaultB?.metrics.civilStreak || 0) - (vaultA?.metrics.civilStreak || 0);
-        });
-        
-        const newImpostor = sortedByKarma[0];
-        
-        const updatedGameData = gameData.map(p => {
-          // Candidato → Testigo Civil (BLIND TRANSFER)
-          if (p.id === candidateId) {
-            return {
-              ...p,
-              isImp: false,
-              role: 'Civil' as const,
-              word: p.realWord,
-              isWitness: true
-              // NO knownImpostorId/Name
-            };
-          }
-          
-          // Nuevo impostor
-          if (p.id === newImpostor.id) {
-            const hint = generateSmartHint(wordPair);
-            return {
-              ...p,
-              isImp: true,
-              role: 'Impostor' as const,
-              word: useHintMode 
-                ? `PISTA: ${hint}` 
-                : "ERES EL IMPOSTOR",
-              wasTransferred: true
-            };
-          }
-          
-          return p;
-        });
-        
-        return {
-          updatedGameData,
-          updatedRenunciaData: {
-            ...renunciaData,
-            decision: 'transfer',
-            witnessPlayerId: candidateId,
-            transferredToId: newImpostor.id,
-            timestamp: Date.now()
-          },
-          actualImpostorCount: updatedGameData.filter(p => p.isImp).length
-        };
-      }
-      
-      default:
-        return {
-          updatedGameData: gameData,
-          updatedRenunciaData: renunciaData,
-          actualImpostorCount: gameData.filter(p => p.isImp).length
-        };
-    }
-  };
+export { 
+    applyRenunciaDecision,
+    generateArchitectOptions,
+    generateSmartHint,
+    generateVanguardHints,
+    getDebugPlayerStats
+};
