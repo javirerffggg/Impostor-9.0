@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { 
-  BookOpen, Users, Brain, Gamepad2, Shield, 
-  HelpCircle, FileText, ChevronRight, X 
+  BookOpen, Users, Brain, Gamepad2, 
+  HelpCircle, FileText, ChevronRight, X,
+  Library, Settings, Lightbulb, Book
 } from 'lucide-react';
 import { ThemeConfig } from '../../types';
 import { manualTheme } from './manualTheme';
@@ -20,8 +21,11 @@ const sections: Section[] = [
   { id: 'roles', title: 'Roles del Juego', icon: <Users size={18} />, color: manualTheme.icon.roles },
   { id: 'infinitum', title: 'Sistema INFINITUM', icon: <Brain size={18} />, color: manualTheme.icon.infinitum },
   { id: 'modos', title: 'Modos de Juego', icon: <Gamepad2 size={18} />, color: manualTheme.icon.modes },
-  { id: 'protocolos', title: 'Protocolos Avanzados', icon: <Shield size={18} />, color: manualTheme.icon.protocols },
+  { id: 'categorias', title: 'Categorías', icon: <Library size={18} />, color: manualTheme.icon.categories },
+  { id: 'configuracion', title: 'Configuración', icon: <Settings size={18} />, color: manualTheme.icon.config },
+  { id: 'estrategias', title: 'Estrategias', icon: <Lightbulb size={18} />, color: manualTheme.icon.strategies },
   { id: 'faq', title: 'Preguntas Frecuentes', icon: <HelpCircle size={18} />, color: manualTheme.icon.faq },
+  { id: 'glosario', title: 'Glosario Técnico', icon: <Book size={18} />, color: manualTheme.icon.glossary },
 ];
 
 interface Props {
@@ -141,15 +145,23 @@ export const ManualSidebar: React.FC<Props> = ({
           style={{ borderColor: manualTheme.border.subtle }}>
           <p className="text-[10px] font-black uppercase tracking-wider mb-4 opacity-40"
             style={{ color: theme.text }}>
-            Accesos Rápidos
+            Atajos
           </p>
           <div className="space-y-1">
-            {['Glosario Técnico', 'Changelog', 'Soporte'].map((link) => (
-                <button key={link} className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors opacity-60 hover:opacity-100"
-                style={{ color: manualTheme.text.secondary }}>
-                → {link}
-                </button>
-            ))}
+            <button 
+                onClick={() => handleSectionClick('glosario')}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors opacity-60 hover:opacity-100"
+                style={{ color: manualTheme.text.secondary }}
+            >
+                → Glosario Técnico
+            </button>
+            <button 
+                onClick={() => handleSectionClick('faq')}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors opacity-60 hover:opacity-100"
+                style={{ color: manualTheme.text.secondary }}
+            >
+                → Dudas Comunes
+            </button>
           </div>
         </div>
       </div>

@@ -3,15 +3,17 @@ import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
 
-// --- PROTOCOLO RENUNCIA v2.0: TELEMETRY ---
+// ============================================================
+// PROTOCOLO RENUNCIA v2.0 - TELEMETRY INTERFACE
+// ============================================================
 interface RenunciaTelemetry {
-    baseProb: number;
-    vectorKarma: number;
-    vectorSession: number;
-    vectorFailure: number;
-    finalProb: number;
-    candidateStreak: number;
-    impostorLosses: number;
+    baseProb: number;           // Probabilidad base (15%)
+    vectorKarma: number;        // Ajuste por V_k (karma/streak)
+    vectorSession: number;      // Ajuste por V_s (longevidad de sesión)
+    vectorFailure: number;      // Ajuste por V_f (fracaso acumulado)
+    finalProb: number;          // Probabilidad final calculada
+    candidateStreak: number;    // Racha de civil del candidato
+    impostorLosses: number;     // Derrotas consecutivas de impostores
 }
 
 interface GameConfig {
@@ -475,11 +477,15 @@ const calculateRenunciaProbability = (
         const lastThreeRounds = history.matchLogs.slice(0, 3);
         
         // Contar rondas donde los impostores perdieron
-        // NOTA: Usamos !isTroll como proxy, idealmente usar campo impostorWon
+        // NOTA: Por ahora usamos un placeholder. Necesitarás añadir 
+        // un campo "impostorWon" a MatchLog para rastrear esto correctamente
         impostorLosses = lastThreeRounds.filter(log => {
-            return !log.isTroll; 
+            // Placeholder: asumir que si no es troll, hubo resultado normal
+            // En el futuro, usar: return log.impostorWon === false
+            return !log.isTroll;
         }).length;
         
+        // Si 3 derrotas seguidas (placeholder - ajustar cuando tengas el campo real)
         if (impostorLosses >= 3) {
             vectorFailure = 0.15; // +15% bonus
         }
@@ -982,7 +988,9 @@ export const generateGameData = (config: GameConfig): {
         });
     }
 
-    // --- PROTOCOLO RENUNCIA v2.0 - ACTIVACIÓN ADAPTATIVA ---
+    // ============================================================
+    // PROTOCOLO RENUNCIA v2.0 - ACTIVACIÓN ADAPTATIVA
+    // ============================================================
     let renunciaData: RenunciaData | undefined;
     let renunciaTelemetry: RenunciaTelemetry | undefined;
 
@@ -1064,7 +1072,7 @@ export const generateGameData = (config: GameConfig): {
                 }
             }
         } else {
-            // No hay candidatos elegibles (todos los impostores tienen <2 civiles por delante)
+            // No hay candidatos elegibles
             if (config.debugOverrides) {
                 console.log('[RENUNCIA v2.0] ⚠️ NO ELIGIBLE CANDIDATES', {
                     impostors: selectedImpostors.length,

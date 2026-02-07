@@ -25,14 +25,18 @@ export const manualTheme = {
     glow: '0 0 20px rgba(139, 92, 246, 0.3)',
   },
   
-  // Icons
+  // Icons - Expanded Palette
   icon: {
-    intro: '#60A5FA',        // Azul
-    rules: '#F59E0B',        // Amarillo
-    roles: '#8B5CF6',        // Púrpura
-    infinitum: '#EC4899',    // Rosa
-    modes: '#10B981',        // Verde
-    protocols: '#F97316',    // Naranja
-    faq: '#06B6D4',         // Cyan
+    intro: '#60A5FA',        // Blue
+    rules: '#FB923C',        // Orange
+    roles: '#A78BFA',        // Violet
+    infinitum: '#E879F9',    // Fuchsia
+    modes: '#34D399',        // Emerald
+    protocols: '#F97316',    // Orange (Legacy fallback)
+    categories: '#F472B6',   // Pink
+    config: '#94A3B8',       // Slate
+    strategies: '#FBBF24',   // Amber
+    faq: '#22D3EE',          // Cyan
+    glossary: '#818CF8',     // Indigo
   }
 };
