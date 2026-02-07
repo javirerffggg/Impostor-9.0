@@ -1,4 +1,5 @@
 
+
 export type ThemeName = 'midnight' | 'obsidian' | 'solar' | 'cyber' | 'bond' | 'turing' | 'illojuan' | 'material' | 'zenith' | 'protocol' | 'ethereal' | 'terminal84' | 'soft' | 'noir' | 'paper' | 'space' | 'nightclub' | 'aura' | 'luminous' | 'silk_soul' | 'nebula_dream' | 'crystal_garden' | 'aurora_borealis' | 'liquid_gold' | 'luminescent_ocean' | 'zen_sunset';
 
 export interface ThemeConfig {
@@ -99,6 +100,7 @@ export interface MatchLog {
     leteoGrade?: 0 | 1 | 2 | 3; // v6.3 LETEO Protocol
     entropyLevel?: number;      // v6.3 LETEO Protocol
     telemetry?: SelectionTelemetry[]; // v6.4 Debugging
+    affectsINFINITUM?: boolean; // v11.0: If false, stats are not updated (Troll events)
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { GameState, ThemeConfig } from '../../types';
 import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Sparkles, Zap, Network } from 'lucide-react';
@@ -298,6 +300,90 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                 )}
             </div>
 
+            {/* 🎭 BANNER DE TROLL EVENT */}
+            {isTroll && (
+                <div 
+                    className="relative overflow-hidden rounded-2xl border-2 p-5 animate-in fade-in slide-in-from-top duration-700 w-full max-w-sm mb-6"
+                    style={{
+                        borderColor: theme.accent,
+                        background: `linear-gradient(135deg, ${theme.accent}15, ${theme.cardBg})`,
+                        backdropFilter: 'blur(20px)'
+                    }}
+                >
+                    {/* Animated background pattern */}
+                    <div 
+                        className="absolute inset-0 opacity-5 pointer-events-none"
+                        style={{
+                            backgroundImage: `repeating-linear-gradient(
+                                45deg,
+                                ${theme.accent}40,
+                                ${theme.accent}40 10px,
+                                transparent 10px,
+                                transparent 20px
+                            )`
+                        }}
+                    />
+                    
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div 
+                                className="text-3xl animate-pulse"
+                                style={{ filter: `drop-shadow(0 0 10px ${theme.accent})` }}
+                            >
+                                🎭
+                            </div>
+                            <div>
+                                <h3 
+                                    className="text-lg font-black uppercase tracking-wider"
+                                    style={{ 
+                                        color: theme.accent,
+                                        textShadow: `0 0 20px ${theme.accent}40`
+                                    }}
+                                >
+                                    Protocolo PANDORA
+                                </h3>
+                                <p className="text-xs opacity-60" style={{ color: theme.sub }}>
+                                    Evento Especial de Caos
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
+                                {trollScenario === 'espejo_total' && (
+                                    <>
+                                        <strong className="font-bold">Espejo Total:</strong> Todos recibieron pistas falsas. 
+                                        Nadie sabía quién era realmente el impostor.
+                                    </>
+                                )}
+                                {trollScenario === 'civil_solitario' && (
+                                    <>
+                                        <strong className="font-bold">Civil Solitario:</strong> Solo hubo 1 civil. 
+                                        Todos los demás fueron impostores con pistas confusas.
+                                    </>
+                                )}
+                                {trollScenario === 'falsa_alarma' && (
+                                    <>
+                                        <strong className="font-bold">Falsa Alarma:</strong> No había impostores reales. 
+                                        Todos tenían la misma palabra.
+                                    </>
+                                )}
+                            </p>
+                            
+                            <div 
+                                className="flex items-center gap-2 pt-2 mt-2 border-t"
+                                style={{ borderColor: `${theme.accent}20` }}
+                            >
+                                <span className="text-lg">💾</span>
+                                <p className="text-xs font-bold" style={{ color: theme.accent }}>
+                                    Tu historial NO se vio afectado. Esta ronda no cuenta para estadísticas.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 2. THE REVEAL: IMPOSTORS */}
             <div className="w-full max-w-sm mb-10">
                 <div className="flex items-center justify-between mb-4 px-2">
@@ -309,15 +395,8 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
 
                 {isTroll ? (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 text-center backdrop-blur-md">
-                        <p className="text-red-400 font-bold text-sm uppercase tracking-wide mb-2">
-                            {trollScenario === 'espejo_total' && "Engaño Masivo"}
-                            {trollScenario === 'civil_solitario' && "Aislamiento Total"}
-                            {trollScenario === 'falsa_alarma' && "Falsa Alarma"}
-                        </p>
-                        <p className="text-xs text-red-200/60 leading-relaxed">
-                            {trollScenario === 'espejo_total' && "Todos recibisteis pistas falsas. Nadie es inocente."}
-                            {trollScenario === 'civil_solitario' && "Solo había un civil real entre vosotros."}
-                            {trollScenario === 'falsa_alarma' && "No había impostores. La paranoia ha ganado."}
+                        <p className="text-xs text-red-200/60 leading-relaxed font-bold">
+                            Nivel de Paranoia reseteado. Los sistemas vuelven a la normalidad para la próxima ronda.
                         </p>
                     </div>
                 ) : (

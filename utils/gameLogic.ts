@@ -1,4 +1,5 @@
 
+
 import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
@@ -550,39 +551,6 @@ export const generateGameData = (config: GameConfig): {
         const vocalisStarter = runVocalisProtocol(players, history, false);
         const newStartingPlayers = [vocalisStarter.id, ...history.lastStartingPlayers].slice(0, 10);
 
-        // Update Vaults for Troll Events
-        const trollStats = { ...history.playerStats };
-        const trollNewPastImpostorIds = [...pastImpostorIds];
-
-        trollPlayers.forEach(p => {
-            const key = p.name.trim().toLowerCase();
-            const originalVault = getVault(key, trollStats);
-            const vault: InfinityVault = JSON.parse(JSON.stringify(originalVault));
-
-            vault.metrics.totalSessions += 1;
-            
-            if (vault.metrics.quarantineRounds > 0) {
-                vault.metrics.quarantineRounds -= 1;
-            }
-
-            if (p.isImp) {
-                vault.metrics.civilStreak = 0;
-                trollNewPastImpostorIds.unshift(p.id);
-                vault.metrics.quarantineRounds = 3; 
-            } else {
-                 if (vault.metrics.quarantineRounds === 0) {
-                    vault.metrics.civilStreak += 1;
-                }
-            }
-            
-            const currentImpCount = (vault.metrics.impostorRatio * (vault.metrics.totalSessions - 1)) + (p.isImp ? 1 : 0);
-            vault.metrics.impostorRatio = currentImpCount / vault.metrics.totalSessions;
-
-            trollStats[key] = vault;
-        });
-        
-        if (trollNewPastImpostorIds.length > 20) trollNewPastImpostorIds.length = 20;
-
         // Apply BACCHUS Roles if Party Mode
         if (isPartyMode) {
             trollPlayers = assignPartyRoles(trollPlayers);
@@ -602,11 +570,13 @@ export const generateGameData = (config: GameConfig): {
             breakProtocol: null,
             architect: null,
             leteoGrade: 0,
-            entropyLevel: 0
+            entropyLevel: 0,
+            affectsINFINITUM: false // 🔥 Stats not updated
         };
         const currentLogs = history.matchLogs || [];
         const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
 
+        // 🔥 CRITICAL CHANGE: Do not update playerStats or pastImpostorIds for Troll Events
         return { 
             players: trollPlayers, isTrollEvent: true, trollScenario: trollScenario, isArchitectTriggered: false, designatedStarter: vocalisStarter.name,
             newHistory: { 
@@ -614,10 +584,10 @@ export const generateGameData = (config: GameConfig): {
                 roundCounter: currentRound, 
                 lastTrollRound: currentRound, 
                 lastStartingPlayers: newStartingPlayers,
-                playerStats: trollStats,
-                pastImpostorIds: trollNewPastImpostorIds,
-                paranoiaLevel: 0,
-                coolingDownRounds: 3,
+                playerStats: history.playerStats, // KEEP ORIGINAL
+                pastImpostorIds: history.pastImpostorIds || [], // KEEP ORIGINAL
+                paranoiaLevel: 0, // Reset
+                coolingDownRounds: 2, // Slight cooldown
                 lastBreakProtocol: breakProtocolType || 'manual',
                 matchLogs: updatedLogs
             } 
