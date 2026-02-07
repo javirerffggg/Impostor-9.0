@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState } from '../types';
 import { THEMES } from '../constants';
@@ -21,9 +20,7 @@ type ThemeCategory = 'exclusivo' | 'sensorial' | 'oscuro' | 'vibrante' | 'retro'
 export const SettingsDrawer: React.FC<Props> = ({ 
     isOpen, onClose, theme, themeName, setThemeName, gameState, onUpdateSettings, onOpenHowToPlay, onBackToHome 
 }) => {
-    const [activeTab, setActiveTab] = useState<ThemeCategory>('sensorial');
-
-    // Categorización manual de temas para el diseño premium
+    // Categorización de temas
     const themeCategories: Record<ThemeCategory, ThemeName[]> = {
         exclusivo: ['luminous', 'aura'],
         sensorial: ['silk_soul', 'nebula_dream', 'crystal_garden', 'aurora_borealis', 'liquid_gold', 'luminescent_ocean', 'zen_sunset'],
@@ -31,6 +28,16 @@ export const SettingsDrawer: React.FC<Props> = ({
         vibrante: ['cyber', 'nightclub', 'solar', 'illojuan', 'material'],
         retro: ['terminal84', 'turing', 'paper', 'soft']
     };
+
+    // Determinar la categoría inicial basada en el tema seleccionado
+    const getInitialCategory = (name: ThemeName): ThemeCategory => {
+        for (const [cat, themes] of Object.entries(themeCategories)) {
+            if (themes.includes(name)) return cat as ThemeCategory;
+        }
+        return 'sensorial';
+    };
+
+    const [activeTab, setActiveTab] = useState<ThemeCategory>(() => getInitialCategory(themeName));
 
     const totalThemes = Object.keys(THEMES).length;
     const isPremiumActive = themeName === 'aura' || themeName === 'luminous' || themeCategories.sensorial.includes(themeName);
@@ -49,7 +56,7 @@ export const SettingsDrawer: React.FC<Props> = ({
             >
                 {/* Decorative Noise & Grid */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} 
+                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)\'/%3E%3C/svg%3E")` }} 
                 />
                 
                 {/* HEADER */}
@@ -81,29 +88,28 @@ export const SettingsDrawer: React.FC<Props> = ({
                             </h3>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                             {/* AUDIO MODULE */}
                             <button
                                 onClick={() => onUpdateSettings({ soundEnabled: !gameState.settings.soundEnabled })}
-                                className="relative group overflow-hidden p-4 rounded-2xl border transition-all duration-300 active:scale-[0.98]"
+                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
                                 style={{ 
                                     backgroundColor: gameState.settings.soundEnabled ? `${theme.accent}15` : theme.cardBg,
                                     borderColor: gameState.settings.soundEnabled ? theme.accent : theme.border,
                                 }}
                             >
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="mb-3">
                                     <div 
                                         className={`p-2 rounded-full transition-colors ${gameState.settings.soundEnabled ? 'bg-white/20' : 'bg-black/20'}`}
                                         style={{ color: theme.text }}
                                     >
-                                        {gameState.settings.soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                                        {gameState.settings.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
                                     </div>
-                                    <div className={`w-2 h-2 rounded-full ${gameState.settings.soundEnabled ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500/50'}`} />
                                 </div>
-                                <div className="text-left">
-                                    <p style={{ color: theme.text }} className="text-sm font-bold uppercase tracking-wide">Audio</p>
-                                    <p style={{ color: theme.sub }} className="text-[10px] font-mono opacity-80">
-                                        {gameState.settings.soundEnabled ? 'ACTIVO - ESTÉREO' : 'SILENCIADO'}
+                                <div className="space-y-0.5">
+                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Audio</p>
+                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">
+                                        {gameState.settings.soundEnabled ? 'On' : 'Off'}
                                     </p>
                                 </div>
                             </button>
@@ -111,25 +117,24 @@ export const SettingsDrawer: React.FC<Props> = ({
                             {/* PASS PHONE MODULE */}
                             <button
                                 onClick={() => onUpdateSettings({ passPhoneMode: !gameState.settings.passPhoneMode })}
-                                className="relative group overflow-hidden p-4 rounded-2xl border transition-all duration-300 active:scale-[0.98]"
+                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
                                 style={{ 
                                     backgroundColor: gameState.settings.passPhoneMode ? `${theme.accent}15` : theme.cardBg,
                                     borderColor: gameState.settings.passPhoneMode ? theme.accent : theme.border,
                                 }}
                             >
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="mb-3">
                                     <div 
                                         className={`p-2 rounded-full transition-colors ${gameState.settings.passPhoneMode ? 'bg-white/20' : 'bg-black/20'}`}
                                         style={{ color: theme.text }}
                                     >
-                                        <Smartphone size={20} />
+                                        <Smartphone size={18} />
                                     </div>
-                                    <div className={`w-2 h-2 rounded-full ${gameState.settings.passPhoneMode ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-500/50'}`} />
                                 </div>
-                                <div className="text-left">
-                                    <p style={{ color: theme.text }} className="text-sm font-bold uppercase tracking-wide">Pases</p>
-                                    <p style={{ color: theme.sub }} className="text-[10px] font-mono opacity-80">
-                                        {gameState.settings.passPhoneMode ? 'ACTIVO - SEGURO' : 'OMITIR ESPERA'}
+                                <div className="space-y-0.5">
+                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Pases</p>
+                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">
+                                        {gameState.settings.passPhoneMode ? 'On' : 'Off'}
                                     </p>
                                 </div>
                             </button>
@@ -137,26 +142,24 @@ export const SettingsDrawer: React.FC<Props> = ({
                             {/* MANUAL MODULE */}
                             <button
                                 onClick={onOpenHowToPlay}
-                                className="relative group overflow-hidden p-4 rounded-2xl border transition-all duration-300 active:scale-[0.98]"
+                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
                                 style={{ 
                                     backgroundColor: theme.cardBg,
                                     borderColor: theme.border,
                                 }}
                             >
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="mb-3">
                                     <div 
                                         className="p-2 rounded-full bg-black/20"
                                         style={{ color: theme.text }}
                                     >
-                                        <BookOpen size={20} />
+                                        <BookOpen size={18} />
                                     </div>
-                                    <div className="text-[9px] font-black border border-white/20 px-1.5 py-0.5 rounded text-white/50">DOCS</div>
                                 </div>
-                                <div className="text-left">
-                                    <p style={{ color: theme.text }} className="text-sm font-bold uppercase tracking-wide">Manual</p>
-                                    <p style={{ color: theme.sub }} className="text-[10px] font-mono opacity-80">
-                                        LEER REGLAS
+                                <div className="space-y-0.5">
+                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Manual</p>
+                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">
+                                        REGLAS
                                     </p>
                                 </div>
                             </button>

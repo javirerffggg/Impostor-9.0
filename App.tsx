@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
@@ -212,15 +211,17 @@ function App() {
 
     const handleBackToSetup = () => {
         setIsPixelating(true);
+        if (navigator.vibrate) navigator.vibrate(10);
         setTimeout(() => {
             setGameState(prev => ({...prev, phase: 'setup', currentDrinkingPrompt: ""}));
             setIsPixelating(false);
-        }, 800);
+        }, 400); // Velocidad duplicada para respuesta inmediata
     };
 
     const handleReplay = () => {
         setIsPixelating(true);
-        setTimeout(() => handleStartGame(), 800);
+        if (navigator.vibrate) navigator.vibrate(10);
+        setTimeout(() => handleStartGame(), 400); // Velocidad duplicada para respuesta inmediata
     };
 
     const handleTitleTap = () => {
@@ -364,7 +365,7 @@ function App() {
                 @keyframes particle-flow { 0% { background-position: 0 0; } 100% { background-position: 20px 20px; } }
                 @keyframes echo-pulse { 0% { box-shadow: 0 0 0 0px currentColor; opacity: 1; transform: scale(1.2); } 70% { box-shadow: 0 0 0 10px transparent; opacity: 1; transform: scale(1); } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; transform: scale(1); } }
                 @keyframes dissolve { 0% { filter: blur(0px) brightness(1); opacity: 1; transform: scale(1); } 50% { filter: blur(4px) brightness(1.5); opacity: 0.8; transform: scale(1.02); } 100% { filter: blur(20px) brightness(5); opacity: 0; transform: scale(1.1); } }
-                .animate-dissolve { animation: dissolve 0.8s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
+                .animate-dissolve { animation: dissolve 0.4s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
                 @keyframes aura-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes aura-pulse { 0%, 100% { transform: scale(0.95); opacity: 0.5; } 50% { transform: scale(1.05); opacity: 0.8; } }
                 @keyframes shimmer { 100% { transform: translateX(100%); } }
