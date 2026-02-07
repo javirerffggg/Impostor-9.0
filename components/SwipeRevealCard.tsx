@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity, GameState } from '../types';
-import { ChevronUp, MousePointerClick } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
 import { RoleContent } from './RoleContent';
 import { CATEGORIES_DATA } from '../categories';
 
@@ -34,6 +34,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     const [dragY, setDragY] = useState(0);
     const [progress, setProgress] = useState(0);
     const [isExiting, setIsExiting] = useState(false);
+    const [performanceMode, setPerformanceMode] = useState<'high' | 'medium' | 'low'>('high');
 
     const [oracleSelectionMade, setOracleSelectionMade] = useState(false);
     const [oracleOptions, setOracleOptions] = useState<string[]>([]);
@@ -47,6 +48,19 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     const totalViewTime = useRef<number>(0);
     
     const threshold = SWIPE_THRESHOLDS[settings.swipeSensitivity];
+
+    // Detectar capacidades del dispositivo para optimizar efectos
+    useEffect(() => {
+        const cores = navigator.hardwareConcurrency || 4;
+        const isIOSSafari = /iPhone|iPad|iPod/.test(navigator.userAgent);
+        const isProMotion = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+        
+        if (cores <= 4 || !isIOSSafari) {
+            setPerformanceMode('medium');
+        } else if (cores >= 6 && isProMotion) {
+            setPerformanceMode('high');
+        }
+    }, []);
 
     useEffect(() => {
         setIsRevealed(false);
@@ -72,7 +86,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         };
     }, [player.id]);
 
-    // Bloquear scroll durante drag
+    // Bloquear scroll durante drag con optimizaciones específicas para iOS
     useEffect(() => {
         if (!isDragging) return;
         
@@ -80,15 +94,21 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
             if (e.cancelable) e.preventDefault();
         };
         
+        document.documentElement.style.scrollBehavior = 'auto';
         document.body.style.overflow = 'hidden';
         document.body.style.position = 'fixed';
         document.body.style.width = '100%';
+        // @ts-ignore
+        document.body.style.WebkitOverflowScrolling = 'auto';
         document.addEventListener('touchmove', preventScroll, { passive: false });
         
         return () => {
+            document.documentElement.style.scrollBehavior = '';
             document.body.style.overflow = '';
             document.body.style.position = '';
             document.body.style.width = '';
+            // @ts-ignore
+            document.body.style.WebkitOverflowScrolling = '';
             document.removeEventListener('touchmove', preventScroll);
         };
     }, [isDragging]);
@@ -101,11 +121,13 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
 
         const deltaY = currentY.current - startY.current;
         const clampedY = Math.min(0, deltaY);
-        const normalizedY = Math.min(Math.abs(clampedY), threshold * 1.5);
         const newProgress = Math.min(100, (Math.abs(clampedY) / threshold) * 100);
         
-        setDragY(clampedY);
-        setProgress(newProgress);
+        // 🚀 Batch state updates para evitar múltiples re-renders
+        React.startTransition(() => {
+            setDragY(clampedY);
+            setProgress(newProgress);
+        });
 
         if (settings.hapticFeedback && navigator.vibrate) {
             if (newProgress >= 30 && !lastHapticAt.current.threshold30) {
@@ -139,9 +161,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
 
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!isDragging || isRevealed) return;
-        
         currentY.current = e.clientY;
-        
         if (rafId.current === null) {
             rafId.current = requestAnimationFrame(updateDragState);
         }
@@ -156,7 +176,6 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         }
         
         setIsDragging(false);
-        
         try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
 
         if (progress >= 100) {
@@ -201,7 +220,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
 
     return (
         <div 
-            className="w-full h-full flex flex-col items-center justify-center px-4 relative"
+            className="w-full h-full flex flex-col items-center justify-center px-4 relative swipe-card-container"
             style={{
                 touchAction: 'none',
                 WebkitOverflowScrolling: 'auto',
@@ -211,13 +230,11 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                 userSelect: 'none'
             }}
         >
-            
-            {/* 🎯 HEADER CON NOMBRE DEL JUGADOR */}
             <div 
                 className="mb-8 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-top duration-700"
                 style={{
                     opacity: isExiting ? 0 : 1,
-                    transform: isExiting ? 'translateY(-20px)' : 'translateY(0)',
+                    transform: isExiting ? 'translate3d(0, -20px, 0)' : 'translate3d(0, 0, 0)',
                     transition: 'all 0.4s ease'
                 }}
             >
@@ -233,36 +250,21 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         className="absolute inset-0 rounded-full animate-ping opacity-20"
                         style={{ backgroundColor: color }}
                     />
-                    <span 
-                        className="text-3xl font-black relative z-10"
-                        style={{ color }}
-                    >
+                    <span className="text-3xl font-black relative z-10" style={{ color }}>
                         {player.name.charAt(0).toUpperCase()}
                     </span>
                 </div>
-
                 <div className="text-center">
-                    <h2 
-                        className="text-2xl font-black uppercase tracking-wider mb-1"
-                        style={{ color: theme.text }}
-                    >
+                    <h2 className="text-2xl font-black uppercase tracking-wider mb-1" style={{ color: theme.text }}>
                         {player.name}
                     </h2>
-                    <p 
-                        className="text-xs font-bold uppercase tracking-[0.3em] opacity-60"
-                        style={{ color: theme.sub }}
-                    >
+                    <p className="text-xs font-bold uppercase tracking-[0.3em] opacity-60" style={{ color: theme.sub }}>
                         {isRevealed ? 'Identidad Revelada' : 'Tu Turno'}
                     </p>
                 </div>
             </div>
 
-            {/* SISTEMA DE CARTAS */}
-            <div 
-                className="relative w-full max-w-[340px] aspect-[3/4] mx-auto"
-                style={{ isolation: 'isolate' }}
-            >
-                {/* 🔧 CONTENEDOR CON OVERFLOW CONTROLADO PARA CARTA INFERIOR */}
+            <div className="relative w-full max-w-[340px] aspect-[3/4] mx-auto" style={{ isolation: 'isolate', transform: 'translateZ(0)' }}>
                 <div 
                     className="absolute overflow-hidden"
                     style={{
@@ -271,22 +273,26 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         width: 'calc(100% + 12px)',
                         height: 'calc(100% + 12px)',
                         borderRadius: '2.5rem',
-                        zIndex: 1
+                        zIndex: 1,
+                        transform: 'translateZ(0)'
                     }}
                 >
-                    {/* CARTA INFERIOR */}
                     <div 
-                        className="absolute rounded-[2.5rem] border-[3px] overflow-hidden transition-all duration-300"
+                        className="absolute rounded-[2.5rem] border-[3px] overflow-hidden transition-all"
                         style={{
                             inset: 0,
                             backgroundColor: theme.cardBg,
                             borderColor: isRevealed ? color : `${theme.border}80`,
-                            boxShadow: isRevealed 
-                                ? `0 0 60px ${color}40, 0 8px 32px rgba(0,0,0,0.3)` 
-                                : `0 0 ${20 + progress * 0.4}px ${color}${Math.floor(15 + progress * 0.35).toString(16).padStart(2, '0')}`,
-                            transform: `translateY(${Math.max(dragY * 0.08, -10)}px) scale(${0.96 + (progress * 0.0004)})`,
+                            boxShadow: isDragging 
+                                ? (isRevealed ? `0 0 40px ${color}30` : `0 0 20px ${color}15`)
+                                : (isRevealed ? `0 0 60px ${color}40` : `0 0 ${20 + progress * 0.4}px ${color}${Math.floor(15 + progress * 0.35).toString(16).padStart(2, '0')}`),
+                            transform: `translate3d(0, ${Math.max(dragY * 0.08, -10)}px, 0) scale3d(${0.96 + (progress * 0.0004)}, ${0.96 + (progress * 0.0004)}, 1)`,
+                            transitionDuration: isDragging ? '0ms' : '300ms',
+                            transitionProperty: isDragging ? 'none' : 'all',
                             zIndex: 5,
-                            backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(20px)'
+                            backdropFilter: isDragging ? 'blur(10px)' : (theme.blur ? `blur(${theme.blur})` : 'blur(20px)'),
+                            contain: 'layout style paint',
+                            willChange: isDragging ? 'transform, box-shadow' : 'auto'
                         }}
                     >
                         <div className="h-full w-full py-8 px-6">
@@ -303,19 +309,23 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             />
                         </div>
 
-                        {/* 🔥 OVERLAY BLOQUEADOR - Oculta todo hasta revelar */}
                         {!isRevealed && (
                             <div 
-                                className="absolute inset-0 z-50 pointer-events-none transition-opacity duration-500"
+                                className="absolute pointer-events-none transition-opacity"
                                 style={{
+                                    inset: '3px',
+                                    borderRadius: 'calc(2.5rem - 3px)',
                                     backgroundColor: theme.cardBg,
                                     opacity: progress < 95 ? 1 : 0,
-                                    backdropFilter: 'blur(40px)'
+                                    backdropFilter: isDragging ? 'blur(20px)' : 'blur(40px)',
+                                    zIndex: 50,
+                                    transitionDuration: isDragging ? '0ms' : '500ms'
                                 }}
                             >
                                 <div 
                                     className="absolute inset-0 opacity-5"
                                     style={{
+                                        borderRadius: 'inherit',
                                         backgroundImage: `repeating-linear-gradient(
                                             45deg,
                                             ${theme.accent}20,
@@ -328,9 +338,8 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             </div>
                         )}
 
-                        {/* Botón siguiente solo cuando está revelado */}
                         {isRevealed && (!player.isOracle || oracleSelectionMade) && (
-                            <div className="absolute bottom-8 left-0 w-full flex justify-center animate-in fade-in slide-in-from-bottom duration-500">
+                            <div className="absolute bottom-8 left-0 w-full flex justify-center animate-in fade-in slide-in-from-bottom duration-500 px-6">
                                 <button 
                                     onClick={handleProceed}
                                     style={{ backgroundColor: color }}
@@ -343,75 +352,76 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                     </div>
                 </div>
 
-                {/* CARTA SUPERIOR - DISEÑO PREMIUM MEJORADO */}
                 {!isExiting && (
                     <div 
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        className={`absolute inset-0 rounded-[2.5rem] border-2 touch-none select-none overflow-hidden transition-all ${isDragging ? 'duration-0' : 'duration-500'} ${isRevealed ? 'pointer-events-none opacity-0 -translate-y-[150%] rotate-12 scale-90' : ''}`}
+                        className={`absolute inset-0 rounded-[2.5rem] border-2 touch-none select-none overflow-hidden transition-all ${isDragging ? 'duration-0' : 'duration-500'} ${isRevealed ? 'pointer-events-none opacity-0' : ''}`}
                         style={{
                             backgroundColor: theme.cardBg,
                             borderColor: theme.accent,
-                            boxShadow: `
-                                0 ${20 - (progress / 10)}px ${60 - (progress / 2)}px rgba(0,0,0,${0.4 - (progress / 400)}),
-                                0 ${8 - (progress / 20)}px ${24 - (progress / 10)}px rgba(0,0,0,${0.2 - (progress / 500)})
-                            `,
-                            transform: `translateY(${dragY}px) rotate(${(dragY / 100) * 2}deg) scale(${1 - (progress * 0.0002)})`,
+                            boxShadow: isDragging
+                                ? `0 ${Math.max(10, 20 - (progress / 10))}px ${Math.max(30, 60 - (progress / 2))}px rgba(0,0,0,0.3)`
+                                : `0 ${20 - (progress / 10)}px ${60 - (progress / 2)}px rgba(0,0,0,${0.4 - (progress / 400)})`,
+                            transform: isRevealed 
+                                ? 'translate3d(0, -150%, 0) rotate(12deg) scale3d(0.9, 0.9, 1)'
+                                : `translate3d(0, ${dragY}px, 0) rotate(${(dragY / 100) * 2}deg) scale3d(${1 - (progress * 0.0002)}, ${1 - (progress * 0.0002)}, 1)`,
+                            transitionDuration: isDragging ? '0ms' : '500ms',
+                            transitionProperty: isDragging ? 'none' : 'all',
                             zIndex: 20,
                             cursor: isDragging ? 'grabbing' : 'grab',
                             background: `
                                 linear-gradient(135deg, ${theme.accent}15 0%, ${theme.cardBg} 50%, ${theme.accentSecondary || theme.accent}10 100%),
                                 repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.accent}03 10px, ${theme.accent}03 20px)
                             `,
-                            backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(30px)'
+                            backdropFilter: isDragging 
+                                ? (performanceMode === 'high' ? 'blur(15px)' : 'blur(8px)')
+                                : (theme.blur ? `blur(${theme.blur})` : 'blur(30px)'),
+                            willChange: isDragging ? 'transform, box-shadow' : 'auto'
                         }}
                     >
-                        {/* 🌟 EFECTOS DE FONDO ANIMADOS */}
-                        
-                        {/* Partículas flotantes */}
-                        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
-                            {[...Array(12)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute w-1 h-1 rounded-full animate-float"
-                                    style={{
-                                        left: `${(i * 8.33)}%`,
-                                        top: `${Math.random() * 100}%`,
-                                        backgroundColor: theme.accent,
-                                        animationDelay: `${i * 0.3}s`,
-                                        animationDuration: `${3 + Math.random() * 2}s`,
-                                        opacity: 0.4 - (progress * 0.003)
-                                    }}
-                                />
-                            ))}
-                        </div>
+                        {!isDragging && performanceMode === 'high' && (
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
+                                {[...Array(8)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute w-1 h-1 rounded-full animate-float"
+                                        style={{
+                                            left: `${(i * 12.5)}%`,
+                                            top: `${Math.random() * 100}%`,
+                                            backgroundColor: theme.accent,
+                                            animationDelay: `${i * 0.4}s`,
+                                            animationDuration: `${3 + Math.random() * 2}s`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
 
-                        {/* Scan line con efecto de progreso */}
+                        {isDragging && performanceMode !== 'low' && (
+                            <div 
+                                className="absolute left-0 right-0 h-[2px] pointer-events-none"
+                                style={{
+                                    top: `${progress}%`,
+                                    background: `linear-gradient(90deg, transparent, ${color}60 50%, transparent)`,
+                                    boxShadow: `0 0 10px ${color}`,
+                                    transition: 'top 0.05s linear'
+                                }}
+                            />
+                        )}
+
                         <div 
-                            className="absolute left-0 right-0 h-[2px] pointer-events-none transition-all duration-200"
+                            className="absolute inset-0 pointer-events-none transition-opacity"
                             style={{
-                                top: isDragging ? `${progress}%` : '-10%',
-                                background: `linear-gradient(90deg, transparent, ${color}80 50%, transparent)`,
-                                boxShadow: `0 0 20px ${color}, 0 0 40px ${color}40`,
-                                opacity: isDragging ? 0.8 : 0
+                                background: `radial-gradient(circle at 50% ${50 + progress * 0.5}%, ${color}${isDragging ? '10' : '15'}, transparent 60%)`,
+                                opacity: progress > 30 ? (isDragging ? 0.3 : 0.6) : 0,
+                                transitionDuration: isDragging ? '100ms' : '500ms'
                             }}
                         />
 
-                        {/* Gradiente radial dinámico */}
-                        <div 
-                            className="absolute inset-0 pointer-events-none transition-opacity duration-500"
-                            style={{
-                                background: `radial-gradient(circle at 50% ${50 + progress * 0.5}%, ${color}15, transparent 60%)`,
-                                opacity: progress > 30 ? 0.6 : 0
-                            }}
-                        />
-
-                        {/* 🎨 CONTENIDO PRINCIPAL */}
                         <div className="relative h-full w-full flex flex-col items-center justify-between py-10 px-6 z-10">
-                            
-                            {/* Header decorativo */}
                             <div className="text-center space-y-3 opacity-70">
                                 <div className="flex items-center justify-center gap-2">
                                     <div className="h-[1px] w-8 bg-gradient-to-r from-transparent to-white/30" />
@@ -422,189 +432,115 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                                 </div>
                             </div>
 
-                            {/* Icono central con múltiples capas */}
                             <div className="relative flex items-center justify-center">
-                                {/* Glow exterior pulsante */}
-                                <div 
-                                    className="absolute inset-0 blur-3xl rounded-full scale-150 animate-pulse"
-                                    style={{ 
-                                        backgroundColor: `${color}20`,
-                                        opacity: 0.6 - (progress * 0.004)
-                                    }} 
-                                />
+                                {performanceMode !== 'low' && (
+                                    <div 
+                                        className={`absolute inset-0 rounded-full scale-150 ${!isDragging ? 'animate-pulse' : ''}`}
+                                        style={{ 
+                                            backgroundColor: `${color}20`,
+                                            opacity: isDragging ? 0.3 : (0.6 - (progress * 0.004)),
+                                            filter: isDragging ? 'blur(20px)' : 'blur(40px)'
+                                        }} 
+                                    />
+                                )}
                                 
-                                {/* Anillo orbital */}
-                                <div 
-                                    className="absolute w-32 h-32 rounded-full border-2 border-dashed animate-spin-slow opacity-20"
-                                    style={{ borderColor: theme.accent }}
-                                />
+                                {!isDragging && performanceMode === 'high' && (
+                                    <div 
+                                        className="absolute w-32 h-32 rounded-full border-2 border-dashed animate-spin-slow opacity-20"
+                                        style={{ borderColor: theme.accent }}
+                                    />
+                                )}
                                 
-                                {/* Icono principal */}
                                 <div 
-                                    className="relative text-7xl transition-all duration-200"
+                                    className="relative text-7xl transition-transform"
                                     style={{ 
-                                        transform: `scale(${1 - (progress * 0.003)}) rotateY(${progress * 1.8}deg)`,
-                                        filter: `blur(${progress * 0.06}px) brightness(${1 + progress * 0.01})`
+                                        transform: `scale3d(${1 - (progress * 0.003)}, ${1 - (progress * 0.003)}, 1) ${isDragging ? '' : `rotateY(${progress * 1.8}deg)`}`,
+                                        filter: `blur(${progress * 0.06}px)`,
+                                        transitionDuration: isDragging ? '0ms' : '200ms'
                                     }}
                                 >
                                     🎭
                                 </div>
-
-                                {/* Hexágono decorativo */}
-                                <svg 
-                                    className="absolute w-40 h-40 opacity-10 animate-spin-reverse"
-                                    viewBox="0 0 100 100"
-                                    style={{ animationDuration: '20s' }}
-                                >
-                                    <polygon 
-                                        points="50,5 90,25 90,75 50,95 10,75 10,25" 
-                                        fill="none" 
-                                        stroke={theme.accent} 
-                                        strokeWidth="0.5"
-                                    />
-                                </svg>
                             </div>
 
-                            {/* Indicadores de arrastre mejorados */}
                             <div 
-                                className="flex flex-col items-center gap-4 transition-all duration-300"
+                                className="flex flex-col items-center gap-4 transition-all"
                                 style={{ 
                                     opacity: Math.max(0, 1 - (progress / 40)),
-                                    transform: `translateY(${progress * 0.2}px)`
+                                    transform: `translate3d(0, ${progress * 0.2}px, 0)`,
+                                    transitionDuration: isDragging ? '0ms' : '300ms'
                                 }}
                             >
-                                {/* Chevrones con efecto de onda */}
-                                <div className="relative flex flex-col items-center -space-y-4">
+                                <div className="flex flex-col items-center -space-y-4">
                                     {[0, 1, 2].map(i => (
-                                        <div key={i} className="relative">
-                                            {/* Glow por detrás */}
-                                            <div 
-                                                className="absolute inset-0 blur-md animate-bounce"
-                                                style={{
-                                                    color: theme.accent,
-                                                    animationDelay: `${i * 0.15}s`,
-                                                    opacity: 0.3
-                                                }}
-                                            >
-                                                <ChevronUp size={32} />
-                                            </div>
-                                            
-                                            {/* Chevron principal */}
-                                            <ChevronUp 
-                                                size={32} 
-                                                style={{ 
-                                                    color: theme.accent,
-                                                    filter: `drop-shadow(0 0 4px ${theme.accent})`,
-                                                    animationDelay: `${i * 0.15}s`,
-                                                    opacity: 0.5 + (i * 0.25)
-                                                }}
-                                                className="animate-bounce relative z-10"
-                                            />
-                                        </div>
+                                        <ChevronUp 
+                                            key={i}
+                                            size={32} 
+                                            style={{ 
+                                                color: theme.accent,
+                                                filter: `drop-shadow(0 0 4px ${theme.accent})`
+                                            }}
+                                            className={isDragging ? '' : 'animate-bounce'}
+                                            {...(!isDragging && { style: { animationDelay: `${i * 0.15}s` }})}
+                                        />
                                     ))}
                                 </div>
-
-                                {/* Texto con gradiente */}
-                                <div className="relative">
-                                    <p 
-                                        className="text-sm font-black uppercase tracking-[0.2em] text-center"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${theme.text}, ${theme.accent})`,
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            backgroundClip: 'text'
-                                        }}
-                                    >
-                                        {progress > 70 ? '¡Casi Ahí!' : progress > 30 ? 'Sigue Arrastrando' : 'Arrastra para Revelar'}
-                                    </p>
-                                    
-                                    {/* Underline animado */}
-                                    <div 
-                                        className="absolute -bottom-1 left-0 h-[2px] rounded-full transition-all duration-200"
-                                        style={{
-                                            width: `${progress}%`,
-                                            backgroundColor: theme.accent,
-                                            boxShadow: `0 0 8px ${theme.accent}`
-                                        }}
-                                    />
-                                </div>
+                                <p 
+                                    className="text-sm font-black uppercase tracking-[0.2em] text-center"
+                                    style={{
+                                        background: `linear-gradient(135deg, ${theme.text}, ${theme.accent})`,
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text'
+                                    }}
+                                >
+                                    {progress > 70 ? '¡Casi Ahí!' : progress > 30 ? 'Sigue' : 'Arrastra'}
+                                </p>
                             </div>
 
-                            {/* Barra de progreso inferior mejorada */}
                             <div className="w-full space-y-2">
-                                {/* Porcentaje numérico */}
                                 {isDragging && (
-                                    <div className="text-center animate-in fade-in">
+                                    <div className="text-center">
                                         <span 
                                             className="text-2xl font-black tabular-nums"
                                             style={{ 
                                                 color: progress > 70 ? color : theme.text,
-                                                textShadow: progress > 70 ? `0 0 20px ${color}` : 'none'
+                                                textShadow: progress > 70 ? `0 0 15px ${color}` : 'none',
+                                                transition: 'color 0.2s ease'
                                             }}
                                         >
                                             {Math.round(progress)}%
                                         </span>
                                     </div>
                                 )}
-
-                                {/* Barra de progreso */}
                                 <div className="relative w-full h-2 bg-white/5 rounded-full overflow-hidden backdrop-blur-sm">
-                                    {/* Fondo con patrón */}
                                     <div 
-                                        className="absolute inset-0 opacity-20"
-                                        style={{
-                                            backgroundImage: `repeating-linear-gradient(90deg, ${theme.accent}40, ${theme.accent}40 2px, transparent 2px, transparent 8px)`
-                                        }}
-                                    />
-                                    
-                                    {/* Barra de progreso con gradiente */}
-                                    <div 
-                                        className="absolute inset-y-0 left-0 transition-all duration-100 rounded-full"
+                                        className="absolute inset-y-0 left-0 rounded-full"
                                         style={{ 
                                             width: `${progress}%`,
                                             background: `linear-gradient(90deg, ${theme.accent}, ${color})`,
-                                            boxShadow: `0 0 15px ${progress > 50 ? color : theme.accent}80`,
+                                            boxShadow: `0 0 ${isDragging ? 10 : 15}px ${progress > 50 ? color : theme.accent}80`,
+                                            transition: isDragging ? 'none' : 'width 0.1s linear'
                                         }}
                                     >
-                                        {/* Shimmer effect */}
-                                        <div 
-                                            className="absolute inset-0 animate-shimmer"
-                                            style={{
-                                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                                                backgroundSize: '200% 100%'
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Threshold markers */}
-                                    <div className="absolute inset-0 flex justify-between px-1">
-                                        {[25, 50, 75].map(threshold => (
-                                            <div
-                                                key={threshold}
-                                                className="w-[2px] h-full rounded-full bg-white/20"
+                                        {!isDragging && performanceMode === 'high' && (
+                                            <div 
+                                                className="absolute inset-0 animate-shimmer"
                                                 style={{
-                                                    opacity: progress > threshold ? 0 : 0.5
+                                                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                                                    backgroundSize: '200% 100%'
                                                 }}
                                             />
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Leyenda de umbral */}
-                                {progress > 0 && progress < 100 && (
-                                    <div className="flex justify-between text-[8px] uppercase tracking-widest font-bold opacity-40" style={{ color: theme.sub }}>
-                                        <span>Inicio</span>
-                                        <span>{progress > 90 ? '¡Ya casi!' : 'Continúa'}</span>
-                                        <span>Revelar</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
                         <style>{`
                             @keyframes float {
-                                0%, 100% { transform: translateY(0) translateX(0); }
-                                50% { transform: translateY(-20px) translateX(5px); }
+                                0%, 100% { transform: translate3d(0, 0, 0); }
+                                50% { transform: translate3d(5px, -20px, 0); }
                             }
                             @keyframes shimmer {
                                 0% { background-position: -200% 0; }
@@ -613,10 +549,6 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             @keyframes spin-slow {
                                 from { transform: rotate(0deg); }
                                 to { transform: rotate(360deg); }
-                            }
-                            @keyframes spin-reverse {
-                                from { transform: rotate(360deg); }
-                                to { transform: rotate(0deg); }
                             }
                             .animate-float {
                                 animation: float linear infinite;
@@ -627,32 +559,18 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             .animate-spin-slow {
                                 animation: spin-slow 15s linear infinite;
                             }
-                            .animate-spin-reverse {
-                                animation: spin-reverse 20s linear infinite;
+                            .swipe-card-container {
+                                -webkit-transform: translateZ(0);
+                                -webkit-backface-visibility: hidden;
+                                -webkit-perspective: 1000;
+                                transform: translateZ(0);
+                                backface-visibility: hidden;
+                                perspective: 1000px;
                             }
                         `}</style>
                     </div>
                 )}
             </div>
-            
-            {/* INDICADOR DE PROGRESO INFERIOR (opcional) */}
-            {!isRevealed && isDragging && (
-                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2 rounded-full animate-in fade-in slide-in-from-bottom">
-                    <div className="w-24 h-1 bg-white/20 rounded-full overflow-hidden">
-                        <div 
-                            className="h-full transition-all duration-100"
-                            style={{ 
-                                width: `${progress}%`,
-                                backgroundColor: color,
-                                boxShadow: `0 0 8px ${color}`
-                            }}
-                        />
-                    </div>
-                    <span className="text-white text-xs font-bold">
-                        {Math.round(progress)}%
-                    </span>
-                </div>
-            )}
         </div>
     );
 };
