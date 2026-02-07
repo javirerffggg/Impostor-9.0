@@ -1,6 +1,6 @@
-# 📝 README.md PARA IMPOSTOR 9.0
 
-```markdown
+
+
 <div align="center">
 
 # 🎭 IMPOSTOR 9.0
