@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { 
   BookOpen, Users, Brain, Gamepad2, 
@@ -67,13 +69,14 @@ export const ManualSidebar: React.FC<Props> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
         style={{ 
-          backgroundColor: manualTheme.bg.secondary,
-          borderColor: manualTheme.border.subtle 
+          backgroundColor: theme.cardBg, // Dynamic Background
+          borderColor: theme.border,
+          backdropFilter: 'blur(20px)'
         }}>
         
         {/* Mobile Close Button */}
         <div className="lg:hidden flex items-center justify-between px-6 py-6 border-b"
-          style={{ borderColor: manualTheme.border.subtle }}>
+          style={{ borderColor: theme.border }}>
           <span className="font-black text-sm uppercase tracking-wider"
             style={{ color: theme.text }}>
             Índice
@@ -103,14 +106,14 @@ export const ManualSidebar: React.FC<Props> = ({
                 `}
                 style={{
                   backgroundColor: isActive 
-                    ? manualTheme.bg.accent 
+                    ? `${theme.accent}20` 
                     : 'transparent',
                   borderWidth: '1px',
                   borderColor: isActive 
-                    ? manualTheme.border.strong 
+                    ? theme.accent 
                     : 'transparent',
                   boxShadow: isActive 
-                    ? manualTheme.border.glow 
+                    ? `0 0 15px ${theme.accent}30` 
                     : 'none',
                 }}>
                 
@@ -122,7 +125,7 @@ export const ManualSidebar: React.FC<Props> = ({
                 {/* Title */}
                 <span className={`flex-1 text-left text-xs font-bold uppercase tracking-wide`}
                   style={{ 
-                    color: isActive ? theme.text : manualTheme.text.secondary 
+                    color: isActive ? theme.text : theme.sub 
                   }}>
                   {section.title}
                 </span>
@@ -142,7 +145,7 @@ export const ManualSidebar: React.FC<Props> = ({
 
         {/* Quick Links Footer */}
         <div className="px-6 py-8 mt-auto border-t"
-          style={{ borderColor: manualTheme.border.subtle }}>
+          style={{ borderColor: theme.border }}>
           <p className="text-[10px] font-black uppercase tracking-wider mb-4 opacity-40"
             style={{ color: theme.text }}>
             Atajos
@@ -151,14 +154,14 @@ export const ManualSidebar: React.FC<Props> = ({
             <button 
                 onClick={() => handleSectionClick('glosario')}
                 className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors opacity-60 hover:opacity-100"
-                style={{ color: manualTheme.text.secondary }}
+                style={{ color: theme.sub }}
             >
                 → Glosario Técnico
             </button>
             <button 
                 onClick={() => handleSectionClick('faq')}
                 className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors opacity-60 hover:opacity-100"
-                style={{ color: manualTheme.text.secondary }}
+                style={{ color: theme.sub }}
             >
                 → Dudas Comunes
             </button>

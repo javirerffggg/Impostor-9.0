@@ -1,8 +1,9 @@
 
+
+
 import React from 'react';
 import { Check, X, AlertTriangle, Info, Zap } from 'lucide-react';
 import { ThemeConfig } from '../../types';
-import { manualTheme } from './manualTheme';
 
 export interface CardData {
   type: 'success' | 'warning' | 'danger' | 'info' | 'highlight';
@@ -78,8 +79,8 @@ export const ManualCard: React.FC<Props> = ({ card, theme }) => {
           {/* Content */}
           <div className="space-y-1">
             {content.map((text, idx) => (
-                <p key={idx} className="text-xs sm:text-sm leading-relaxed"
-                style={{ color: manualTheme.text.primary }}>
+                <p key={idx} className="text-xs sm:text-sm leading-relaxed opacity-90"
+                style={{ color: theme.text }}>
                 {text}
                 </p>
             ))}

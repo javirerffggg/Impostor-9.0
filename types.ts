@@ -1,4 +1,5 @@
 
+
 export interface SelectionTelemetry {
     playerId: string;
     playerName: string;
@@ -63,10 +64,14 @@ export interface GamePlayer extends Player {
     oracleTriggered?: boolean;
     partyRole?: SocialRole;
     isArchitect?: boolean;
+    isAlcalde?: boolean; // ✨ NUEVO: Protocolo Magistrado
     nexusPartners?: string[];
     isWitness?: boolean;
     hasRejectedImpRole?: boolean;
     wasTransferred?: boolean;
+    // v9.0 Memory Mode
+    memoryWords?: string[];
+    memoryCorrectIndex?: number; // -1 for impostors
 }
 
 export type PartyIntensity = 'aperitivo' | 'hora_punta' | 'after_hours' | 'resaca';
@@ -79,6 +84,9 @@ export interface InfinityVault {
         civilStreak: number;
         totalImpostorWins: number;
         quarantineRounds: number;
+        // ✨ NUEVO: Stats Magistrado
+        timesAsAlcalde?: number;
+        alcaldeWinRate?: number;
     };
     categoryDNA: Record<string, { timesAsImpostor: number; lastTimeAsImpostor: number; affinityScore: number }>;
     sequenceAnalytics: {
@@ -108,6 +116,17 @@ export interface RenunciaData {
     timestamp: number;
     witnessPlayerId?: string;
     transferredToId?: string;
+    hasSeenInitialRole?: boolean;
+}
+
+// ✨ NUEVO: Datos de la sesión de Magistrado
+export interface MagistradoData {
+    alcaldePlayerId: string;
+    alcaldePlayerName: string;
+    sessionStartTime: number;
+    telemetry?: {
+        wasRevealed: boolean;
+    };
 }
 
 export interface MatchLog {
@@ -141,9 +160,20 @@ export interface MatchLog {
         failureBonus: number;
         candidateStreak: number;
     };
+    magistrado?: string; // Name of Alcalde
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
+
+export type MemoryDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+
+export interface MemoryModeConfig {
+    enabled: boolean;
+    difficulty: MemoryDifficulty;
+    displayTime: number; // Seconds
+    wordCount: number; // Words to show
+    highlightIntensity: number; // 0-1
+}
 
 export interface GameState {
     phase: 'setup' | 'revealing' | 'architect' | 'oracle' | 'discussion' | 'results';
@@ -188,11 +218,15 @@ export interface GameState {
         soundEnabled: boolean;
         selectedCategories: string[];
         renunciaMode: boolean;
+        protocolMagistrado: boolean; // ✨ NUEVO
+        magistradoMinPlayers: number; 
+        memoryModeConfig: MemoryModeConfig; // v9.0 Memory Mode
     };
     debugState: {
         isEnabled: boolean;
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
+        forceRenuncia?: boolean;
     };
     partyState: {
         intensity: PartyIntensity;
@@ -203,4 +237,5 @@ export interface GameState {
     theme: ThemeName;
     oracleSetup?: OracleSetupData;
     renunciaData?: RenunciaData;
+    magistradoData?: MagistradoData; // ✨ NUEVO
 }

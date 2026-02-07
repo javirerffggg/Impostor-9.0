@@ -1,235 +1,669 @@
-import React, { useMemo } from 'react';
-import { GameState, TrollScenario, InfinityVault } from '../types';
-import { getDebugPlayerStats } from '../utils/gameLogic';
-import { Terminal, Database, AlertTriangle, ShieldCheck, RefreshCcw, Power, Activity, FileText, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+    Bug, X, Eye, EyeOff, Zap, Users, Brain, Download, 
+    Upload, RotateCcw, Play, Pause, SkipForward, Trash2,
+    ChevronDown, ChevronUp, Settings, Terminal, BarChart3
+} from 'lucide-react';
+import { GameState, TrollScenario, ThemeConfig } from '../types';
 
 interface Props {
     gameState: GameState;
-    setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+    theme: ThemeConfig;
+    onClose: () => void;
+    onForceTroll: (scenario: TrollScenario | null) => void;
+    onForceArchitect: (force: boolean) => void;
+    onForceRenuncia: (force: boolean) => void;
+    onExportState: () => void;
+    onImportState: (state: string) => void;
+    onResetStats: () => void;
+    onSimulateRound: () => void;
 }
 
-export const DebugConsole: React.FC<Props> = ({ gameState, setGameState }) => {
-    if (!gameState.debugState.isEnabled) return null;
+type TabType = 'override' | 'telemetry' | 'state' | 'tools';
 
-    // Calculate real-time weights for the HUD
-    const playerStats = useMemo(() => {
-        return getDebugPlayerStats(gameState.players, gameState.history.playerStats, gameState.history.roundCounter);
-    }, [gameState.players, gameState.history.playerStats, gameState.history.roundCounter]);
+export const DebugConsole: React.FC<Props> = ({
+    gameState,
+    theme,
+    onClose,
+    onForceTroll,
+    onForceArchitect,
+    onForceRenuncia,
+    onExportState,
+    onImportState,
+    onResetStats,
+    onSimulateRound
+}) => {
+    const [activeTab, setActiveTab] = useState<TabType>('override');
+    const [isMinimized, setIsMinimized] = useState(false);
+    const [position, setPosition] = useState({ x: 20, y: 20 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(false);
 
-    const toggleForceTroll = (scenario: TrollScenario) => {
-        setGameState(prev => ({
-            ...prev,
-            debugState: {
-                ...prev.debugState,
-                forceTroll: prev.debugState.forceTroll === scenario ? null : scenario
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyboard = (e: KeyboardEvent) => {
+            // Ctrl/Cmd + Shift + D = Toggle Debug Console
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                onClose();
             }
-        }));
-    };
-
-    const toggleForceArchitect = () => {
-        setGameState(prev => ({
-            ...prev,
-            debugState: {
-                ...prev.debugState,
-                forceArchitect: !prev.debugState.forceArchitect
+            // Ctrl/Cmd + Shift + 1-4 = Switch tabs
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                const tabs: TabType[] = ['override', 'telemetry', 'state', 'tools'];
+                const num = parseInt(e.key);
+                if (num >= 1 && num <= 4) {
+                    e.preventDefault();
+                    setActiveTab(tabs[num - 1]);
+                }
             }
-        }));
-    };
+        };
 
-    const resetPlayerVault = (playerName: string) => {
-        setGameState(prev => {
-            const key = playerName.trim().toLowerCase();
-            const newStats = { ...prev.history.playerStats };
-            if (newStats[key]) {
-                newStats[key] = {
-                    ...newStats[key],
-                    metrics: {
-                        ...newStats[key].metrics,
-                        civilStreak: 0,
-                        impostorRatio: 0.1,
-                        quarantineRounds: 0
-                    }
-                };
-            }
-            return { ...prev, history: { ...prev.history, playerStats: newStats } };
-        });
-    };
+        window.addEventListener('keydown', handleKeyboard);
+        return () => window.removeEventListener('keydown', handleKeyboard);
+    }, [onClose]);
 
-    const godModeVault = (playerName: string) => {
-        setGameState(prev => {
-            const key = playerName.trim().toLowerCase();
-            const newStats = { ...prev.history.playerStats };
-            if (newStats[key]) {
-                newStats[key] = {
-                    ...newStats[key],
-                    metrics: {
-                        ...newStats[key].metrics,
-                        civilStreak: 50,
-                        impostorRatio: 0.01
-                    }
-                };
-            }
-            return { ...prev, history: { ...prev.history, playerStats: newStats } };
-        });
-    };
+    // Auto-refresh
+    useEffect(() => {
+        if (!autoRefresh) return;
+        const interval = setInterval(() => {
+            // Force re-render
+            setActiveTab(prev => prev);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [autoRefresh]);
 
-    const handleDownloadReport = () => {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `CENTINELA_REPORT_${timestamp}.txt`;
-        
-        let report = `--- PROTOCOLO CENTINELA: BLACK BOX REPORT ---\n`;
-        report += `Generated: ${new Date().toLocaleString()}\n`;
-        report += `Total Rounds Logged: ${gameState.history.matchLogs?.length || 0}\n\n`;
-
-        report += `=== SECTION 1: MATCH LOGS (LAST 100) ===\n`;
-        const logs = gameState.history.matchLogs || [];
-        logs.forEach((log) => {
-            report += `[R${log.round}] ${new Date(log.timestamp).toLocaleTimeString()} | Category: ${log.category} | Word: ${log.word}\n`;
-            report += `   > Impostors: ${log.impostors.join(', ')}\n`;
-            report += `   > Civilians: ${log.civilians.join(', ')}\n`;
-            if (log.isTroll) report += `   > [ALERT] TROLL EVENT: ${log.trollScenario}\n`;
-            if (log.architect) report += `   > [INFO] Architect: ${log.architect}\n`;
-            if (log.leteoGrade) report += `   > [CRITICAL] PROTOCOLO LETEO: GRADO ${log.leteoGrade} (E: ${log.entropyLevel})\n`;
-            report += `   > Paranoia Lvl: ${log.paranoiaLevel}% | Break Protocol: ${log.breakProtocol || 'None'}\n`;
-            report += `--------------------------------------------------\n`;
-        });
-
-        report += `\n=== SECTION 2: INFINITUM VAULT SNAPSHOT ===\n`;
-        const vault = gameState.history.playerStats;
-        Object.entries(vault).forEach(([key, value]) => {
-            const data = value as InfinityVault;
-            report += `PLAYER: ${key.toUpperCase()}\n`;
-            report += `   > Sessions: ${data.metrics.totalSessions} | Imp Ratio: ${(data.metrics.impostorRatio * 100).toFixed(1)}%\n`;
-            report += `   > Civil Streak: ${data.metrics.civilStreak} | Quarantine: ${data.metrics.quarantineRounds}\n`;
-            report += `   > Role History (Last 20): ${data.sequenceAnalytics.roleSequence.map(r => r ? 'IMP' : 'CIV').join('-')}\n`;
-            report += `\n`;
-        });
-
-        const blob = new Blob([report], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    // Paranoia Visualization
-    const pLevel = gameState.history.paranoiaLevel || 0;
-    let pColor = "text-green-500";
-    if (pLevel > 30) pColor = "text-amber-500";
-    if (pLevel > 70) pColor = "text-red-500";
-
-    const cooling = gameState.history.coolingDownRounds || 0;
-    const lastLeteo = gameState.history.lastLeteoRound || 0;
-    const isLeteoRecent = gameState.history.roundCounter - lastLeteo < 5;
+    const tabs = [
+        { id: 'override' as TabType, label: 'Overrides', icon: <Zap size={14} /> },
+        { id: 'telemetry' as TabType, label: 'Telemetría', icon: <BarChart3 size={14} /> },
+        { id: 'state' as TabType, label: 'Estado', icon: <Brain size={14} /> },
+        { id: 'tools' as TabType, label: 'Tools', icon: <Settings size={14} /> }
+    ];
 
     return (
-        <div className="fixed top-0 left-0 w-full z-[100] bg-black/90 border-b border-amber-500/30 backdrop-blur-lg p-2 font-mono text-[10px] text-amber-500 shadow-2xl animate-in slide-in-from-top duration-300 max-h-[50vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2 border-b border-amber-500/20 pb-1">
+        <div 
+            className={`fixed z-[9999] ${isMinimized ? 'w-auto' : 'w-[90vw] max-w-2xl'}`}
+            style={{
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                maxHeight: isMinimized ? 'auto' : '80vh'
+            }}>
+            
+            {/* Header - Draggable */}
+            <div 
+                className="flex items-center justify-between px-4 py-2 cursor-move rounded-t-xl border-2"
+                style={{
+                    backgroundColor: theme.cardBg,
+                    borderColor: theme.accent,
+                    boxShadow: `0 0 20px ${theme.accent}50`
+                }}
+                onMouseDown={(e) => setIsDragging(true)}
+                onMouseUp={() => setIsDragging(false)}>
+                
                 <div className="flex items-center gap-2">
-                    <Terminal size={12} className="animate-pulse" />
-                    <span className="font-bold tracking-widest">CENTINELA v6.3</span>
+                    <Bug size={16} style={{ color: theme.accent }} className="animate-pulse" />
+                    <span className="text-xs font-black uppercase tracking-wider"
+                        style={{ color: theme.text }}>
+                        🛡️ Modo Centinela
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ 
+                            backgroundColor: `${theme.accent}20`,
+                            color: theme.accent 
+                        }}>
+                        v9.0
+                    </span>
                 </div>
-                <div className="flex gap-2 text-xs items-center">
-                    <button onClick={handleDownloadReport} title="Export Black Box" className="hover:text-white flex items-center gap-1 bg-amber-900/50 px-2 py-0.5 rounded border border-amber-500/30">
-                        <FileText size={10} /> EXPORT
+
+                <div className="flex items-center gap-1">
+                    {/* Auto-refresh toggle */}
+                    <button
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                        className="p-1.5 rounded-lg transition-all hover:scale-110 active:scale-95"
+                        style={{ 
+                            backgroundColor: autoRefresh ? `${theme.accent}30` : 'transparent',
+                            color: theme.text 
+                        }}
+                        title="Auto-refresh cada 1s">
+                        {autoRefresh ? <Play size={14} /> : <Pause size={14} />}
                     </button>
-                    <span>VAULT: {Object.keys(gameState.history.playerStats).length}</span>
+
+                    {/* Minimize */}
+                    <button
+                        onClick={() => setIsMinimized(!isMinimized)}
+                        className="p-1.5 rounded-lg transition-all hover:scale-110 active:scale-95"
+                        style={{ color: theme.text }}
+                        title={isMinimized ? 'Expandir' : 'Minimizar'}>
+                        {isMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+
+                    {/* Close */}
+                    <button
+                        onClick={onClose}
+                        className="p-1.5 rounded-lg transition-all hover:scale-110 active:scale-95 hover:bg-red-500/20"
+                        style={{ color: theme.text }}
+                        title="Cerrar (Ctrl+Shift+D)">
+                        <X size={14} />
+                    </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                {/* LEFT COL: INFINITUM METRICS */}
-                <div>
-                    <h4 className="text-amber-300 font-bold mb-1 flex items-center gap-1">
-                        <Database size={10} /> INFINITUM (ESTIMATED)
-                    </h4>
-                    <div className="bg-amber-900/10 rounded p-1 border border-amber-500/10">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="opacity-50">
-                                    <th>ID</th>
-                                    <th>WGHT</th>
-                                    <th>STRK</th>
-                                    <th>Q</th>
-                                    <th>ACT</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {playerStats.map(p => {
-                                    const vault = gameState.history.playerStats[p.name.toLowerCase()];
-                                    const isQuarantined = vault?.metrics.quarantineRounds > 0;
-                                    return (
-                                        <tr key={p.name} className={`border-t border-amber-500/5 ${isQuarantined ? 'opacity-50 line-through' : ''}`}>
-                                            <td className="py-0.5 font-bold truncate max-w-[50px]">{p.name}</td>
-                                            <td className="text-amber-200">{p.weight}</td>
-                                            <td>{p.streak}</td>
-                                            <td>{isQuarantined ? vault.metrics.quarantineRounds : '-'}</td>
-                                            <td className="flex gap-1">
-                                                <button onClick={() => resetPlayerVault(p.name)} title="Reset" className="hover:text-white"><RefreshCcw size={8}/></button>
-                                                <button onClick={() => godModeVault(p.name)} title="God Mode" className="hover:text-red-400"><Power size={8}/></button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* RIGHT COL: PARANOIA & TRIGGERS */}
-                <div className="space-y-2">
+            {/* Content */}
+            {!isMinimized && (
+                <div 
+                    className="border-2 border-t-0 rounded-b-xl overflow-hidden"
+                    style={{
+                        backgroundColor: `${theme.cardBg}f5`,
+                        borderColor: theme.accent,
+                        backdropFilter: 'blur(20px)'
+                    }}>
                     
-                    {/* PARANOIA ENGINE */}
-                    <div className="bg-black/40 p-2 rounded border border-white/5 relative overflow-hidden">
-                        <h4 className="text-white/80 font-bold mb-1 flex items-center gap-1">
-                            <Activity size={10} /> PARANOIA NETWORK
-                        </h4>
-                        
-                        {isLeteoRecent && (
-                            <div className="absolute top-0 right-0 bg-purple-900/80 px-2 py-0.5 text-[8px] font-black text-purple-200 border-l border-b border-purple-500/50 flex items-center gap-1">
-                                <Zap size={8} /> LETEO ACTIVE
-                            </div>
+                    {/* Tabs */}
+                    <div className="flex border-b" style={{ borderColor: theme.border }}>
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all"
+                                style={{
+                                    backgroundColor: activeTab === tab.id ? `${theme.accent}20` : 'transparent',
+                                    color: activeTab === tab.id ? theme.accent : theme.sub,
+                                    borderBottom: activeTab === tab.id ? `2px solid ${theme.accent}` : 'none'
+                                }}>
+                                {tab.icon}
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="p-4 overflow-y-auto max-h-[60vh]">
+                        {activeTab === 'override' && (
+                            <OverrideTab
+                                gameState={gameState}
+                                theme={theme}
+                                onForceTroll={onForceTroll}
+                                onForceArchitect={onForceArchitect}
+                                onForceRenuncia={onForceRenuncia}
+                            />
                         )}
 
-                        <div className="flex items-center justify-between mb-1">
-                            <span>ALERT LEVEL:</span>
-                            <span className={`font-black ${pColor}`}>{pLevel}%</span>
-                        </div>
-                        <div className="w-full bg-gray-800 h-1 rounded overflow-hidden mb-2">
-                            <div className="h-full transition-all duration-500" style={{ width: `${pLevel}%`, backgroundColor: pLevel > 70 ? '#ef4444' : (pLevel > 30 ? '#f59e0b' : '#22c55e') }} />
-                        </div>
-                        
-                        <div className="flex justify-between items-center text-[9px] opacity-70">
-                            <span>COOLING: {cooling > 0 ? <span className="text-cyan-400 font-bold">ACTIVE ({cooling})</span> : 'READY'}</span>
-                            <span>LAST: {gameState.history.lastBreakProtocol || 'NONE'}</span>
-                        </div>
+                        {activeTab === 'telemetry' && (
+                            <TelemetryTab
+                                gameState={gameState}
+                                theme={theme}
+                            />
+                        )}
+
+                        {activeTab === 'state' && (
+                            <StateTab
+                                gameState={gameState}
+                                theme={theme}
+                            />
+                        )}
+
+                        {activeTab === 'tools' && (
+                            <ToolsTab
+                                theme={theme}
+                                onExportState={onExportState}
+                                onImportState={onImportState}
+                                onResetStats={onResetStats}
+                                onSimulateRound={onSimulateRound}
+                            />
+                        )}
                     </div>
 
-                    {/* FORCE TRIGGERS */}
-                    <div>
-                        <h4 className="text-amber-300 font-bold mb-1 flex items-center gap-1">
-                            <AlertTriangle size={10} /> OVERRIDES
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                            <button onClick={() => toggleForceTroll('espejo_total')} className={`px-2 py-1 border rounded ${gameState.debugState.forceTroll === 'espejo_total' ? 'bg-amber-500 text-black font-bold' : 'border-amber-500/30'}`}>ESPEJO</button>
-                            <button onClick={() => toggleForceTroll('civil_solitario')} className={`px-2 py-1 border rounded ${gameState.debugState.forceTroll === 'civil_solitario' ? 'bg-amber-500 text-black font-bold' : 'border-amber-500/30'}`}>SOLO</button>
-                            <button onClick={toggleForceArchitect} className={`px-2 py-1 border rounded flex items-center gap-1 ${gameState.debugState.forceArchitect ? 'bg-amber-500 text-black font-bold' : 'border-amber-500/30'}`}><ShieldCheck size={8} /> ARQ</button>
-                        </div>
-                    </div>
-
-                    {/* LEXICON */}
-                    <div>
-                        <h4 className="text-amber-300 font-bold mb-1">HISTORY (LAST 3)</h4>
-                        <div className="text-[9px] opacity-50 break-words">
-                            [{gameState.history.lastWords.slice(0, 3).join(', ')}]
+                    {/* Footer - Shortcuts */}
+                    <div className="px-4 py-2 border-t text-[10px] font-mono"
+                        style={{ 
+                            borderColor: theme.border,
+                            color: theme.sub,
+                            backgroundColor: `${theme.bg}80`
+                        }}>
+                        <div className="flex flex-wrap gap-3">
+                            <span>⌘⇧D: Toggle</span>
+                            <span>⌘⇧1-4: Tabs</span>
+                            <span>Round: {gameState.history.roundCounter}</span>
+                            <span>Phase: {gameState.phase}</span>
                         </div>
                     </div>
                 </div>
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+// TAB: OVERRIDES
+// ============================================================
+
+const OverrideTab: React.FC<{
+    gameState: GameState;
+    theme: ThemeConfig;
+    onForceTroll: (scenario: TrollScenario | null) => void;
+    onForceArchitect: (force: boolean) => void;
+    onForceRenuncia: (force: boolean) => void;
+}> = ({ gameState, theme, onForceTroll, onForceArchitect, onForceRenuncia }) => {
+    
+    const trollScenarios: { value: TrollScenario; label: string; desc: string }[] = [
+        { value: 'espejo_total', label: '🪞 Espejo Total', desc: 'Todos impostores' },
+        { value: 'civil_solitario', label: '👤 Civil Solitario', desc: 'Solo 1 civil' },
+        { value: 'falsa_alarma', label: '😴 Falsa Alarma', desc: 'Todos civiles' }
+    ];
+
+    return (
+        <div className="space-y-4">
+            {/* Troll Events */}
+            <div>
+                <h3 className="text-sm font-black uppercase mb-2" style={{ color: theme.text }}>
+                    🎭 Eventos Troll
+                </h3>
+                <div className="space-y-2">
+                    {trollScenarios.map(scenario => (
+                        <button
+                            key={scenario.value}
+                            onClick={() => onForceTroll(
+                                gameState.debugState.forceTroll === scenario.value ? null : scenario.value
+                            )}
+                            className="w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            style={{
+                                backgroundColor: gameState.debugState.forceTroll === scenario.value 
+                                    ? `${theme.accent}20` 
+                                    : theme.cardBg,
+                                borderColor: gameState.debugState.forceTroll === scenario.value
+                                    ? theme.accent
+                                    : theme.border
+                            }}>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs font-bold" style={{ color: theme.text }}>
+                                        {scenario.label}
+                                    </div>
+                                    <div className="text-[10px] opacity-70" style={{ color: theme.sub }}>
+                                        {scenario.desc}
+                                    </div>
+                                </div>
+                                {gameState.debugState.forceTroll === scenario.value && (
+                                    <Zap size={14} style={{ color: theme.accent }} className="animate-pulse" />
+                                )}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Protocolos */}
+            <div>
+                <h3 className="text-sm font-black uppercase mb-2" style={{ color: theme.text }}>
+                    ⚡ Forzar Protocolos
+                </h3>
+                <div className="space-y-2">
+                    <ToggleButton
+                        label="🏛️ Arquitecto"
+                        active={gameState.debugState.forceArchitect}
+                        onClick={() => onForceArchitect(!gameState.debugState.forceArchitect)}
+                        theme={theme}
+                    />
+                    <ToggleButton
+                        label="🛡️ Renuncia"
+                        active={gameState.debugState.forceRenuncia || false}
+                        onClick={() => onForceRenuncia(!gameState.debugState.forceRenuncia)}
+                        theme={theme}
+                    />
+                </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 gap-2">
+                <StatCard
+                    label="Jugadores"
+                    value={gameState.players.length}
+                    theme={theme}
+                />
+                <StatCard
+                    label="Impostores"
+                    value={gameState.impostorCount}
+                    theme={theme}
+                />
+                <StatCard
+                    label="Ronda"
+                    value={gameState.history.roundCounter}
+                    theme={theme}
+                />
+                <StatCard
+                    label="Paranoia"
+                    value={`${gameState.history.paranoiaLevel}%`}
+                    theme={theme}
+                />
             </div>
         </div>
     );
 };
+
+// ============================================================
+// TAB: TELEMETRY
+// ============================================================
+
+const TelemetryTab: React.FC<{
+    gameState: GameState;
+    theme: ThemeConfig;
+}> = ({ gameState, theme }) => {
+    
+    const lastLog = gameState.history.matchLogs[0];
+    
+    return (
+        <div className="space-y-4">
+            <h3 className="text-sm font-black uppercase" style={{ color: theme.text }}>
+                📊 Última Ronda
+            </h3>
+
+            {lastLog ? (
+                <div className="space-y-3">
+                    {/* Basic Info */}
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: `${theme.accent}10` }}>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span className="opacity-70" style={{ color: theme.sub }}>Categoría:</span>
+                                <span className="font-bold ml-2" style={{ color: theme.text }}>
+                                    {lastLog.category}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="opacity-70" style={{ color: theme.sub }}>Palabra:</span>
+                                <span className="font-bold ml-2" style={{ color: theme.text }}>
+                                    {lastLog.word}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Players */}
+                    <div>
+                        <div className="text-xs font-bold mb-1" style={{ color: theme.text }}>
+                            💀 Impostores ({lastLog.impostors.length})
+                        </div>
+                        <div className="text-xs opacity-70" style={{ color: theme.sub }}>
+                            {lastLog.impostors.join(', ')}
+                        </div>
+                    </div>
+
+                    {/* Telemetry */}
+                    {lastLog.telemetry && lastLog.telemetry.length > 0 && (
+                        <div>
+                            <div className="text-xs font-bold mb-2" style={{ color: theme.text }}>
+                                🎯 Probabilidades de Selección
+                            </div>
+                            <div className="space-y-1">
+                                {lastLog.telemetry
+                                    .sort((a, b) => b.probabilityPercent - a.probabilityPercent)
+                                    .slice(0, 5)
+                                    .map((t, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                                        <span className="w-20 truncate" style={{ color: theme.text }}>
+                                            {t.playerName}
+                                        </span>
+                                        <div className="flex-1 h-2 rounded-full overflow-hidden"
+                                            style={{ backgroundColor: theme.border }}>
+                                            <div className="h-full transition-all"
+                                                style={{
+                                                    width: `${t.probabilityPercent}%`,
+                                                    backgroundColor: theme.accent
+                                                }} />
+                                        </div>
+                                        <span className="w-10 text-right font-mono" style={{ color: theme.accent }}>
+                                            {t.probabilityPercent.toFixed(1)}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Renuncia Telemetry */}
+                    {lastLog.renunciaTelemetry && (
+                        <div className="p-3 rounded-lg border"
+                            style={{ 
+                                backgroundColor: `${theme.accent}10`,
+                                borderColor: `${theme.accent}30`
+                            }}>
+                            <div className="text-xs font-bold mb-2" style={{ color: theme.accent }}>
+                                🛡️ Renuncia v2.0
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                                <div>
+                                    <span className="opacity-70">Base:</span>
+                                    <span className="ml-2">{(lastLog.renunciaTelemetry.finalProbability * 100).toFixed(0)}%</span>
+                                </div>
+                                <div>
+                                    <span className="opacity-70">Karma:</span>
+                                    <span className="ml-2">{(lastLog.renunciaTelemetry.karmaBonus * 100).toFixed(0)}%</span>
+                                </div>
+                                <div>
+                                    <span className="opacity-70">Sesión:</span>
+                                    <span className="ml-2">{(lastLog.renunciaTelemetry.sessionBonus * 100).toFixed(0)}%</span>
+                                </div>
+                                <div>
+                                    <span className="opacity-70">Streak:</span>
+                                    <span className="ml-2">{lastLog.renunciaTelemetry.candidateStreak}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div className="text-center py-8 opacity-50" style={{ color: theme.sub }}>
+                    <Terminal size={32} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">No hay datos de telemetría aún</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+// TAB: STATE
+// ============================================================
+
+const StateTab: React.FC<{
+    gameState: GameState;
+    theme: ThemeConfig;
+}> = ({ gameState, theme }) => {
+    
+    const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+    
+    return (
+        <div className="space-y-4">
+            <h3 className="text-sm font-black uppercase" style={{ color: theme.text }}>
+                👥 Estado de Jugadores
+            </h3>
+
+            <div className="space-y-2">
+                {Object.entries(gameState.history.playerStats || {}).map(([key, vault]) => (
+                    <div key={key}>
+                        <button
+                            onClick={() => setExpandedPlayer(expandedPlayer === key ? null : key)}
+                            className="w-full text-left p-2 rounded-lg transition-all"
+                            style={{
+                                backgroundColor: theme.cardBg,
+                                borderWidth: '1px',
+                                borderColor: theme.border
+                            }}>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold" style={{ color: theme.text }}>
+                                    {key}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                        style={{ 
+                                            backgroundColor: `${theme.accent}20`,
+                                            color: theme.accent 
+                                        }}>
+                                        Streak: {vault.metrics.civilStreak}
+                                    </span>
+                                    {expandedPlayer === key ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </div>
+                            </div>
+                        </button>
+
+                        {expandedPlayer === key && (
+                            <div className="mt-2 p-3 rounded-lg text-[10px] font-mono space-y-1"
+                                style={{ 
+                                    backgroundColor: `${theme.bg}80`,
+                                    borderWidth: '1px',
+                                    borderColor: theme.border
+                                }}>
+                                <div className="grid grid-cols-2 gap-2" style={{ color: theme.sub }}>
+                                    <div>Sesiones: {vault.metrics.totalSessions}</div>
+                                    <div>Ratio Imp: {(vault.metrics.impostorRatio * 100).toFixed(0)}%</div>
+                                    <div>Victorias Imp: {vault.metrics.totalImpostorWins}</div>
+                                    <div>Cuarentenas: {vault.metrics.quarantineRounds}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ============================================================
+// TAB: TOOLS
+// ============================================================
+
+const ToolsTab: React.FC<{
+    theme: ThemeConfig;
+    onExportState: () => void;
+    onImportState: (state: string) => void;
+    onResetStats: () => void;
+    onSimulateRound: () => void;
+}> = ({ theme, onExportState, onImportState, onResetStats, onSimulateRound }) => {
+    
+    return (
+        <div className="space-y-3">
+            <ActionButton
+                icon={<Download size={14} />}
+                label="Exportar Estado"
+                desc="Descargar JSON del estado actual"
+                onClick={onExportState}
+                theme={theme}
+            />
+
+            <ActionButton
+                icon={<Upload size={14} />}
+                label="Importar Estado"
+                desc="Cargar estado desde JSON"
+                onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.json';
+                    input.onchange = (e: any) => {
+                        const file = e.target.files[0];
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            onImportState(event.target?.result as string);
+                        };
+                        reader.readAsText(file);
+                    };
+                    input.click();
+                }}
+                theme={theme}
+            />
+
+            <ActionButton
+                icon={<SkipForward size={14} />}
+                label="Simular Ronda"
+                desc="Avanzar sin jugar"
+                onClick={onSimulateRound}
+                theme={theme}
+            />
+
+            <ActionButton
+                icon={<Trash2 size={14} />}
+                label="Reset Estadísticas"
+                desc="⚠️ Borrar todo el historial"
+                onClick={() => {
+                    if (confirm('¿Seguro? Esto borrará todas las estadísticas INFINITUM')) {
+                        onResetStats();
+                    }
+                }}
+                theme={theme}
+                danger
+            />
+        </div>
+    );
+};
+
+// ============================================================
+// HELPER COMPONENTS
+// ============================================================
+
+const ToggleButton: React.FC<{
+    label: string;
+    active: boolean;
+    onClick: () => void;
+    theme: ThemeConfig;
+}> = ({ label, active, onClick, theme }) => (
+    <button
+        onClick={onClick}
+        className="w-full flex items-center justify-between p-2 rounded-lg border transition-all"
+        style={{
+            backgroundColor: active ? `${theme.accent}20` : theme.cardBg,
+            borderColor: active ? theme.accent : theme.border
+        }}>
+        <span className="text-xs font-bold" style={{ color: theme.text }}>
+            {label}
+        </span>
+        <div className={`w-8 h-4 rounded-full transition-all ${active ? 'justify-end' : 'justify-start'} flex items-center px-0.5`}
+            style={{ backgroundColor: active ? theme.accent : theme.border }}>
+            <div className="w-3 h-3 rounded-full bg-white" />
+        </div>
+    </button>
+);
+
+const StatCard: React.FC<{
+    label: string;
+    value: string | number;
+    theme: ThemeConfig;
+}> = ({ label, value, theme }) => (
+    <div className="p-2 rounded-lg text-center"
+        style={{ backgroundColor: `${theme.accent}10` }}>
+        <div className="text-[10px] opacity-70 uppercase" style={{ color: theme.sub }}>
+            {label}
+        </div>
+        <div className="text-lg font-black" style={{ color: theme.accent }}>
+            {value}
+        </div>
+    </div>
+);
+
+const ActionButton: React.FC<{
+    icon: React.ReactNode;
+    label: string;
+    desc: string;
+    onClick: () => void;
+    theme: ThemeConfig;
+    danger?: boolean;
+}> = ({ icon, label, desc, onClick, theme, danger }) => (
+    <button
+        onClick={onClick}
+        className="w-full flex items-start gap-3 p-3 rounded-lg border transition-all hover:scale-[1.02] active:scale-[0.98]"
+        style={{
+            backgroundColor: theme.cardBg,
+            borderColor: danger ? '#ef4444' : theme.border
+        }}>
+        <div className="shrink-0 p-1.5 rounded-lg"
+            style={{ backgroundColor: danger ? 'rgba(239, 68, 68, 0.2)' : `${theme.accent}20` }}>
+            <div style={{ color: danger ? '#ef4444' : theme.accent }}>
+                {icon}
+            </div>
+        </div>
+        <div className="flex-1 text-left">
+            <div className="text-xs font-bold" style={{ color: theme.text }}>
+                {label}
+            </div>
+            <div className="text-[10px] opacity-70" style={{ color: theme.sub }}>
+                {desc}
+            </div>
+        </div>
+    </button>
+);

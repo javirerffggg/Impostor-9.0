@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity, GameState } from '../types';
 import { ChevronUp } from 'lucide-react';
@@ -13,6 +15,7 @@ interface SwipeRevealCardProps {
     settings: GameState['settings'];
     isParty?: boolean;
     partyIntensity?: PartyIntensity;
+    isRenunciaPending?: boolean;
 }
 
 const SWIPE_THRESHOLDS = {
@@ -28,7 +31,8 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     onRevealComplete,
     settings,
     isParty,
-    partyIntensity
+    partyIntensity,
+    isRenunciaPending
 }) => {
     const [isRevealed, setIsRevealed] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -344,6 +348,16 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                             </div>
                         )}
 
+                        {isRevealed && isRenunciaPending && (
+                            <div className="absolute top-4 right-4 z-50 animate-in fade-in zoom-in duration-300">
+                                <div className="px-3 py-1.5 rounded-full backdrop-blur-xl border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)] bg-purple-500/20">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-purple-300 animate-pulse">
+                                        DECISIÓN PENDIENTE
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {isRevealed && (!player.isOracle || oracleSelectionMade) && (
                             <div className="absolute bottom-8 left-0 w-full flex justify-center animate-in fade-in slide-in-from-bottom duration-500 px-6">
                                 <button 
@@ -351,7 +365,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                                     style={{ backgroundColor: color }}
                                     className="px-8 py-3 rounded-full text-white font-bold uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all"
                                 >
-                                    Siguiente
+                                    {isRenunciaPending ? 'CONTINUAR' : 'SIGUIENTE'}
                                 </button>
                             </div>
                         )}

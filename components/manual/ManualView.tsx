@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Search, Menu } from 'lucide-react';
 import { ThemeConfig } from '../../types';
@@ -42,13 +44,14 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-bottom duration-500"
-      style={{ backgroundColor: manualTheme.bg.primary }}>
+      style={{ backgroundColor: theme.bg, color: theme.text }}>
       
       {/* HEADER */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b pt-[calc(1rem+env(safe-area-inset-top))]"
         style={{ 
-          borderColor: manualTheme.border.subtle,
-          backgroundColor: manualTheme.bg.secondary 
+          borderColor: theme.border,
+          backgroundColor: theme.cardBg,
+          backdropFilter: 'blur(20px)'
         }}>
         
         {/* Mobile Menu Toggle */}
@@ -74,16 +77,16 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
         {/* Desktop Search */}
         <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border mr-4"
           style={{ 
-            backgroundColor: manualTheme.bg.card,
-            borderColor: manualTheme.border.subtle 
+            backgroundColor: 'rgba(0,0,0,0.1)',
+            borderColor: theme.border 
           }}>
-          <Search size={16} style={{ color: manualTheme.text.secondary }} />
+          <Search size={16} style={{ color: theme.sub }} />
           <input
             type="text"
             placeholder="Buscar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none outline-none text-sm w-32 sm:w-48 placeholder:text-gray-600"
+            className="bg-transparent border-none outline-none text-sm w-32 sm:w-48 placeholder:opacity-50"
             style={{ color: theme.text }}
           />
         </div>
@@ -100,21 +103,21 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
       {/* Mobile Search */}
       <div className="sm:hidden px-4 py-3 border-b"
         style={{ 
-          borderColor: manualTheme.border.subtle,
-          backgroundColor: manualTheme.bg.secondary 
+          borderColor: theme.border,
+          backgroundColor: theme.cardBg 
         }}>
         <div className="flex items-center gap-2 px-4 py-2 rounded-lg border"
           style={{ 
-            backgroundColor: manualTheme.bg.card,
-            borderColor: manualTheme.border.subtle 
+            backgroundColor: 'rgba(0,0,0,0.1)',
+            borderColor: theme.border 
           }}>
-          <Search size={16} style={{ color: manualTheme.text.secondary }} />
+          <Search size={16} style={{ color: theme.sub }} />
           <input
             type="text"
             placeholder="Buscar en el manual..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none outline-none text-sm flex-1 placeholder:text-gray-600"
+            className="bg-transparent border-none outline-none text-sm flex-1 placeholder:opacity-50"
             style={{ color: theme.text }}
           />
         </div>
@@ -149,7 +152,7 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
           {filteredSections.length === 0 && (
             <div className="text-center py-20 flex flex-col items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                <Search size={32} className="opacity-30" />
+                <Search size={32} className="opacity-30" style={{ color: theme.text }} />
               </div>
               <p className="text-lg opacity-50 font-medium" style={{ color: theme.text }}>
                 No se encontraron resultados para "{searchQuery}"
@@ -159,9 +162,9 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
 
           {/* Footer */}
           <div className="mt-16 pt-8 border-t text-center pb-12"
-            style={{ borderColor: manualTheme.border.subtle }}>
+            style={{ borderColor: theme.border }}>
             <p className="text-[10px] font-mono opacity-30 uppercase tracking-widest" style={{ color: theme.text }}>
-              Impostor 9.0 v12.1 - Manual Actualizado Febrero 2026
+              Impostor 9.0 v12.2 - Manual Actualizado Febrero 2026
             </p>
           </div>
         </div>

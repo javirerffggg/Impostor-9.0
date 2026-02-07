@@ -6,9 +6,11 @@
 
 
 
+
+
 import React from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
-import { Shield, Skull, Eye, Beer, Network, AlertCircle, Check, Crown, Siren, Smile } from 'lucide-react';
+import { Shield, Skull, Eye, Beer, Network, AlertCircle, Check, Crown, Siren, Smile, Gavel } from 'lucide-react';
 import { RenunciaResultBadge } from './RenunciaResultBadge';
 
 interface RoleContentProps {
@@ -71,8 +73,30 @@ export const RoleContent: React.FC<RoleContentProps> = ({
               theme={theme}
             />
 
+            {/* ✨ MAGISTRADO BADGE */}
+            {player.isAlcalde && !player.isImp && (
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-40 w-full animate-in slide-in-from-top duration-700">
+                    <div className="flex flex-col items-center">
+                        <div 
+                            className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md shadow-lg border-b-2"
+                            style={{ 
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                borderColor: '#FFD700',
+                                boxShadow: '0 0 20px rgba(255, 215, 0, 0.3)'
+                            }}
+                        >
+                            <Crown size={16} style={{ color: '#FFD700' }} className="animate-bounce" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: '#FFD700' }}>
+                                ALCALDE
+                            </span>
+                            <Crown size={16} style={{ color: '#FFD700' }} className="animate-bounce" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* TOP SECTION: Role & Icon */}
-            <div className="flex-none flex flex-col items-center justify-center gap-2 w-full pt-1">
+            <div className="flex-none flex flex-col items-center justify-center gap-2 w-full pt-6">
                 {player.isImp ? (
                     <div className="relative flex items-center justify-center mb-1">
                         <div className="absolute w-28 h-28 bg-red-600/30 rounded-full blur-xl animate-pulse" />
@@ -86,6 +110,12 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                         <div className="absolute w-24 h-24 rounded-full border border-violet-500/30 border-dashed opacity-60 animate-[spin_10s_linear_infinite]" />
                         <Eye size={48} className="text-violet-400 relative z-10 drop-shadow-[0_0_15px_rgba(139,92,246,0.8)]" />
                     </div>
+                ) : player.isAlcalde ? (
+                    <div className="relative flex items-center justify-center mb-1">
+                        <div className="absolute w-28 h-28 bg-yellow-600/30 rounded-full blur-xl animate-pulse" />
+                        <div className="absolute w-24 h-24 rounded-full border border-yellow-500/30 border-dashed opacity-60 animate-[spin_12s_linear_infinite]" />
+                        <Gavel size={48} className="relative z-10 drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]" style={{ color: '#FFD700' }} />
+                    </div>
                 ) : (
                     <div className="relative flex items-center justify-center mb-1">
                         <div className="absolute w-28 h-28 bg-green-600/30 rounded-full blur-xl animate-pulse" />
@@ -95,7 +125,11 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                     </div>
                 )}
 
-                <h3 className={`text-xl font-black uppercase tracking-widest ${player.isImp ? 'text-red-500 glitch-text-anim' : (player.isOracle ? 'text-violet-400' : 'text-green-500')}`} data-text={player.isOracle ? 'ORÁCULO' : player.role}>
+                <h3 
+                    className={`text-xl font-black uppercase tracking-widest ${player.isImp ? 'text-red-500 glitch-text-anim' : (player.isOracle ? 'text-violet-400' : (player.isAlcalde ? 'gold-glow' : 'text-green-500'))}`} 
+                    data-text={player.isOracle ? 'ORÁCULO' : player.role}
+                    style={player.isAlcalde ? { color: '#FFD700' } : {}}
+                >
                     {player.isOracle ? 'ORÁCULO' : player.role}
                 </h3>
 
@@ -105,6 +139,13 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                             Te toca comenzar a hablar, tienes una pista adicional
                         </p>
                     </div>
+                )}
+
+                {/* Mensaje especial para el Alcalde */}
+                {player.isAlcalde && (
+                    <p className="text-[10px] font-bold text-center opacity-80 uppercase tracking-wider" style={{ color: '#FFD700' }}>
+                        Tu voto cuenta doble en caso de empate
+                    </p>
                 )}
 
                 {isParty && player.partyRole && player.partyRole !== 'civil' && (
@@ -187,7 +228,9 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                                     ? 'linear-gradient(180deg, #ffffff 0%, #ff3333 40%, #500000 100%)' 
                                     : (player.isOracle 
                                         ? 'linear-gradient(180deg, #ffffff 0%, #a78bfa 100%)' 
-                                        : `linear-gradient(180deg, ${theme.text} 0%, ${color} 100%)`),
+                                        : (player.isAlcalde 
+                                            ? 'linear-gradient(180deg, #FFFFFF 0%, #FFD700 100%)'
+                                            : `linear-gradient(180deg, ${theme.text} 0%, ${color} 100%)`)),
                                 WebkitBackgroundClip: 'text',
                                 WebkitTextFillColor: 'transparent',
                                 backgroundClip: 'text',
@@ -202,7 +245,7 @@ export const RoleContent: React.FC<RoleContentProps> = ({
                                 overflowWrap: 'anywhere',
                                 hyphens: 'auto'
                             }}
-                            className={`font-black leading-tight text-center uppercase ${player.isImp || (isParty && isHighIntensity) ? 'glitch-text-anim' : ''}`}
+                            className={`font-black leading-tight text-center uppercase ${player.isImp || (isParty && isHighIntensity) ? 'glitch-text-anim' : ''} ${player.isAlcalde ? 'gold-glow' : ''}`}
                             data-text={player.word}
                         >
                             {player.word}

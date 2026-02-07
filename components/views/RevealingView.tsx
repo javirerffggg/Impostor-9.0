@@ -1,8 +1,13 @@
 
+
+
+
+
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
 import { SwipeRevealCard } from '../SwipeRevealCard';
+import { MemoryRevealCard } from '../MemoryRevealCard';
 import { PartyNotification } from '../PartyNotification';
 import { PLAYER_COLORS } from '../../constants';
 import { Smartphone, ArrowRight } from 'lucide-react';
@@ -15,6 +20,7 @@ interface Props {
     onNextPlayer: (viewTime: number) => void;
     onOracleConfirm: (hint: string) => void;
     onRenunciaDecision: (decision: RenunciaDecision) => void;
+    onRenunciaRoleSeen: () => void;
     isExiting: boolean;
     transitionName?: string | null;
 }
@@ -26,18 +32,36 @@ export const RevealingView: React.FC<Props> = React.memo(({
     onNextPlayer, 
     onOracleConfirm, 
     onRenunciaDecision,
+    onRenunciaRoleSeen,
     isExiting, 
     transitionName 
 }) => {
     const [hasSeenCurrentCard, setHasSeenCurrentCard] = useState(false);
     const isParty = gameState.settings.partyMode;
+    const isMemoryMode = gameState.settings.memoryModeConfig?.enabled;
     const currentPlayer = gameState.gameData[gameState.currentPlayerIndex];
     const isLastPlayer = gameState.currentPlayerIndex === gameState.players.length - 1;
 
-    // RENUNCIA: Check if current player is the candidate and hasn't decided yet
-    const isRenunciaCandidate = gameState.renunciaData && 
+    // RENUNCIA LOGIC
+    // Phase 1: Candidate has not seen initial role yet (Show standard card)
+    const isRenunciaPhase1 = gameState.renunciaData && 
         currentPlayer.id === gameState.renunciaData.candidatePlayerId &&
-        gameState.renunciaData.decision === 'pending';
+        gameState.renunciaData.decision === 'pending' &&
+        !gameState.renunciaData.hasSeenInitialRole;
+
+    // Phase 2: Candidate has seen initial role, needs to decide (Show RenunciaDecisionView)
+    const isRenunciaPhase2 = gameState.renunciaData && 
+        currentPlayer.id === gameState.renunciaData.candidatePlayerId &&
+        gameState.renunciaData.decision === 'pending' &&
+        gameState.renunciaData.hasSeenInitialRole;
+
+    const handleNext = (viewTime: number) => {
+        if (isRenunciaPhase1) {
+            onRenunciaRoleSeen();
+        } else {
+            onNextPlayer(viewTime);
+        }
+    };
 
     const auraExplosion = isExiting && (
         <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none">
@@ -113,7 +137,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
                             </div>
                         </div>
                     </div>
-                ) : isRenunciaCandidate ? (
+                ) : isRenunciaPhase2 ? (
                     // PROTOCOLO RENUNCIA: Show decision screen for candidate
                     <RenunciaDecisionView
                         candidatePlayer={currentPlayer}
@@ -134,36 +158,47 @@ export const RevealingView: React.FC<Props> = React.memo(({
                         }}
                     />
                 ) : (
-                    gameState.settings.revealMethod === 'swipe' ? (
-                        <SwipeRevealCard 
+                    // CHECK FOR MEMORY MODE
+                    isMemoryMode ? (
+                        <MemoryRevealCard 
                             player={currentPlayer}
+                            memoryConfig={gameState.settings.memoryModeConfig}
                             theme={theme}
-                            color={currentPlayerColor}
-                            onRevealComplete={(time) => onNextPlayer(time)}
-                            settings={gameState.settings}
-                            isParty={isParty}
-                            partyIntensity={gameState.partyState.intensity}
+                            onMemorized={(time) => handleNext(time)}
                         />
                     ) : (
-                        <IdentityCard 
-                            player={currentPlayer}
-                            theme={theme}
-                            color={currentPlayerColor}
-                            onRevealStart={() => {}}
-                            onRevealEnd={() => { if (!currentPlayer.isOracle) setHasSeenCurrentCard(true); }}
-                            nextAction={(time) => { setHasSeenCurrentCard(false); onNextPlayer(time); }}
-                            readyForNext={hasSeenCurrentCard}
-                            isLastPlayer={isLastPlayer}
-                            isParty={gameState.settings.partyMode}
-                            partyIntensity={gameState.partyState.intensity} 
-                            debugMode={gameState.debugState.isEnabled}
-                            onOracleConfirm={(hint) => { setHasSeenCurrentCard(true); onOracleConfirm(hint); }}
-                        />
+                        gameState.settings.revealMethod === 'swipe' ? (
+                            <SwipeRevealCard 
+                                player={currentPlayer}
+                                theme={theme}
+                                color={currentPlayerColor}
+                                onRevealComplete={(time) => handleNext(time)}
+                                settings={gameState.settings}
+                                isParty={isParty}
+                                partyIntensity={gameState.partyState.intensity}
+                                isRenunciaPending={isRenunciaPhase1}
+                            />
+                        ) : (
+                            <IdentityCard 
+                                player={currentPlayer}
+                                theme={theme}
+                                color={currentPlayerColor}
+                                onRevealStart={() => {}}
+                                onRevealEnd={() => { if (!currentPlayer.isOracle) setHasSeenCurrentCard(true); }}
+                                nextAction={(time) => { setHasSeenCurrentCard(false); handleNext(time); }}
+                                readyForNext={hasSeenCurrentCard}
+                                isLastPlayer={isLastPlayer}
+                                isParty={gameState.settings.partyMode}
+                                partyIntensity={gameState.partyState.intensity} 
+                                debugMode={gameState.debugState.isEnabled}
+                                onOracleConfirm={(hint) => { setHasSeenCurrentCard(true); onOracleConfirm(hint); }}
+                            />
+                        )
                     )
                 )}
             </div>
             
-            {!transitionName && !isRenunciaCandidate && (
+            {!transitionName && !isRenunciaPhase2 && (
                 <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
                     <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">
                         Jugador {gameState.currentPlayerIndex + 1} de {gameState.players.length}

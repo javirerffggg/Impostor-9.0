@@ -1,8 +1,11 @@
 
+
+
 import React, { useState } from 'react';
-import { ThemeConfig, ThemeName, GameState } from '../types';
+import { ThemeConfig, ThemeName, GameState, MemoryDifficulty } from '../types';
 import { THEMES } from '../constants';
-import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp } from 'lucide-react';
+import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp, Brain, Zap } from 'lucide-react';
+import { getMemoryConfigForDifficulty } from '../utils/memoryWordGenerator';
 
 interface Props {
     isOpen: boolean;
@@ -45,6 +48,17 @@ export const SettingsDrawer: React.FC<Props> = ({
 
     if (!isOpen) return null;
 
+    const handleMemoryDifficultyChange = (difficulty: MemoryDifficulty) => {
+        const config = getMemoryConfigForDifficulty(difficulty);
+        onUpdateSettings({
+            memoryModeConfig: {
+                ...gameState.settings.memoryModeConfig,
+                difficulty,
+                ...config
+            }
+        });
+    };
+
     return (
         <div className="fixed inset-0 z-[100] animate-in fade-in duration-300">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xl" />
@@ -74,6 +88,59 @@ export const SettingsDrawer: React.FC<Props> = ({
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-8 relative z-10 pb-12">
                     
+                    {/* MEMORY MODE SETTINGS (IF ENABLED) */}
+                    {gameState.settings.memoryModeConfig.enabled && (
+                        <section className="space-y-3">
+                            <div className="flex items-center gap-2 opacity-60 px-1">
+                                <Brain size={12} style={{ color: theme.text }} />
+                                <h3 style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-[0.2em]">
+                                    Configuración de Memoria
+                                </h3>
+                            </div>
+                            
+                            <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-4 animate-in fade-in zoom-in duration-300">
+                                <div className="space-y-2">
+                                    <span style={{ color: theme.text }} className="text-xs font-bold">Dificultad</span>
+                                    <div className="grid grid-cols-4 gap-1 bg-black/40 rounded-lg p-0.5 border border-white/5">
+                                        {(['easy', 'normal', 'hard', 'extreme'] as const).map(d => (
+                                            <button
+                                                key={d}
+                                                onClick={() => handleMemoryDifficultyChange(d)}
+                                                className={`py-2 rounded-md text-[8px] font-black uppercase transition-all ${gameState.settings.memoryModeConfig.difficulty === d ? 'bg-white/10 text-white' : 'text-white/40'}`}
+                                            >
+                                                {d === 'easy' ? 'Fácil' : d === 'normal' ? 'Normal' : d === 'hard' ? 'Difícil' : 'Extremo'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                    <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                                        <p style={{ color: theme.accent }} className="text-lg font-black">{gameState.settings.memoryModeConfig.displayTime}s</p>
+                                        <p style={{ color: theme.sub }} className="text-[8px] uppercase opacity-60">Tiempo</p>
+                                    </div>
+                                    <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                                        <p style={{ color: theme.accent }} className="text-lg font-black">{gameState.settings.memoryModeConfig.wordCount}</p>
+                                        <p style={{ color: theme.sub }} className="text-[8px] uppercase opacity-60">Palabras</p>
+                                    </div>
+                                    <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                                        <p style={{ color: theme.accent }} className="text-lg font-black">{Math.round(gameState.settings.memoryModeConfig.highlightIntensity * 100)}%</p>
+                                        <p style={{ color: theme.sub }} className="text-[8px] uppercase opacity-60">Pista Visual</p>
+                                    </div>
+                                </div>
+
+                                {gameState.settings.memoryModeConfig.difficulty === 'extreme' && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                                        <Zap size={14} className="text-red-400 shrink-0" />
+                                        <p className="text-[9px] text-red-300 font-bold leading-tight">
+                                            Sin ayuda visual. Debes encontrar la palabra correcta solo por contexto (imposible) o suerte. ¡Solo para expertos!
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
+
                     {/* REVEAL METHOD SELECTION */}
                     <section className="space-y-3">
                         <div className="flex items-center gap-2 opacity-60 px-1">

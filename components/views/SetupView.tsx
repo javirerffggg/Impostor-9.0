@@ -1,9 +1,11 @@
 
+
+
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets } from 'lucide-react';
-import { DebugConsole } from '../DebugConsole';
-import { ModeToggle } from '../ModeToggle';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel } from 'lucide-react';
+import { GameModeGrid, GameModeItem } from '../GameModeGrid';
+import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 
 interface Props {
     gameState: GameState;
@@ -34,6 +36,108 @@ export const SetupView: React.FC<Props> = ({
     const [newPlayerName, setNewPlayerName] = useState("");
     const isParty = gameState.settings.partyMode;
     const isValidToStart = gameState.players.length >= 3;
+
+    const handleModeToggle = (id: string) => {
+        switch(id) {
+            case 'hint': onUpdateSettings({ hintMode: !gameState.settings.hintMode }); break;
+            case 'troll': onUpdateSettings({ trollMode: !gameState.settings.trollMode }); break;
+            case 'architect': onUpdateSettings({ architectMode: !gameState.settings.architectMode }); break;
+            case 'nexus': onUpdateSettings({ nexusMode: !gameState.settings.nexusMode }); break;
+            case 'party': onUpdateSettings({ partyMode: !gameState.settings.partyMode }); break;
+            case 'oracle': onUpdateSettings({ oracleMode: !gameState.settings.oracleMode }); break;
+            case 'vanguardia': onUpdateSettings({ vanguardiaMode: !gameState.settings.vanguardiaMode }); break;
+            case 'renuncia': onUpdateSettings({ renunciaMode: !gameState.settings.renunciaMode }); break;
+            case 'magistrado': onUpdateSettings({ protocolMagistrado: !gameState.settings.protocolMagistrado }); break;
+            case 'memory': 
+                const config = gameState.settings.memoryModeConfig;
+                if (!config.enabled) {
+                     const defaults = getMemoryConfigForDifficulty(config.difficulty);
+                     onUpdateSettings({ memoryModeConfig: { ...config, enabled: true, ...defaults } });
+                } else {
+                     onUpdateSettings({ memoryModeConfig: { ...config, enabled: false } });
+                }
+                break;
+        }
+    };
+
+    const modes: GameModeItem[] = [
+        {
+            id: 'hint',
+            name: 'Pistas',
+            description: 'Impostores reciben pistas.',
+            icon: <ScanEye size={20} />,
+            isActive: gameState.settings.hintMode
+        },
+        {
+            id: 'magistrado',
+            name: 'Magistrado',
+            description: 'Alcalde con voto doble.',
+            icon: <Gavel size={20} />,
+            isActive: gameState.settings.protocolMagistrado,
+            isDisabled: gameState.players.length < 6,
+            isNew: true
+        },
+        {
+            id: 'troll',
+            name: 'Troll',
+            description: 'Eventos de caos (5%).',
+            icon: <Ghost size={20} />,
+            isActive: gameState.settings.trollMode
+        },
+        {
+            id: 'architect',
+            name: 'Arquitecto',
+            description: 'Civil elige la palabra.',
+            icon: <ShieldCheck size={20} />,
+            isActive: gameState.settings.architectMode
+        },
+        {
+            id: 'nexus',
+            name: 'Nexus',
+            description: 'Impostores aliados.',
+            icon: <Network size={20} />,
+            isActive: gameState.settings.nexusMode
+        },
+        {
+            id: 'party',
+            name: 'Fiesta',
+            description: 'Castigos y bebida.',
+            icon: <Beer size={20} />,
+            isActive: gameState.settings.partyMode
+        },
+        {
+            id: 'oracle',
+            name: 'Oráculo',
+            description: 'Pista pública inicial.',
+            icon: <Eye size={20} />,
+            isActive: gameState.settings.oracleMode && gameState.settings.hintMode,
+            isDisabled: !gameState.settings.hintMode
+        },
+        {
+            id: 'vanguardia',
+            name: 'Vanguardia',
+            description: 'Ventaja al inicio.',
+            icon: <Zap size={20} />,
+            isActive: gameState.settings.vanguardiaMode && gameState.settings.hintMode,
+            isDisabled: !gameState.settings.hintMode
+        },
+        {
+            id: 'renuncia',
+            name: 'Renuncia',
+            description: 'Rechazar rol.',
+            icon: <UserMinus size={20} />,
+            isActive: gameState.settings.renunciaMode,
+            isDisabled: gameState.impostorCount < 2
+        },
+        {
+            id: 'memory',
+            name: 'Memoria',
+            description: 'Palabras fugaces.',
+            icon: <Brain size={20} />,
+            isActive: gameState.settings.memoryModeConfig.enabled,
+            isNew: true
+        }
+    ];
 
     if (gameState.partyState.isHydrationLocked) {
         return (
@@ -76,8 +180,6 @@ export const SetupView: React.FC<Props> = ({
 
     return (
         <div className={`flex flex-col h-full relative z-10 animate-in fade-in duration-500 pt-[env(safe-area-inset-top)] ${isPixelating ? 'animate-dissolve' : ''}`}>
-             
-             <DebugConsole gameState={gameState} setGameState={setGameState} />
              
              {gameState.debugState.isEnabled && (
                  <div className="fixed inset-0 pointer-events-none z-[60] border-4 border-amber-500/50 animate-pulse" />
@@ -216,41 +318,13 @@ export const SetupView: React.FC<Props> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-white/5">
-                        <ModeToggle type="hint" isActive={gameState.settings.hintMode} onClick={() => onUpdateSettings({ hintMode: !gameState.settings.hintMode })} theme={theme} />
-                        <ModeToggle type="troll" isActive={gameState.settings.trollMode} onClick={() => onUpdateSettings({ trollMode: !gameState.settings.trollMode })} theme={theme} />
-                        <ModeToggle type="architect" isActive={gameState.settings.architectMode} onClick={() => onUpdateSettings({ architectMode: !gameState.settings.architectMode })} theme={theme} />
-                        <ModeToggle type="nexus" isActive={gameState.settings.nexusMode} onClick={() => onUpdateSettings({ nexusMode: !gameState.settings.nexusMode })} theme={theme} />
-                        
-                        <ModeToggle 
-                            type="party" 
-                            isActive={gameState.settings.partyMode} 
-                            onClick={() => onUpdateSettings({ partyMode: !gameState.settings.partyMode })} 
-                            theme={theme} 
-                        />
-
-                        <ModeToggle 
-                            type="oracle" 
-                            isActive={gameState.settings.oracleMode && gameState.settings.hintMode} 
-                            isDisabled={!gameState.settings.hintMode}
-                            onClick={() => onUpdateSettings({ oracleMode: !gameState.settings.oracleMode })} 
-                            theme={theme} 
-                        />
-
-                        <ModeToggle 
-                            type="vanguardia" 
-                            isActive={gameState.settings.vanguardiaMode && gameState.settings.hintMode} 
-                            isDisabled={!gameState.settings.hintMode}
-                            onClick={() => onUpdateSettings({ vanguardiaMode: !gameState.settings.vanguardiaMode })} 
-                            theme={theme} 
-                        />
-
-                        <ModeToggle 
-                            type="renuncia" 
-                            isActive={gameState.settings.renunciaMode} 
-                            isDisabled={gameState.impostorCount < 2}
-                            onClick={() => onUpdateSettings({ renunciaMode: !gameState.settings.renunciaMode })} 
-                            theme={theme} 
+                    {/* NEW COMPACT MODE GRID */}
+                    <div className="pt-4 border-t border-white/5">
+                        <GameModeGrid 
+                            modes={modes}
+                            theme={theme}
+                            onModeToggle={handleModeToggle}
+                            compactLimit={6}
                         />
                     </div>
                 </div>

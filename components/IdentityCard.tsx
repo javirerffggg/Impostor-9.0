@@ -1,4 +1,6 @@
 
+
+
 import React, { useRef, useState, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
 import { Fingerprint, Lock, Play, ArrowRight, Eye, Beer, MousePointerClick } from 'lucide-react';
@@ -18,9 +20,24 @@ interface Props {
     partyIntensity?: PartyIntensity; 
     debugMode?: boolean; 
     onOracleConfirm?: (hint: string) => void;
+    isRenunciaPending?: boolean; // New Prop
 }
 
-export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealStart, onRevealEnd, nextAction, readyForNext, isLastPlayer, isParty, partyIntensity, debugMode, onOracleConfirm }) => {
+export const IdentityCard: React.FC<Props> = ({ 
+    player, 
+    theme, 
+    color, 
+    onRevealStart, 
+    onRevealEnd, 
+    nextAction, 
+    readyForNext, 
+    isLastPlayer, 
+    isParty, 
+    partyIntensity, 
+    debugMode, 
+    onOracleConfirm,
+    isRenunciaPending 
+}) => {
     const [isHolding, setIsHolding] = useState(false);
     const [hasInteracted, setHasInteracted] = useState(false);
     const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
@@ -157,6 +174,18 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                             <div className="absolute inset-0 bg-red-500/10 z-0 mix-blend-overlay animate-flash pointer-events-none" />
                         </>
                     )}
+                    
+                    {/* RENUNCIA BADGE */}
+                    {isHolding && isRenunciaPending && (
+                        <div className="absolute top-4 right-4 z-50 animate-in fade-in zoom-in duration-300">
+                            <div className="px-3 py-1.5 rounded-full backdrop-blur-xl border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)] bg-purple-500/20">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-purple-300 animate-pulse">
+                                    DECISIÓN PENDIENTE
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className={`absolute inset-0 z-10 flex flex-col ${isHolding ? 'justify-start pt-6 pb-24' : 'justify-between py-8'} px-6 transition-none`}>
                         {!isHolding ? (
                             <>
@@ -218,7 +247,11 @@ export const IdentityCard: React.FC<Props> = ({ player, theme, color, onRevealSt
                         </div>
                         )}
                         <div className="absolute inset-[2px] rounded-full z-0" style={{ backgroundColor: color }} />
-                    <span className="relative z-10 tracking-widest">{isLastPlayer ? (isParty ? 'EMPEZAR EL BOTELLÓN' : 'EMPEZAR PARTIDA') : (isParty ? 'SIGUIENTE BORRACHO' : 'SIGUIENTE JUGADOR')}</span>
+                    <span className="relative z-10 tracking-widest">
+                        {isLastPlayer ? (isParty ? 'EMPEZAR EL BOTELLÓN' : 'EMPEZAR PARTIDA') : (
+                            isRenunciaPending ? 'CONTINUAR' : (isParty ? 'SIGUIENTE BORRACHO' : 'SIGUIENTE JUGADOR')
+                        )}
+                    </span>
                     {isLastPlayer ? <Play size={20} fill="currentColor" className="relative z-10"/> : <ArrowRight size={20} className="relative z-10"/>}
                 </button>
             </div>

@@ -1,4 +1,6 @@
 
+
+
 import { CardData } from './ManualCard';
 import { CodeBlockData } from './ManualCodeBlock';
 
@@ -231,6 +233,17 @@ export const manualSections: ManualSection[] = [
                     '👤 Civil Solitario: Solo un civil, el resto impostores.',
                     '✨ Falsa Alarma: Todos son civiles.'
                 ]
+            }
+        ]
+      },
+      {
+        title: 'Modo Memoria (Protocolo Mnemosyne)',
+        content: 'Sustituye la carta de identidad estática por un desafío de memoria efímero. Los jugadores verán una lista de palabras durante unos segundos y deben memorizar la correcta. El Impostor solo verá palabras falsas (distractores).',
+        cards: [
+            {
+                type: 'highlight',
+                title: 'Reto Cognitivo',
+                content: 'Si el Impostor falla al recordar una palabra falsa coherente, será descubierto. Configurable en ajustes (Tiempo, Cantidad de palabras).'
             }
         ]
       },

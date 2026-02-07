@@ -1,7 +1,15 @@
 
+
+
+
+
+
+
+
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision } from '../types';
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, RenunciaDecision, MagistradoData } from '../types';
 import { assignPartyRoles, calculatePartyIntensity } from './partyLogic'; // BACCHUS Integration
+import { generateMemoryWords } from './memoryWordGenerator';
 
 // ============================================================
 // PROTOCOLO RENUNCIA v2.0 - TELEMETRY INTERFACE
@@ -26,14 +34,17 @@ interface GameConfig {
     useVanguardiaMode: boolean; // v8.0
     useNexusMode: boolean; // v6.5
     useRenunciaMode: boolean; // v12.0
+    useMagistradoMode: boolean; // ✨ NUEVO v10.0
     selectedCats: string[];
     history: GameState['history'];
     debugOverrides?: {
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
+        forceRenuncia?: boolean;
     }
     // v4.0 BACCHUS Config
     isPartyMode?: boolean;
+    memoryModeConfig?: GameState['settings']['memoryModeConfig']; // v9.0
 }
 
 // --- HELPER: Fisher-Yates Shuffle ---
@@ -55,7 +66,8 @@ const createNewVault = (uid: string): InfinityVault => ({
         impostorRatio: 0,
         civilStreak: 0,
         totalImpostorWins: 0,
-        quarantineRounds: 0 // v6.1
+        quarantineRounds: 0, // v6.1
+        timesAsAlcalde: 0
     },
     categoryDNA: {},
     sequenceAnalytics: {
@@ -67,6 +79,45 @@ const createNewVault = (uid: string): InfinityVault => ({
 
 const getVault = (uid: string, stats: Record<string, InfinityVault>): InfinityVault => {
     return stats[uid] || createNewVault(uid);
+};
+
+// --- PROTOCOLO MAGISTRADO (v10.0) ---
+const selectAlcalde = (
+    players: Player[], 
+    impostorIds: string[], 
+    stats: Record<string, InfinityVault>
+): Player | null => {
+    // 1. Filtrar solo civiles
+    const civilPlayers = players.filter(p => !impostorIds.includes(p.id));
+    
+    if (civilPlayers.length === 0) return null;
+    if (civilPlayers.length === 1) return civilPlayers[0];
+
+    // 2. Calcular pesos (quien menos haya sido alcalde tiene mas probabilidad)
+    const weights = civilPlayers.map(player => {
+        const key = player.name.trim().toLowerCase();
+        const vault = getVault(key, stats);
+        const timesAsAlcalde = vault.metrics.timesAsAlcalde || 0;
+        
+        // Peso base: 100 dividido por (veces + 1)
+        // 0 veces = 100
+        // 1 vez = 50
+        // 2 veces = 33
+        return Math.max(10, 100 / (timesAsAlcalde + 1));
+    });
+
+    // 3. Selección ponderada
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (let i = 0; i < civilPlayers.length; i++) {
+        random -= weights[i];
+        if (random <= 0) {
+            return civilPlayers[i];
+        }
+    }
+    
+    return civilPlayers[civilPlayers.length - 1];
 };
 
 // --- PROTOCOLO LETEO: Regularidad Aritmética ---
@@ -523,9 +574,10 @@ export const generateGameData = (config: GameConfig): {
     newHistory: GameConfig['history'];
     oracleSetup?: OracleSetupData;
     renunciaData?: RenunciaData; // v12.0
+    magistradoData?: MagistradoData; // v10.0
     wordPair: CategoryData; // Exposed for logic that needs it
 } => {
-    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, selectedCats, history, debugOverrides, isPartyMode } = config;
+    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig } = config;
     
     const currentRound = history.roundCounter + 1;
     const availableCategories = selectedCats.length > 0 ? selectedCats : Object.keys(CATEGORIES_DATA);
@@ -836,6 +888,31 @@ export const generateGameData = (config: GameConfig): {
         newPlayerStats[key] = vault;
     });
 
+    // --- PROTOCOLO MAGISTRADO (v10.0) ---
+    let magistradoData: MagistradoData | undefined;
+    let alcaldePlayer: Player | null = null;
+
+    if (useMagistradoMode && players.length >= 6) {
+        alcaldePlayer = selectAlcalde(players, selectedImpostors.map(i => i.id), newPlayerStats);
+        
+        if (alcaldePlayer) {
+            magistradoData = {
+                alcaldePlayerId: alcaldePlayer.id,
+                alcaldePlayerName: alcaldePlayer.name,
+                sessionStartTime: Date.now(),
+                telemetry: {
+                    wasRevealed: false
+                }
+            };
+            
+            // Update stats
+            const alcaldeKey = alcaldePlayer.name.trim().toLowerCase();
+            const alcaldeVault = getVault(alcaldeKey, newPlayerStats);
+            alcaldeVault.metrics.timesAsAlcalde = (alcaldeVault.metrics.timesAsAlcalde || 0) + 1;
+            newPlayerStats[alcaldeKey] = alcaldeVault;
+        }
+    }
+
     const newHistoryWords = [wordPair.civ, ...history.lastWords].slice(0, 15);
     const newHistoryCategories = [catName, ...history.lastCategories].slice(0, 3);
     const newGlobalWordUsage = { ...history.globalWordUsage };
@@ -885,7 +962,7 @@ export const generateGameData = (config: GameConfig): {
 
         // SEQUENCE RULE: Oracle must be before the first impostor.
         if (firstImpIndex > 0) {
-            const potentialOracles = players.slice(0, firstImpIndex).filter(p => p.id !== architectId);
+            const potentialOracles = players.slice(0, firstImpIndex).filter(p => p.id !== architectId && p.id !== alcaldePlayer?.id);
             
             if (potentialOracles.length > 0) {
                 // Weighted selection based on streak using INFINITUM
@@ -941,6 +1018,7 @@ export const generateGameData = (config: GameConfig): {
         const probability = grandTotalWeight > 0 ? (rawWeight / grandTotalWeight) * 100 : 0;
         const isOracle = p.id === oracleId;
         const isArchitect = p.id === architectId;
+        const isAlcalde = p.id === alcaldePlayer?.id;
 
         // VANGUARDIA LOGIC CHECK (v8.0)
         let isVanguardia = false;
@@ -961,6 +1039,22 @@ export const generateGameData = (config: GameConfig): {
             }
         }
 
+        // MEMORY MODE GENERATION (v9.0)
+        let memoryWords: string[] | undefined;
+        let memoryCorrectIndex: number | undefined;
+
+        if (memoryModeConfig && memoryModeConfig.enabled) {
+            const memResult = generateMemoryWords(
+                catName,
+                wordPair.civ,
+                isImp,
+                memoryModeConfig.difficulty,
+                memoryModeConfig.wordCount
+            );
+            memoryWords = memResult.displayWords;
+            memoryCorrectIndex = memResult.correctIndex;
+        }
+
         return {
             id: p.id,
             name: p.name,
@@ -974,7 +1068,10 @@ export const generateGameData = (config: GameConfig): {
             viewTime: 0,
             isOracle: isOracle,
             isVanguardia: isVanguardia,
-            isArchitect: isArchitect
+            isArchitect: isArchitect,
+            isAlcalde: isAlcalde,
+            memoryWords: memoryWords,
+            memoryCorrectIndex: memoryCorrectIndex
         };
     });
 
@@ -995,7 +1092,7 @@ export const generateGameData = (config: GameConfig): {
     let renunciaTelemetry: RenunciaTelemetry | undefined;
 
     const shouldTryRenuncia = (
-        useRenunciaMode &&
+        (useRenunciaMode || debugOverrides?.forceRenuncia) &&
         impostorCount >= 2 &&
         players.length >= 4 &&
         !isTrollEvent &&
@@ -1033,51 +1130,17 @@ export const generateGameData = (config: GameConfig): {
             
             renunciaTelemetry = telemetry;
             
-            // 5. Tirar el dado
+            // 5. Tirar el dado o Forzar
             const roll = Math.random();
-            if (roll < probability) {
+            if (debugOverrides?.forceRenuncia || roll < probability) {
                 // ✅ RENUNCIA ACTIVADA
                 renunciaData = {
                     candidatePlayerId: candidate.id,
                     originalImpostorIds: selectedImpostors.map(imp => imp.id),
                     decision: 'pending',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    hasSeenInitialRole: false // NEW: Initialize as false
                 };
-                
-                // Debug log
-                if (config.debugOverrides) {
-                    console.log('[RENUNCIA v2.0] ✅ ACTIVATED', {
-                        candidate: candidate.name,
-                        streak: telemetry.candidateStreak,
-                        roll: `${(roll * 100).toFixed(1)}%`,
-                        threshold: `${(probability * 100).toFixed(1)}%`,
-                        breakdown: {
-                            base: `${(telemetry.baseProb * 100).toFixed(0)}%`,
-                            karma: `${(telemetry.vectorKarma * 100).toFixed(0)}%`,
-                            session: `${(telemetry.vectorSession * 100).toFixed(0)}%`,
-                            failure: `${(telemetry.vectorFailure * 100).toFixed(0)}%`
-                        }
-                    });
-                }
-            } else {
-                // ❌ RENUNCIA EN STANDBY
-                if (config.debugOverrides) {
-                    console.log('[RENUNCIA v2.0] ⏸️ STANDBY', {
-                        candidate: candidate.name,
-                        streak: telemetry.candidateStreak,
-                        roll: `${(roll * 100).toFixed(1)}%`,
-                        threshold: `${(probability * 100).toFixed(1)}%`,
-                        status: 'Not triggered'
-                    });
-                }
-            }
-        } else {
-            // No hay candidatos elegibles
-            if (config.debugOverrides) {
-                console.log('[RENUNCIA v2.0] ⚠️ NO ELIGIBLE CANDIDATES', {
-                    impostors: selectedImpostors.length,
-                    reason: 'All impostors have <2 civilians before them'
-                });
             }
         }
     }
@@ -1118,14 +1181,14 @@ export const generateGameData = (config: GameConfig): {
         entropyLevel: entropyLevel,
         telemetry: telemetryData,
         renunciaTriggered: !!renunciaData,
-        // ✅ NUEVO v12.1 - Guardar telemetría de Renuncia
         renunciaTelemetry: renunciaTelemetry ? {
             finalProbability: renunciaTelemetry.finalProb,
             karmaBonus: renunciaTelemetry.vectorKarma,
             sessionBonus: renunciaTelemetry.vectorSession,
             failureBonus: renunciaTelemetry.vectorFailure,
             candidateStreak: renunciaTelemetry.candidateStreak
-        } : undefined
+        } : undefined,
+        magistrado: alcaldePlayer?.name
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
@@ -1142,6 +1205,7 @@ export const generateGameData = (config: GameConfig): {
         designatedStarter: vocalisStarter.name,
         oracleSetup: oracleSetup, // Return setup data
         renunciaData: renunciaData, // Return Renuncia data
+        magistradoData: magistradoData, // ✨ NUEVO
         newHistory: {
             roundCounter: currentRound, 
             lastWords: newHistoryWords,
@@ -1213,7 +1277,6 @@ export const applyRenunciaDecision = (
         
         // SAFETY CHECK: Si quedan 0 impostores, forzar 1
         if (newImpostorCount === 0) {
-          console.warn('[RENUNCIA] Reject would leave 0 impostors, forcing 1');
           
           const forcedImpostorIndex = updatedGameData.findIndex(p => 
             p.id !== candidateId && 
@@ -1244,14 +1307,8 @@ export const applyRenunciaDecision = (
       }
       
       case 'transfer': {
-        // Find candidate's position in reveal order
         const candidateIndex = gameData.findIndex(p => p.id === renunciaData.candidatePlayerId);
         
-        // Find eligible players: 
-        // 1. Must be Civil
-        // 2. Not the candidate
-        // 3. Not architect or oracle
-        // 4. CRITICAL: Must be AFTER candidate in reveal order (haven't seen their card yet)
         const eligiblePlayers = gameData.filter((p, index) => 
             !p.isImp && 
             p.id !== renunciaData.candidatePlayerId &&
@@ -1262,7 +1319,6 @@ export const applyRenunciaDecision = (
         
         if (eligiblePlayers.length === 0) {
           // Fallback to reject
-          console.warn('[RENUNCIA] No eligible players for transfer, falling back to reject');
           return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, candidateRevealIndex, architectId, oracleId);
         }
         

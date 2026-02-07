@@ -1,8 +1,9 @@
 
+
+
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { ThemeConfig } from '../../types';
-import { manualTheme } from './manualTheme';
 
 export interface CodeBlockData {
     language?: string;
@@ -25,15 +26,15 @@ export const ManualCodeBlock: React.FC<Props> = ({ code, theme }) => {
   };
 
   return (
-    <div className="mb-6 rounded-xl overflow-hidden border" style={{ borderColor: manualTheme.border.subtle }}>
+    <div className="mb-6 rounded-xl overflow-hidden border" style={{ borderColor: theme.border }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b"
         style={{
-          backgroundColor: manualTheme.bg.secondary,
-          borderColor: manualTheme.border.subtle,
+          backgroundColor: theme.cardBg,
+          borderColor: theme.border,
         }}>
         <span className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: manualTheme.text.secondary }}>
+          style={{ color: theme.sub }}>
           {code.title || code.language || 'Ejemplo'}
         </span>
         <button
@@ -48,10 +49,10 @@ export const ManualCodeBlock: React.FC<Props> = ({ code, theme }) => {
       {/* Code Content */}
       <div className="p-4 overflow-x-auto"
         style={{
-          backgroundColor: manualTheme.bg.card,
+          backgroundColor: 'rgba(0,0,0,0.3)',
         }}>
         <pre className="text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap"
-          style={{ color: manualTheme.text.primary, fontFamily: "'JetBrains Mono', monospace" }}>
+          style={{ color: theme.text, fontFamily: "'JetBrains Mono', monospace" }}>
           {code.content}
         </pre>
       </div>

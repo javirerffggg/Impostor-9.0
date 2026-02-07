@@ -17,7 +17,7 @@ import {
 import { CATEGORIES_DATA } from '../categories';
 import { calculatePartyIntensity } from '../utils/partyLogic';
 
-const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS: GameState['settings'] = {
     hintMode: false,
     trollMode: false,
     partyMode: false,
@@ -27,12 +27,21 @@ const DEFAULT_SETTINGS = {
     nexusMode: false,
     passPhoneMode: false,
     shuffleEnabled: false,
-    revealMethod: 'hold' as const,
-    swipeSensitivity: 'medium' as const,
+    revealMethod: 'hold',
+    swipeSensitivity: 'medium',
     hapticFeedback: true,
     soundEnabled: true,
     selectedCategories: [],
     renunciaMode: false,
+    protocolMagistrado: false,
+    magistradoMinPlayers: 6,
+    memoryModeConfig: {
+        enabled: false,
+        difficulty: 'normal',
+        displayTime: 10,
+        wordCount: 5,
+        highlightIntensity: 0.5
+    }
 };
 
 const INITIAL_STATE: GameState = {
@@ -184,13 +193,15 @@ export const useGameState = () => {
             useVanguardiaMode: gameState.settings.vanguardiaMode,
             useNexusMode: gameState.settings.nexusMode,
             useRenunciaMode: gameState.settings.renunciaMode,
+            useMagistradoMode: gameState.settings.protocolMagistrado,
             selectedCats: gameState.settings.selectedCategories,
             history: gameState.history,
             debugOverrides: gameState.debugState.isEnabled ? {
                 forceTroll: gameState.debugState.forceTroll,
                 forceArchitect: gameState.debugState.forceArchitect
             } : undefined,
-            isPartyMode: gameState.settings.partyMode
+            isPartyMode: gameState.settings.partyMode,
+            memoryModeConfig: gameState.settings.memoryModeConfig
         });
 
         setCurrentWordPair(result.wordPair);
@@ -213,7 +224,8 @@ export const useGameState = () => {
                 history: result.newHistory,
                 partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
                 oracleSetup: result.oracleSetup,
-                renunciaData: result.renunciaData
+                renunciaData: result.renunciaData,
+                magistradoData: result.magistradoData
             }));
             
             // Adjust current player index to the architect
@@ -237,7 +249,8 @@ export const useGameState = () => {
             history: result.newHistory,
             partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
             oracleSetup: result.oracleSetup,
-            renunciaData: result.renunciaData
+            renunciaData: result.renunciaData,
+            magistradoData: result.magistradoData
         }));
 
         if (result.oracleSetup) {
@@ -371,6 +384,19 @@ export const useGameState = () => {
         });
     }, [gameState.renunciaData, gameState.gameData, gameState.history, gameState.settings.hintMode, gameState.oracleSetup, currentWordPair]);
 
+    const handleRenunciaRoleSeen = useCallback(() => {
+        setGameState(prev => {
+            if (!prev.renunciaData) return prev;
+            return {
+                ...prev,
+                renunciaData: {
+                    ...prev.renunciaData,
+                    hasSeenInitialRole: true
+                }
+            };
+        });
+    }, []);
+
     return {
         gameState,
         setGameState,
@@ -392,7 +418,8 @@ export const useGameState = () => {
             setArchitectRegenCount,
             handleOracleConfirm,
             handleOracleSelection,
-            handleRenunciaDecision
+            handleRenunciaDecision,
+            handleRenunciaRoleSeen
         }
     };
 };

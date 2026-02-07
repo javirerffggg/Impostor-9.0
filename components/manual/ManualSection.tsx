@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { ThemeConfig } from '../../types';
 import { ManualCard } from './ManualCard';
@@ -42,25 +44,25 @@ export const ManualSection: React.FC<Props> = ({ section, theme, searchQuery }) 
 
       {/* Main Content */}
       <div className="prose prose-invert max-w-none mb-10">
-        <p className="text-sm sm:text-base leading-relaxed"
-          style={{ color: manualTheme.text.secondary }}>
+        <p className="text-sm sm:text-base leading-relaxed opacity-80"
+          style={{ color: theme.text }}>
           {highlightText(section.content)}
         </p>
       </div>
 
       {/* Subsections */}
       {section.subsections?.map((subsection, idx) => (
-        <div key={idx} className="mb-12 border-l-2 pl-4 sm:pl-6" style={{ borderColor: manualTheme.border.strong }}>
+        <div key={idx} className="mb-12 border-l-2 pl-4 sm:pl-6" style={{ borderColor: theme.border }}>
           
           {/* Subsection Title */}
           <h2 className="text-xl sm:text-2xl font-black uppercase mb-3 flex items-center gap-3"
-            style={{ color: manualTheme.text.primary }}>
+            style={{ color: theme.text }}>
             {highlightText(subsection.title)}
           </h2>
 
           {/* Subsection Content */}
-          <p className="text-sm sm:text-base leading-relaxed mb-6 opacity-80"
-            style={{ color: manualTheme.text.primary }}>
+          <p className="text-sm sm:text-base leading-relaxed mb-6 opacity-70"
+            style={{ color: theme.text }}>
             {highlightText(subsection.content)}
           </p>
 

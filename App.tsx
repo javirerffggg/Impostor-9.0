@@ -1,9 +1,17 @@
 
+
+
+
+
+
+
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
 import { ArchitectCuration } from './components/ArchitectCuration';
 import { CardShuffle } from './components/CardShuffle';
+import { DebugConsole } from './components/DebugConsole';
+import { MagistradoAnnouncement } from './components/MagistradoAnnouncement'; // ✨ IMPORT
 import { THEMES, PLAYER_COLORS } from './constants';
 import { ThemeName } from './types';
 import { useGameState } from './hooks/useGameState';
@@ -52,6 +60,9 @@ function App() {
     // -- Party Mode --
     const [batteryLevel, setBatteryLevel] = useState(100);
     const [hydrationTimer, setHydrationTimer] = useState(0);
+
+    // -- Magistrado State --
+    const [showMagistradoAnnouncement, setShowMagistradoAnnouncement] = useState(false);
 
     // -- Audio & Prompts Hooks --
     const [volume, setVolume] = useState(0.15); // Default Volume 15%
@@ -153,10 +164,16 @@ function App() {
 
         setTimeout(() => {
             if (isLast) {
-                // Fin del juego: Ir a resultados
-                setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
-                if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
-                setIsExiting(false);
+                // Fin del juego o paso a Magistrado
+                if (gameState.magistradoData) {
+                    setShowMagistradoAnnouncement(true);
+                    // No cambiamos fase aún, el modal lo hará
+                    setIsExiting(false);
+                } else {
+                    setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
+                    if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                    setIsExiting(false);
+                }
             } else if (gameState.settings.passPhoneMode) {
                 // MODO PASES ACTIVADO: Mostrar pantalla "Pasa el teléfono"
                 setTransitionName(gameState.players[nextIndex].name);
@@ -250,6 +267,67 @@ function App() {
                 </div>
             )}
 
+            {/* ✨ MAGISTRADO ANNOUNCEMENT */}
+            {showMagistradoAnnouncement && gameState.magistradoData && (
+                <MagistradoAnnouncement
+                    alcaldeName={gameState.magistradoData.alcaldePlayerName}
+                    theme={theme}
+                    onContinue={() => {
+                        setShowMagistradoAnnouncement(false);
+                        setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
+                        if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                    }}
+                />
+            )}
+
+            {gameState.debugState.isEnabled && (
+                <DebugConsole
+                    gameState={gameState}
+                    theme={theme}
+                    onClose={() => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, isEnabled: false } }))}
+                    onForceTroll={(scenario) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceTroll: scenario } }))}
+                    onForceArchitect={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceArchitect: force } }))}
+                    onForceRenuncia={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceRenuncia: force } }))}
+                    onExportState={() => {
+                        const state = JSON.stringify(gameState, null, 2);
+                        const blob = new Blob([state], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `impostor-state-${Date.now()}.json`;
+                        a.click();
+                    }}
+                    onImportState={(stateStr) => {
+                        try {
+                            const imported = JSON.parse(stateStr);
+                            setGameState(imported);
+                            alert('Estado importado correctamente');
+                        } catch (e) {
+                            alert('Error al importar estado');
+                        }
+                    }}
+                    onResetStats={() => {
+                        setGameState(prev => ({
+                            ...prev,
+                            history: {
+                                ...prev.history,
+                                playerStats: {},
+                                matchLogs: []
+                            }
+                        }));
+                    }}
+                    onSimulateRound={() => {
+                        setGameState(prev => ({
+                            ...prev,
+                            history: {
+                                ...prev.history,
+                                roundCounter: prev.history.roundCounter + 1
+                            }
+                        }));
+                    }}
+                />
+            )}
+
             {/* View Routing */}
             {gameState.phase === 'setup' && (
                 <SetupView 
@@ -304,6 +382,7 @@ function App() {
                     onNextPlayer={handleNextPlayer}
                     onOracleConfirm={actions.handleOracleConfirm}
                     onRenunciaDecision={actions.handleRenunciaDecision}
+                    onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
                     isExiting={isExiting}
                     transitionName={transitionName}
                 />
@@ -369,6 +448,11 @@ function App() {
                 @keyframes scan_1s_infinite_linear { 0% { top: 0%; } 100% { top: 100%; } }
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes equalizer { 0% { height: 10%; } 100% { height: 90%; } }
+                
+                .gold-glow {
+                    color: #FFD700;
+                    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+                }
             `}</style>
         </div>
     );

@@ -1,12 +1,14 @@
 
 
 
+
+
 import React from 'react';
 import { ThemeConfig } from '../types';
-import { ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, Smartphone, UserMinus } from 'lucide-react';
+import { ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, Smartphone, UserMinus, Brain } from 'lucide-react';
 
 interface Props {
-    type: 'hint' | 'troll' | 'architect' | 'nexus' | 'party' | 'oracle' | 'vanguardia' | 'passPhone' | 'renuncia';
+    type: 'hint' | 'troll' | 'architect' | 'nexus' | 'party' | 'oracle' | 'vanguardia' | 'passPhone' | 'renuncia' | 'memory';
     isActive: boolean;
     isDisabled?: boolean;
     onClick: () => void;
@@ -22,7 +24,8 @@ const CONFIG = {
     oracle: { icon: Eye, label: "Oráculo" },
     vanguardia: { icon: Zap, label: "Vanguardia" },
     passPhone: { icon: Smartphone, label: "Pases" },
-    renuncia: { icon: UserMinus, label: "Renuncia" }
+    renuncia: { icon: UserMinus, label: "Renuncia" },
+    memory: { icon: Brain, label: "Memoria" }
 };
 
 export const ModeToggle: React.FC<Props> = ({ type, isActive, isDisabled, onClick, theme }) => {
