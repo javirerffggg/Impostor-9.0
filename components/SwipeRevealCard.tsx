@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity, GameState } from '../types';
 import { ChevronUp, MousePointerClick } from 'lucide-react';
@@ -39,10 +40,38 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     const [oracleOptions, setOracleOptions] = useState<string[]>([]);
     const [isTransmitting, setIsTransmitting] = useState(false);
 
+    // Refs para performance (RAF) y tracking
     const startY = useRef(0);
+    const currentY = useRef(0);
+    const rafId = useRef<number | null>(null);
+    const lastHapticAt = useRef({ threshold30: false, threshold70: false });
+    
     const viewStartTime = useRef<number>(0);
     const totalViewTime = useRef<number>(0);
     const threshold = SWIPE_THRESHOLDS[settings.swipeSensitivity];
+
+    // --- PROTOCOLO SCROLL-LOCK (iOS/Android) ---
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const preventDefault = (e: TouchEvent) => {
+            if (e.cancelable) e.preventDefault();
+        };
+
+        // Bloqueo agresivo de scroll en el body
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+        
+        // Listener pasivo en false para permitir preventDefault
+        document.addEventListener('touchmove', preventDefault, { passive: false });
+
+        return () => {
+            document.body.style.overflow = originalStyle;
+            document.body.style.touchAction = '';
+            document.removeEventListener('touchmove', preventDefault);
+        };
+    }, [isDragging]);
 
     useEffect(() => {
         setIsRevealed(false);
@@ -53,40 +82,81 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         setOracleSelectionMade(false);
         setIsTransmitting(false);
         totalViewTime.current = 0;
+        
         if (player.isOracle && !player.isImp) {
             const catDataList = CATEGORIES_DATA[player.category];
             const pair = catDataList.find(c => c.civ === player.realWord);
             if (pair) setOracleOptions(pair.hints || [player.category, "Sin Pista", "Ruido"]);
         }
+
+        return () => {
+            if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+        };
     }, [player.id]);
 
-    const handlePointerDown = (e: React.PointerEvent) => {
-        if (isRevealed || isExiting) return;
-        startY.current = e.clientY;
-        setIsDragging(true);
-        if (viewStartTime.current === 0) viewStartTime.current = Date.now();
-        try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
-    };
+    // --- MOTOR DE ACTUALIZACIÓN 60FPS (RAF) ---
+    const updateDragState = () => {
+        if (!isDragging || isRevealed) {
+            rafId.current = null;
+            return;
+        }
 
-    const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isDragging || isRevealed) return;
-        const deltaY = e.clientY - startY.current;
+        const deltaY = currentY.current - startY.current;
         // Solo permitir arrastre hacia arriba (negativo)
         const clampedY = Math.min(0, deltaY);
-        const normalizedY = Math.min(Math.abs(clampedY), threshold * 1.5);
         const newProgress = Math.min(100, (Math.abs(clampedY) / threshold) * 100);
         
         setDragY(clampedY);
         setProgress(newProgress);
 
+        // Feedback Háptico Optimizado
         if (settings.hapticFeedback && navigator.vibrate) {
-            if (newProgress >= 30 && newProgress < 32) navigator.vibrate(5);
-            if (newProgress >= 70 && newProgress < 72) navigator.vibrate(15);
+            if (newProgress >= 30 && !lastHapticAt.current.threshold30) {
+                navigator.vibrate(5);
+                lastHapticAt.current.threshold30 = true;
+            }
+            if (newProgress >= 70 && !lastHapticAt.current.threshold70) {
+                navigator.vibrate(15);
+                lastHapticAt.current.threshold70 = true;
+            }
+            // Reset haptic markers if user drags back down
+            if (newProgress < 25) lastHapticAt.current.threshold30 = false;
+            if (newProgress < 65) lastHapticAt.current.threshold70 = false;
+        }
+
+        rafId.current = requestAnimationFrame(updateDragState);
+    };
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (isRevealed || isExiting) return;
+        
+        startY.current = e.clientY;
+        currentY.current = e.clientY;
+        setIsDragging(true);
+        lastHapticAt.current = { threshold30: false, threshold70: false };
+
+        if (viewStartTime.current === 0) viewStartTime.current = Date.now();
+        
+        try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!isDragging || isRevealed) return;
+        currentY.current = e.clientY;
+        
+        if (rafId.current === null) {
+            rafId.current = requestAnimationFrame(updateDragState);
         }
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
         if (!isDragging) return;
+        
+        if (rafId.current !== null) {
+            cancelAnimationFrame(rafId.current);
+            rafId.current = null;
+        }
+
         setIsDragging(false);
         try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
 
@@ -105,11 +175,6 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
         if (navigator.vibrate) navigator.vibrate([50, 20, 100]);
         if (viewStartTime.current > 0) {
             totalViewTime.current += Date.now() - viewStartTime.current;
-        }
-
-        // Si es oráculo y no ha seleccionado, "revelar" significa mostrar las opciones
-        if (player.isOracle && !oracleSelectionMade) {
-            // Keep it open
         }
     };
 
@@ -134,19 +199,65 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
     const rotation = (dragY / 100) * 2;
 
     return (
-        <div className="relative w-full max-w-[340px] aspect-[3/4] mx-auto perspective-[1200px]">
-            {/* CARTA INFERIOR (Contenido) */}
+        <div className="relative w-full max-w-[340px] aspect-[3/4] mx-auto perspective-[1200px] touch-none select-none">
+            
+            {/* CAPA 1: Glow Halo Exterior Progresivo */}
             <div 
-                className="absolute inset-0 rounded-[2.5rem] border-2 overflow-hidden transition-all duration-300"
+                className="absolute -inset-4 rounded-[3.5rem] transition-all duration-300 pointer-events-none"
                 style={{
+                    background: `radial-gradient(circle at 50% 50%, ${color}20, transparent 70%)`,
+                    filter: `blur(${20 + (progress * 0.4)}px)`,
+                    opacity: isRevealed ? 0.9 : progress / 150,
+                    transform: `scale(${0.9 + (progress * 0.001)})`,
+                    zIndex: 0
+                }}
+            />
+
+            {/* CAPA 2: Indicadores de Esquina (Tutorial implícito) */}
+            {!isRevealed && !isDragging && progress === 0 && (
+                <div className="absolute -inset-[8px] rounded-[3.2rem] pointer-events-none animate-pulse-slow border border-dashed opacity-30 z-10" style={{ borderColor: `${color}60` }}>
+                    {[
+                        { top: '-4px', left: '-4px' },
+                        { top: '-4px', right: '-4px' },
+                        { bottom: '-4px', left: '-4px' },
+                        { bottom: '-4px', right: '-4px' }
+                    ].map((pos, i) => (
+                        <div key={i} className="absolute w-3 h-3 rounded-full" style={{ ...pos, backgroundColor: color, boxShadow: `0 0 12px ${color}` }} />
+                    ))}
+                </div>
+            )}
+
+            {/* CAPA 3: CARTA INFERIOR (Contenido - Borde Expuesto 6px) */}
+            <div 
+                className="absolute rounded-[2.5rem] border-[3px] overflow-hidden transition-all duration-300"
+                style={{
+                    left: '-6px',
+                    top: '-6px',
+                    right: '-6px',
+                    bottom: '-6px',
+                    width: 'calc(100% + 12px)',
+                    height: 'calc(100% + 12px)',
                     backgroundColor: theme.cardBg,
-                    borderColor: isRevealed ? color : theme.border,
-                    boxShadow: isRevealed ? `0 0 40px ${color}30` : '0 4px 20px rgba(0,0,0,0.2)',
-                    transform: `translateY(${dragY * 0.1}px) scale(${0.96 + (progress * 0.0004)})`,
+                    borderColor: isRevealed ? color : `${theme.border}80`,
+                    boxShadow: isRevealed 
+                        ? `0 0 60px ${color}40, inset 0 0 40px ${color}10` 
+                        : `0 0 ${15 + progress * 0.4}px ${color}20, 0 4px 20px rgba(0,0,0,0.2)`,
+                    transform: `translateY(${dragY * 0.08}px) scale(${0.96 + (progress * 0.0004)})`,
                     zIndex: 5,
-                    backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(20px)'
+                    backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)',
+                    WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)'
                 }}
             >
+                {/* Shimmer en el borde cuando hay progreso */}
+                <div 
+                    className="absolute inset-0 rounded-[2.4rem] pointer-events-none transition-opacity duration-500"
+                    style={{
+                        background: `linear-gradient(${45 + progress}deg, transparent 30%, ${color}20 50%, transparent 70%)`,
+                        opacity: progress > 10 ? 0.5 : 0,
+                        mixBlendMode: 'overlay'
+                    }}
+                />
+
                 {isRevealed ? (
                     <div className="h-full w-full py-8 px-6">
                         <RoleContent 
@@ -180,7 +291,7 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                 )}
             </div>
 
-            {/* CARTA SUPERIOR (Reverso) */}
+            {/* CAPA 4: CARTA SUPERIOR (Reverso - Draggable) */}
             {!isExiting && (
                 <div 
                     onPointerDown={handlePointerDown}
@@ -196,10 +307,11 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         zIndex: 10,
                         cursor: isDragging ? 'grabbing' : 'grab',
                         background: `
-                            linear-gradient(135deg, ${theme.accent}10, ${theme.cardBg}),
+                            linear-gradient(135deg, ${theme.accent}15, ${theme.cardBg}),
                             repeating-linear-gradient(45deg, transparent, transparent 10px, ${theme.accent}05 10px, ${theme.accent}05 20px)
                         `,
-                        backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(30px)'
+                        backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(30px)',
+                        WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(30px)'
                     }}
                 >
                     <div className="h-full w-full flex flex-col items-center justify-between py-12 px-6">
@@ -221,7 +333,6 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                         <div className="flex flex-col items-center gap-4 transition-opacity duration-300" style={{ opacity: Math.max(0, 1 - (progress / 50)) }}>
                              <div className="flex flex-col items-center -space-y-3">
                                 <ChevronUp size={32} style={{ color: theme.accent }} className="animate-bounce opacity-40" />
-                                {/* Merged duplicate style attributes into a single object below */}
                                 <ChevronUp size={32} style={{ color: theme.accent, animationDelay: '0.1s' }} className="animate-bounce opacity-70" />
                                 <ChevronUp size={32} style={{ color: theme.accent, animationDelay: '0.2s' }} className="animate-bounce" />
                              </div>
@@ -244,6 +355,16 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
                     </div>
                 </div>
             )}
+
+            <style>{`
+                @keyframes pulse-slow {
+                    0%, 100% { opacity: 0.2; transform: scale(1); }
+                    50% { opacity: 0.4; transform: scale(1.02); }
+                }
+                .animate-pulse-slow {
+                    animation: pulse-slow 3s ease-in-out infinite;
+                }
+            `}</style>
         </div>
     );
 };
