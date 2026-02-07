@@ -326,7 +326,3 @@ Se concede permiso para usar, copiar, modificar y distribuir este software...
 
 </div>
 ```
-
-**Copia todo este contenido y pégalo en tu archivo `README.md`** 🚀
-
-¿Quieres que añada o modifique algo específico? 📝
