@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -6,7 +7,7 @@ import {
     CategoryData, 
     RenunciaDecision 
 } from '../types';
-import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
+import { DEFAULT_PLAYERS, CURATED_COLLECTIONS, GAME_LIMITS } from '../constants';
 import { generateGameData } from '../utils/gameLogic';
 import { 
     generateArchitectOptions,
@@ -202,11 +203,18 @@ export const useGameState = () => {
 
     const addPlayer = useCallback((name: string) => {
         if (!name.trim()) return;
+        
+        // NEW: Validate player limit
+        if (gameState.players.length >= GAME_LIMITS.MAX_PLAYERS) {
+            console.warn(`Cannot add more than ${GAME_LIMITS.MAX_PLAYERS} players`);
+            return;
+        }
+
         setGameState(prev => ({
             ...prev,
             players: [...prev.players, { id: Date.now().toString(), name: name.trim() }]
         }));
-    }, []);
+    }, [gameState.players.length]);
 
     const removePlayer = useCallback((id: string) => {
         setGameState(prev => ({

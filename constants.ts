@@ -1,6 +1,15 @@
 
 import { ThemeConfig, ThemeName, CuratedCollection } from './types';
 
+export const GAME_LIMITS = {
+    MIN_PLAYERS: 3,
+    MAX_PLAYERS: 20,
+    RECOMMENDED_MIN: 4,
+    RECOMMENDED_MAX: 10,
+    MIN_IMPOSTORS: 1,
+    MAX_IMPOSTORS: 5
+} as const;
+
 export const THEMES: Record<ThemeName, ThemeConfig> = {
     aura: {
         name: "Aura Premium",

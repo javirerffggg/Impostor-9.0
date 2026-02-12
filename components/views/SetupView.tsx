@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
 import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
 import { getVault } from '../../utils/core/vault';
+import { GAME_LIMITS } from '../../constants';
 
 // DnD Kit Imports
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -145,14 +147,27 @@ export const SetupView: React.FC<Props> = ({
     const [showAutocomplete, setShowAutocomplete] = useState(false);
     const [autocompleteResults, setAutocompleteResults] = useState<string[]>([]);
     const [validationError, setValidationError] = useState<string | null>(null);
+    
+    // Refs for race condition fix
+    const autocompleteTimeoutRef = useRef<number | null>(null);
+
+    // Cleanup
+    useEffect(() => {
+        return () => {
+            if (autocompleteTimeoutRef.current) {
+                clearTimeout(autocompleteTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const isParty = gameState.settings.partyMode;
     const isValidToStart = gameState.players.length >= 3;
 
-    // Limits
-    const MIN_PLAYERS = 3;
-    const MAX_PLAYERS = 20; // Increased max for better flexibility
-    const RECOMMENDED_PLAYERS = { min: 4, max: 10 };
+    // Limits using constants
+    const MIN_PLAYERS = GAME_LIMITS.MIN_PLAYERS;
+    const MAX_PLAYERS = GAME_LIMITS.MAX_PLAYERS;
+    const RECOMMENDED_PLAYERS = { min: GAME_LIMITS.RECOMMENDED_MIN, max: GAME_LIMITS.RECOMMENDED_MAX };
+    
     const playerCount = gameState.players.length;
     const isUnderMin = playerCount < MIN_PLAYERS;
     const isOverMax = playerCount > MAX_PLAYERS;
@@ -504,8 +519,13 @@ export const SetupView: React.FC<Props> = ({
                                 onKeyDown={(e) => { 
                                     if (e.key === 'Enter') handleAddPlayer();
                                 }}
-                                onFocus={() => newPlayerName.length >= 1 && setShowAutocomplete(true)}
-                                onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
+                                onFocus={() => {
+                                    if (autocompleteTimeoutRef.current) clearTimeout(autocompleteTimeoutRef.current);
+                                    if (newPlayerName.length >= 1) setShowAutocomplete(true);
+                                }}
+                                onBlur={() => {
+                                    autocompleteTimeoutRef.current = window.setTimeout(() => setShowAutocomplete(false), 200);
+                                }}
                                 placeholder="Nuevo Jugador..."
                                 disabled={playerCount >= MAX_PLAYERS}
                                 className={`flex-1 min-w-0 rounded-lg px-4 py-3 outline-none text-sm font-bold transition-all placeholder:text-inherit placeholder:opacity-40 ${
