@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -47,6 +45,7 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
 };
 
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
+const STORAGE_KEY_SETTINGS = 'impostor_settings_persist_v1';
 
 const getInitialHistory = (): GameState['history'] => {
     try {
@@ -85,6 +84,27 @@ const getInitialHistory = (): GameState['history'] => {
     };
 };
 
+const getInitialSettings = (): GameState['settings'] => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Deep merge to ensure new settings keys are present
+            return {
+                ...DEFAULT_SETTINGS,
+                ...parsed,
+                memoryModeConfig: {
+                    ...DEFAULT_SETTINGS.memoryModeConfig,
+                    ...(parsed.memoryModeConfig || {})
+                }
+            };
+        }
+    } catch (e) {
+        console.error("Error loading game settings:", e);
+    }
+    return DEFAULT_SETTINGS;
+};
+
 const INITIAL_STATE: GameState = {
     phase: 'setup',
     players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
@@ -96,7 +116,7 @@ const INITIAL_STATE: GameState = {
     trollScenario: null,
     isArchitectRound: false,
     history: getInitialHistory(),
-    settings: DEFAULT_SETTINGS,
+    settings: getInitialSettings(),
     debugState: { isEnabled: false, forceTroll: null, forceArchitect: false },
     partyState: { intensity: 'aperitivo', consecutiveHardcoreRounds: 0, isHydrationLocked: false },
     currentDrinkingPrompt: "",
@@ -131,6 +151,15 @@ export const useGameState = () => {
             console.error("Error saving game history:", e);
         }
     }, [gameState.history]);
+
+    // Save settings effect (Persistence)
+    useEffect(() => {
+        try {
+            localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(gameState.settings));
+        } catch (e) {
+            console.error("Error saving game settings:", e);
+        }
+    }, [gameState.settings]);
 
     // Actions
 
