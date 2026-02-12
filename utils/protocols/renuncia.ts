@@ -138,6 +138,13 @@ export const applyRenunciaDecision = (
         case 'transfer': {
             const candidateIndex = gameData.findIndex(p => p.id === renunciaData.candidatePlayerId);
             
+            // ✅ Validar que el candidato existe para evitar índices -1
+            if (candidateIndex === -1) {
+                console.error('Renuncia Transfer: Candidate not found in gameData');
+                // Fallback de seguridad: tratar como rechazo para no romper el juego
+                return applyRenunciaDecision('reject', gameData, renunciaData, wordPair, stats, useHintMode, candidateRevealIndex, architectId, oracleId);
+            }
+            
             const eligiblePlayers = gameData.filter((p, index) => 
                 !p.isImp && 
                 p.id !== renunciaData.candidatePlayerId &&
