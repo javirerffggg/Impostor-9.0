@@ -249,3 +249,12 @@ export interface GameState {
     renunciaData?: RenunciaData;
     magistradoData?: MagistradoData; // ✨ NUEVO
 }
+
+// ✨ NUEVO: Interfaz para presets de categorías
+export interface CategoryPreset {
+    id: string;
+    name: string;
+    emoji: string;
+    categories: string[];
+    createdAt: number;
+}
