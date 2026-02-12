@@ -1,10 +1,7 @@
-
-
-
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
 import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel } from 'lucide-react';
-import { GameModeGrid, GameModeItem } from '../GameModeGrid';
+import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 
 interface Props {
@@ -61,12 +58,44 @@ export const SetupView: React.FC<Props> = ({
     };
 
     const modes: GameModeItem[] = [
+        // TAB: BÁSICOS
         {
             id: 'hint',
             name: 'Pistas',
             description: 'Impostores reciben pistas.',
             icon: <ScanEye size={20} />,
             isActive: gameState.settings.hintMode
+        },
+        {
+            id: 'troll',
+            name: 'Troll',
+            description: 'Eventos de caos (5%).',
+            icon: <Ghost size={20} />,
+            isActive: gameState.settings.trollMode
+        },
+        {
+            id: 'party',
+            name: 'Fiesta',
+            description: 'Castigos y bebida.',
+            icon: <Beer size={20} />,
+            isActive: gameState.settings.partyMode
+        },
+        {
+            id: 'memory',
+            name: 'Memoria',
+            description: 'Palabras fugaces.',
+            icon: <Brain size={20} />,
+            isActive: gameState.settings.memoryModeConfig.enabled,
+            isNew: true
+        },
+        
+        // TAB: PROTOCOLOS
+        {
+            id: 'architect',
+            name: 'Arquitecto',
+            description: 'Civil elige la palabra.',
+            icon: <ShieldCheck size={20} />,
+            isActive: gameState.settings.architectMode
         },
         {
             id: 'magistrado',
@@ -78,32 +107,21 @@ export const SetupView: React.FC<Props> = ({
             isNew: true
         },
         {
-            id: 'troll',
-            name: 'Troll',
-            description: 'Eventos de caos (5%).',
-            icon: <Ghost size={20} />,
-            isActive: gameState.settings.trollMode
+            id: 'renuncia',
+            name: 'Renuncia',
+            description: 'Rechazar rol impostor.',
+            icon: <UserMinus size={20} />,
+            isActive: gameState.settings.renunciaMode,
+            isDisabled: gameState.impostorCount < 2
         },
-        {
-            id: 'architect',
-            name: 'Arquitecto',
-            description: 'Civil elige la palabra.',
-            icon: <ShieldCheck size={20} />,
-            isActive: gameState.settings.architectMode
-        },
+        
+        // TAB: ALIANZAS
         {
             id: 'nexus',
             name: 'Nexus',
             description: 'Impostores aliados.',
             icon: <Network size={20} />,
             isActive: gameState.settings.nexusMode
-        },
-        {
-            id: 'party',
-            name: 'Fiesta',
-            description: 'Castigos y bebida.',
-            icon: <Beer size={20} />,
-            isActive: gameState.settings.partyMode
         },
         {
             id: 'oracle',
@@ -120,22 +138,6 @@ export const SetupView: React.FC<Props> = ({
             icon: <Zap size={20} />,
             isActive: gameState.settings.vanguardiaMode && gameState.settings.hintMode,
             isDisabled: !gameState.settings.hintMode
-        },
-        {
-            id: 'renuncia',
-            name: 'Renuncia',
-            description: 'Rechazar rol.',
-            icon: <UserMinus size={20} />,
-            isActive: gameState.settings.renunciaMode,
-            isDisabled: gameState.impostorCount < 2
-        },
-        {
-            id: 'memory',
-            name: 'Memoria',
-            description: 'Palabras fugaces.',
-            icon: <Brain size={20} />,
-            isActive: gameState.settings.memoryModeConfig.enabled,
-            isNew: true
         }
     ];
 
@@ -318,13 +320,12 @@ export const SetupView: React.FC<Props> = ({
                         </div>
                     </div>
 
-                    {/* NEW COMPACT MODE GRID */}
+                    {/* NEW TABBED MODE SELECTOR */}
                     <div className="pt-4 border-t border-white/5">
-                        <GameModeGrid 
+                        <GameModeWithTabs 
                             modes={modes}
                             theme={theme}
                             onModeToggle={handleModeToggle}
-                            compactLimit={6}
                         />
                     </div>
                 </div>
