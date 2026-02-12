@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
 
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
 const STORAGE_KEY_SETTINGS = 'impostor_settings_persist_v1';
+const STORAGE_KEY_SESSION = 'impostor_session_state_v1';
 
 const getInitialHistory = (): GameState['history'] => {
     try {
@@ -105,11 +106,34 @@ const getInitialSettings = (): GameState['settings'] => {
     return DEFAULT_SETTINGS;
 };
 
+const getInitialSession = (): { players: Player[], impostorCount: number } => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_SESSION);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && Array.isArray(parsed.players) && parsed.players.length > 0 && typeof parsed.impostorCount === 'number') {
+                return {
+                    players: parsed.players,
+                    impostorCount: parsed.impostorCount
+                };
+            }
+        }
+    } catch (e) {
+        console.error("Error loading session state:", e);
+    }
+    return {
+        players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
+        impostorCount: 1
+    };
+};
+
+const sessionInit = getInitialSession();
+
 const INITIAL_STATE: GameState = {
     phase: 'setup',
-    players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
+    players: sessionInit.players,
     gameData: [],
-    impostorCount: 1,
+    impostorCount: sessionInit.impostorCount,
     currentPlayerIndex: 0,
     startingPlayer: "",
     isTrollEvent: false,
@@ -160,6 +184,19 @@ export const useGameState = () => {
             console.error("Error saving game settings:", e);
         }
     }, [gameState.settings]);
+
+    // Save active session state (Persistence)
+    useEffect(() => {
+        try {
+            const sessionData = {
+                players: gameState.players,
+                impostorCount: gameState.impostorCount
+            };
+            localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(sessionData));
+        } catch (e) {
+            console.error("Error saving session state:", e);
+        }
+    }, [gameState.players, gameState.impostorCount]);
 
     // Actions
 
