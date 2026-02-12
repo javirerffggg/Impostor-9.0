@@ -1,5 +1,6 @@
 
-import { useEffect, useRef } from 'react';
+
+import React, { useEffect, useRef } from 'react';
 import { GameState } from '../types';
 import { getPartyMessage, getBatteryLevel } from '../utils/partyLogic';
 

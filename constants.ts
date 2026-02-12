@@ -404,6 +404,21 @@ export const PLAYER_COLORS = [
 
 export const CURATED_COLLECTIONS: CuratedCollection[] = [
     {
+        id: "impostor_original",
+        name: "Impostor Original",
+        description: "La experiencia esencial. Todas las categorías clásicas del juego.",
+        vibe: "Variado, completo, desafiante.",
+        icon: "Book",
+        categories: [
+            "Objetos cotidianos", "Personas famosas", "Comidas y bebidas", "Animales", 
+            "Marcas y logotipos", "Colores y formas", "Países y ciudades", "Emociones y sentimientos", 
+            "Aficiones y actividades", "Cultura de internet", "Cocina y gastronomía", 
+            "Películas y series", "Música y bandas", "Profesiones", "Escuela y educación", 
+            "Ciencia y tecnología", "Deportes", "Superhéroes", "Transporte", 
+            "Videojuegos", "Clima y naturaleza"
+        ]
+    },
+    {
         id: "spain",
         name: "Sabor de España",
         description: "Gastronomía y tradiciones locales.",

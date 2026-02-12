@@ -1,3 +1,5 @@
+
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -7,13 +9,13 @@ import {
     RenunciaDecision 
 } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS } from '../constants';
+import { generateGameData } from '../utils/gameLogic';
 import { 
-    generateGameData, 
-    generateArchitectOptions, 
-    applyRenunciaDecision,
+    generateArchitectOptions,
     generateSmartHint,
     generateVanguardHints
-} from '../utils/gameLogic';
+} from '../utils/lexicon/wordSelection';
+import { applyRenunciaDecision } from '../utils/protocols/renuncia';
 import { CATEGORIES_DATA } from '../categories';
 import { calculatePartyIntensity } from '../utils/partyLogic';
 
@@ -44,21 +46,32 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
     }
 };
 
-const INITIAL_STATE: GameState = {
-    phase: 'setup',
-    players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
-    gameData: [],
-    impostorCount: 1,
-    currentPlayerIndex: 0,
-    startingPlayer: "",
-    isTrollEvent: false,
-    trollScenario: null,
-    isArchitectRound: false,
-    history: {
+const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
+
+const getInitialHistory = (): GameState['history'] => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Basic validation to ensure it has required fields
+            if (parsed && typeof parsed === 'object') {
+                return {
+                    ...parsed,
+                    // Ensure new fields exist if loading old history
+                    categoryExhaustion: parsed.categoryExhaustion || {}
+                };
+            }
+        }
+    } catch (e) {
+        console.error("Error loading game history:", e);
+    }
+
+    return {
         roundCounter: 0,
         lastWords: [],
         lastCategories: [],
         globalWordUsage: {},
+        categoryExhaustion: {}, // New Exhaustion System
         playerStats: {},
         lastTrollRound: 0,
         lastArchitectRound: 0,
@@ -69,7 +82,20 @@ const INITIAL_STATE: GameState = {
         coolingDownRounds: 0,
         lastBreakProtocol: null,
         matchLogs: []
-    },
+    };
+};
+
+const INITIAL_STATE: GameState = {
+    phase: 'setup',
+    players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
+    gameData: [],
+    impostorCount: 1,
+    currentPlayerIndex: 0,
+    startingPlayer: "",
+    isTrollEvent: false,
+    trollScenario: null,
+    isArchitectRound: false,
+    history: getInitialHistory(),
     settings: DEFAULT_SETTINGS,
     debugState: { isEnabled: false, forceTroll: null, forceArchitect: false },
     partyState: { intensity: 'aperitivo', consecutiveHardcoreRounds: 0, isHydrationLocked: false },
@@ -96,6 +122,15 @@ export const useGameState = () => {
     useEffect(() => {
         localStorage.setItem('impostor_saved_players', JSON.stringify(savedPlayers));
     }, [savedPlayers]);
+
+    // Save history effect (Persistence)
+    useEffect(() => {
+        try {
+            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(gameState.history));
+        } catch (e) {
+            console.error("Error saving game history:", e);
+        }
+    }, [gameState.history]);
 
     // Actions
 

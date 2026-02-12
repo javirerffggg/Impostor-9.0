@@ -179,8 +179,13 @@ export const generateGameData = (config: GameConfig): {
         };
     }
 
-    const { categoryName: catName, wordPair } = selectLexiconWord(selectedCats, history);
-    const currentStats = { ...history.playerStats };
+    // 🆕 SELECCIÓN EXHAUSTIVA DE PALABRA
+    const { categoryName: catName, wordPair, updatedHistory: historyWithWordTracking } = selectLexiconWord(selectedCats, history);
+    
+    // 🆕 Usar el historial actualizado en lugar del original para los siguientes pasos
+    const workingHistory = historyWithWordTracking;
+    
+    const currentStats = { ...workingHistory.playerStats };
     const shuffledPlayers = shuffleArray(players);
 
     let calculationStats: Record<string, InfinityVault> = currentStats;
@@ -355,9 +360,9 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
-    const newHistoryWords = [wordPair.civ, ...history.lastWords].slice(0, 15);
-    const newHistoryCategories = [catName, ...history.lastCategories].slice(0, 3);
-    const newGlobalWordUsage = { ...history.globalWordUsage };
+    const newHistoryWords = [wordPair.civ, ...workingHistory.lastWords].slice(0, 15);
+    const newHistoryCategories = [catName, ...workingHistory.lastCategories].slice(0, 3);
+    const newGlobalWordUsage = { ...workingHistory.globalWordUsage };
     newGlobalWordUsage[wordPair.civ] = (newGlobalWordUsage[wordPair.civ] || 0) + 1;
 
     let isArchitectTriggered = false;
@@ -630,9 +635,10 @@ export const generateGameData = (config: GameConfig): {
             lastWords: newHistoryWords,
             lastCategories: newHistoryCategories,
             globalWordUsage: newGlobalWordUsage,
+            categoryExhaustion: workingHistory.categoryExhaustion, // 🆕 Incluir exhaustion actualizado
             playerStats: newPlayerStats,
-            lastTrollRound: isTrollEvent ? currentRound : history.lastTrollRound,
-            lastArchitectRound: isArchitectTriggered ? currentRound : history.lastArchitectRound,
+            lastTrollRound: isTrollEvent ? currentRound : workingHistory.lastTrollRound,
+            lastArchitectRound: isArchitectTriggered ? currentRound : workingHistory.lastArchitectRound,
             lastStartingPlayers: newStartingPlayers,
             lastBartenders: newLastBartenders, 
             pastImpostorIds: newPastImpostorIds,
@@ -640,16 +646,8 @@ export const generateGameData = (config: GameConfig): {
             coolingDownRounds: finalCoolingRounds,
             lastBreakProtocol: breakProtocolType,
             matchLogs: updatedLogs,
-            lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : history.lastLeteoRound
+            lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : workingHistory.lastLeteoRound
         },
         wordPair
     };
-};
-
-export { 
-    applyRenunciaDecision,
-    generateArchitectOptions,
-    generateSmartHint,
-    generateVanguardHints,
-    getDebugPlayerStats
 };

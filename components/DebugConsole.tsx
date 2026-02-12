@@ -4,7 +4,7 @@ import {
     Upload, RotateCcw, Play, Pause, SkipForward, Trash2,
     ChevronDown, ChevronUp, Settings, Terminal, BarChart3
 } from 'lucide-react';
-import { GameState, TrollScenario, ThemeConfig } from '../types';
+import { GameState, TrollScenario, ThemeConfig, InfinityVault } from '../types';
 
 interface Props {
     gameState: GameState;
@@ -477,50 +477,54 @@ const StateTab: React.FC<{
             </h3>
 
             <div className="space-y-2">
-                {Object.entries(gameState.history.playerStats || {}).map(([key, vault]) => (
-                    <div key={key}>
-                        <button
-                            onClick={() => setExpandedPlayer(expandedPlayer === key ? null : key)}
-                            className="w-full text-left p-2 rounded-lg transition-all"
-                            style={{
-                                backgroundColor: theme.cardBg,
-                                borderWidth: '1px',
-                                borderColor: theme.border
-                            }}>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold" style={{ color: theme.text }}>
-                                    {key}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                                        style={{ 
-                                            backgroundColor: `${theme.accent}20`,
-                                            color: theme.accent 
-                                        }}>
-                                        Streak: {vault.metrics.civilStreak}
-                                    </span>
-                                    {expandedPlayer === key ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                </div>
-                            </div>
-                        </button>
-
-                        {expandedPlayer === key && (
-                            <div className="mt-2 p-3 rounded-lg text-[10px] font-mono space-y-1"
-                                style={{ 
-                                    backgroundColor: `${theme.bg}80`,
+                {Object.entries(gameState.history.playerStats || {}).map(([key, vault]) => {
+                    // Type assertion to ensure TS understands the shape of vault
+                    const v = vault as InfinityVault;
+                    return (
+                        <div key={key}>
+                            <button
+                                onClick={() => setExpandedPlayer(expandedPlayer === key ? null : key)}
+                                className="w-full text-left p-2 rounded-lg transition-all"
+                                style={{
+                                    backgroundColor: theme.cardBg,
                                     borderWidth: '1px',
                                     borderColor: theme.border
                                 }}>
-                                <div className="grid grid-cols-2 gap-2" style={{ color: theme.sub }}>
-                                    <div>Sesiones: {vault.metrics.totalSessions}</div>
-                                    <div>Ratio Imp: {(vault.metrics.impostorRatio * 100).toFixed(0)}%</div>
-                                    <div>Victorias Imp: {vault.metrics.totalImpostorWins}</div>
-                                    <div>Cuarentenas: {vault.metrics.quarantineRounds}</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold" style={{ color: theme.text }}>
+                                        {key}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                            style={{ 
+                                                backgroundColor: `${theme.accent}20`,
+                                                color: theme.accent 
+                                            }}>
+                                            Streak: {v.metrics.civilStreak}
+                                        </span>
+                                        {expandedPlayer === key ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            </button>
+
+                            {expandedPlayer === key && (
+                                <div className="mt-2 p-3 rounded-lg text-[10px] font-mono space-y-1"
+                                    style={{ 
+                                        backgroundColor: `${theme.bg}80`,
+                                        borderWidth: '1px',
+                                        borderColor: theme.border
+                                    }}>
+                                    <div className="grid grid-cols-2 gap-2" style={{ color: theme.sub }}>
+                                        <div>Sesiones: {v.metrics.totalSessions}</div>
+                                        <div>Ratio Imp: {(v.metrics.impostorRatio * 100).toFixed(0)}%</div>
+                                        <div>Victorias Imp: {v.metrics.totalImpostorWins}</div>
+                                        <div>Cuarentenas: {v.metrics.quarantineRounds}</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

@@ -1,12 +1,12 @@
+
 import { CategoryData } from './types';
+import { CUSTOM_CATEGORIES } from './customCategories';
 
 /**
- * Banco de datos masivo para "El Impostor Pro Ultra" v2.0
- * Incluye soporte para el Generador de Pistas Inteligente (Protocolo LEXICON).
- * 21 categorías x 35 elementos = 735 entradas con triple variante de pista.
- * Localizado para España.
+ * BASE DE DATOS ORIGINAL
+ * Se mantiene inalterada. Las nuevas palabras se fusionan al final del archivo.
  */
-export const CATEGORIES_DATA: Record<string, CategoryData[]> = {
+const BASE_CATEGORIES: Record<string, CategoryData[]> = {
     "Objetos Cotidianos": [
         { civ: "Móvil", imp: "Tablet", hints: ["Dispositivo", "Electrónica", "Pantalla"] },
         { civ: "Llaves", imp: "Mando", hints: ["Apertura", "Acceso", "Metal"] },
@@ -995,3 +995,25 @@ export const CATEGORIES_DATA: Record<string, CategoryData[]> = {
         { civ: "After", imp: "Chill out", hints: ["Noche", "Música", "Final"] }
     ]
 };
+
+/**
+ * SISTEMA DE FUSIÓN AUTOMÁTICA
+ * Combina las categorías base con las personalizadas del usuario.
+ */
+export const CATEGORIES_DATA: Record<string, CategoryData[]> = (() => {
+    // 1. Clonar base original
+    const merged = { ...BASE_CATEGORIES };
+    
+    // 2. Iterar sobre categorías personalizadas
+    Object.keys(CUSTOM_CATEGORIES).forEach(key => {
+        if (merged[key]) {
+            // Si la categoría existe, añadir palabras (merge arrays)
+            merged[key] = [...merged[key], ...CUSTOM_CATEGORIES[key]];
+        } else {
+            // Si es nueva, añadir categoría completa
+            merged[key] = CUSTOM_CATEGORIES[key];
+        }
+    });
+    
+    return merged;
+})();

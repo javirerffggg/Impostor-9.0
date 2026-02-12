@@ -175,6 +175,13 @@ export interface MemoryModeConfig {
     highlightIntensity: number; // 0-1
 }
 
+export interface CategoryExhaustionData {
+    usedWords: string[];        // Palabras ya jugadas
+    totalWords: number;          // Total de palabras en esa categoría
+    lastReset: number;           // Timestamp del último reset
+    cycleCount: number;          // Cuántas veces se ha completado el ciclo
+}
+
 export interface GameState {
     phase: 'setup' | 'revealing' | 'architect' | 'oracle' | 'discussion' | 'results';
     players: Player[];
@@ -190,6 +197,9 @@ export interface GameState {
         lastWords: string[];
         lastCategories: string[];
         globalWordUsage: Record<string, number>;
+        // ✨ NUEVO: Tracking persistente de palabras usadas por categoría
+        categoryExhaustion?: Record<string, CategoryExhaustionData>;
+        
         playerStats: Record<string, InfinityVault>;
         lastTrollRound: number;
         lastArchitectRound: number;
