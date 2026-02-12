@@ -85,6 +85,69 @@ const resetCategoryPool = (
 };
 
 /**
+ * 🆕 FUNCIÓN DE VALIDACIÓN Y SINCRONIZACIÓN
+ * Detecta y corrige cambios en el número de palabras de una categoría
+ */
+const validateAndSyncCategoryExhaustion = (
+    categoryName: string,
+    history: GameState['history']
+): GameState['history']['categoryExhaustion'][string] => {
+    const exhaustion = history.categoryExhaustion?.[categoryName];
+    const currentTotalWords = CATEGORIES_DATA[categoryName]?.length || 0;
+    
+    // Caso 1: No existe exhaustion → Inicializar
+    if (!exhaustion) {
+        return initializeCategoryExhaustion(categoryName, history);
+    }
+    
+    // Caso 2: El número de palabras NO ha cambiado → Retornar tal cual
+    if (exhaustion.totalWords === currentTotalWords) {
+        return exhaustion;
+    }
+    
+    // Caso 3: El número de palabras CAMBIÓ → Sincronizar
+    console.warn(
+        `⚠️ Category "${categoryName}" word count changed: ${exhaustion.totalWords} → ${currentTotalWords}`
+    );
+    
+    // Obtener todas las palabras actuales de la categoría
+    const currentWords = CATEGORIES_DATA[categoryName] || [];
+    const currentWordCivs = currentWords.map(w => w.civ);
+    
+    // Filtrar palabras usadas que aún existen en la categoría
+    const validUsedWords = exhaustion.usedWords.filter(word => 
+        currentWordCivs.includes(word)
+    );
+    
+    // Detectar palabras eliminadas
+    const removedWords = exhaustion.usedWords.filter(word => 
+        !currentWordCivs.includes(word)
+    );
+    
+    if (removedWords.length > 0) {
+        console.info(
+            `🗑️ Removed words from "${categoryName}":`, 
+            removedWords
+        );
+    }
+    
+    // Detectar palabras nuevas
+    const newWordsCount = currentTotalWords - exhaustion.totalWords + removedWords.length;
+    if (newWordsCount > 0) {
+        console.info(
+            `✨ New words added to "${categoryName}": +${newWordsCount}`
+        );
+    }
+    
+    return {
+        usedWords: validUsedWords,           // ✅ Solo palabras válidas
+        totalWords: currentTotalWords,        // ✅ Sincronizado
+        lastReset: exhaustion.lastReset,      // ✅ Mantener fecha original
+        cycleCount: exhaustion.cycleCount     // ✅ Mantener ciclo
+    };
+};
+
+/**
  * 🆕 NUEVA FUNCIÓN: Selección exhaustiva de palabras
  * Solo repite palabras cuando se han jugado TODAS las de la categoría
  */
@@ -119,10 +182,9 @@ export const selectLexiconWord = (
         updatedHistory.categoryExhaustion = {};
     }
     
-    if (!updatedHistory.categoryExhaustion[chosenCategoryName]) {
-        updatedHistory.categoryExhaustion[chosenCategoryName] = 
-            initializeCategoryExhaustion(chosenCategoryName, updatedHistory);
-    }
+    // ✅ NUEVO CÓDIGO CON VALIDACIÓN:
+    updatedHistory.categoryExhaustion[chosenCategoryName] = 
+        validateAndSyncCategoryExhaustion(chosenCategoryName, updatedHistory);
 
     // 🆕 Verificar si necesita reset
     if (shouldResetCategory(chosenCategoryName, updatedHistory)) {
