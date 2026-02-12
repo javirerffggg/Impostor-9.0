@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeConfig } from '../types';
 
 export interface GameModeItem {
@@ -38,7 +38,19 @@ const TABS: Record<TabId, { label: string; icon: string; modeIds: string[] }> = 
 };
 
 export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }) => {
-    const [activeTab, setActiveTab] = useState<TabId>('basic');
+    const [activeTab, setActiveTab] = useState<TabId>(() => {
+        try {
+            const saved = localStorage.getItem('impostor_active_mode_tab');
+            // Validate that the saved tab actually exists in TABS
+            return (saved && Object.keys(TABS).includes(saved)) ? (saved as TabId) : 'basic';
+        } catch {
+            return 'basic';
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('impostor_active_mode_tab', activeTab);
+    }, [activeTab]);
     
     const currentModes = modes.filter(mode => 
         TABS[activeTab].modeIds.includes(mode.id)
@@ -59,7 +71,7 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
                         <button
                             key={tabId}
                             onClick={() => setActiveTab(tabId)}
-                            className="relative px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-wider whitespace-nowrap transition-all active:scale-95 flex items-center gap-2 shrink-0"
+                            className="relative px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-wider whitespace-nowrap transition-all active:scale-95 flex items-center gap-2 shrink-0 overflow-hidden"
                             style={{
                                 backgroundColor: isActive ? theme.accent : theme.border,
                                 color: isActive ? 'white' : theme.sub,
@@ -80,6 +92,11 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
                                     {activeCount}
                                 </span>
                             )}
+                            {isActive && (
+                                <div 
+                                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/40"
+                                />
+                            )}
                         </button>
                     );
                 })}
@@ -87,7 +104,7 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
 
             {/* Mode Grid */}
             <div 
-                className="grid grid-cols-3 gap-2.5 min-h-[90px]"
+                className="grid grid-cols-3 max-[370px]:grid-cols-2 gap-2.5 min-h-[90px]"
                 style={{
                     animationDelay: '100ms'
                 }}
