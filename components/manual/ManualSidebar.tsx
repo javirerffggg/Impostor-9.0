@@ -1,11 +1,10 @@
 
-
-
 import React from 'react';
 import { 
   BookOpen, Users, Brain, Gamepad2, 
   HelpCircle, FileText, ChevronRight, X,
-  Library, Settings, Lightbulb, Book
+  Library, Settings, Lightbulb, Book,
+  PlayCircle, Trophy, Wrench, History, Code, Key
 } from 'lucide-react';
 import { ThemeConfig } from '../../types';
 import { manualTheme } from './manualTheme';
@@ -20,13 +19,19 @@ interface Section {
 const sections: Section[] = [
   { id: 'introduccion', title: 'Introducción', icon: <BookOpen size={18} />, color: manualTheme.icon.intro },
   { id: 'reglas', title: 'Reglas Básicas', icon: <FileText size={18} />, color: manualTheme.icon.rules },
+  { id: 'ejemplos', title: 'Ejemplos Reales', icon: <PlayCircle size={18} />, color: manualTheme.icon.examples },
   { id: 'roles', title: 'Roles del Juego', icon: <Users size={18} />, color: manualTheme.icon.roles },
   { id: 'infinitum', title: 'Sistema INFINITUM', icon: <Brain size={18} />, color: manualTheme.icon.infinitum },
   { id: 'modos', title: 'Modos de Juego', icon: <Gamepad2 size={18} />, color: manualTheme.icon.modes },
+  { id: 'logros', title: 'Logros y Desafíos', icon: <Trophy size={18} />, color: manualTheme.icon.achievements },
   { id: 'categorias', title: 'Categorías', icon: <Library size={18} />, color: manualTheme.icon.categories },
   { id: 'configuracion', title: 'Configuración', icon: <Settings size={18} />, color: manualTheme.icon.config },
   { id: 'estrategias', title: 'Estrategias', icon: <Lightbulb size={18} />, color: manualTheme.icon.strategies },
+  { id: 'troubleshooting', title: 'Solución Problemas', icon: <Wrench size={18} />, color: manualTheme.icon.troubleshoot },
   { id: 'faq', title: 'Preguntas Frecuentes', icon: <HelpCircle size={18} />, color: manualTheme.icon.faq },
+  { id: 'changelog', title: 'Versiones', icon: <History size={18} />, color: manualTheme.icon.changelog },
+  { id: 'dev-docs', title: 'Para Devs', icon: <Code size={18} />, color: manualTheme.icon.dev },
+  { id: 'secretos', title: 'Secretos', icon: <Key size={18} />, color: manualTheme.icon.secrets },
   { id: 'glosario', title: 'Glosario Técnico', icon: <Book size={18} />, color: manualTheme.icon.glossary },
 ];
 
@@ -90,7 +95,7 @@ export const ManualSidebar: React.FC<Props> = ({
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-2 mt-4 lg:mt-0">
+        <nav className="p-4 space-y-1.5 mt-4 lg:mt-0">
           {sections.map((section) => {
             const isActive = section.id === activeSection;
             

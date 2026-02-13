@@ -1,6 +1,4 @@
 
-
-
 import { CardData } from './ManualCard';
 import { CodeBlockData } from './ManualCodeBlock';
 
@@ -26,7 +24,7 @@ export const manualSections: ManualSection[] = [
     subsections: [
       {
         title: '¿Qué es Impostor 9.0?',
-        content: 'Basado en el clásico "Undercover", la app asigna roles secretos a cada jugador: la mayoría recibe la palabra Civil, mientras que uno o más jugadores reciben el rol de Impostor con una pista relacionada. El objetivo es descubrir quién es el impostor a través de conversación, debate y votaciones, mientras el impostor intenta pasar desapercibido.',
+        content: 'Basado en el clásico "Undercover", la app asigna roles secretos a cada jugador: la mayoría recibe la palabra Civil, mientras que uno o más jugadores reciben el rol de Impostor con una pista relacionada. El objetivo es descubrir quién es el impostor a través de conversación, debate y votaciones.',
         cards: [
           {
             type: 'highlight',
@@ -37,6 +35,60 @@ export const manualSections: ManualSection[] = [
               '🎭 Modos Adaptativos: Más de 8 modos de juego dinámicos',
               '📊 Transparencia Total: Sistema de telemetría completo'
             ]
+          }
+        ]
+      },
+      {
+        title: 'Controles Táctiles',
+        content: 'Cómo interactuar con las pantallas del juego.',
+        cards: [
+          {
+            type: 'info',
+            title: 'Gestos Principales',
+            content: [
+              '👆 MANTENER: Para revelar tu carta de identidad',
+              '👈 SWIPE: Para pasar a la siguiente persona',
+              '🔒 MANTENER (Resultados): Para desbloquear la pantalla final',
+              '↕️ ARRASTRAR: Para reordenar jugadores en setup (mantén el icono ≡)'
+            ]
+          }
+        ]
+      },
+      {
+        title: 'Índice de Temas Populares',
+        content: 'Accesos directos a las preguntas más comunes:',
+        cards: [
+          {
+            type: 'info',
+            title: 'Busco...',
+            content: [
+              '🔍 "¿Cómo funciona el impostor?" → Ver: Roles > Impostor',
+              '🔍 "¿Por qué siempre me toca?" → Ver: Sistema INFINITUM',
+              '🔍 "¿Cómo activo modos?" → Ver: Configuración > Ajustes Avanzados',
+              '🔍 "¿Qué es el Magistrado?" → Ver: Roles > Magistrado',
+              '🔍 "Estrategias para ganar" → Ver: Estrategias y Consejos'
+            ]
+          }
+        ]
+      },
+      {
+        title: 'Momentos Épicos de la Comunidad',
+        content: 'Historias reales de jugadores que han vivido situaciones inolvidables.',
+        cards: [
+          {
+            type: 'highlight',
+            title: '🏆 La Gran Traición',
+            content: 'Un jugador transfirió su rol de impostor en el último segundo. El nuevo impostor era su mejor amigo, quien lo acusó inmediatamente para ganar credibilidad. Nadie lo vio venir.'
+          },
+          {
+            type: 'success',
+            title: '🎭 El Fantasma',
+            content: 'Un Testigo Silencioso guardó su secreto hasta el final. Cuando acusó al impostor correcto, nadie le creyó... hasta que los resultados lo confirmaron.'
+          },
+          {
+            type: 'danger',
+            title: '💥 El Caos del Troll',
+            content: 'Protocolo Pandora activado: todos eran impostores. El grupo pasó 15 minutos acusándose sin entender qué pasaba. Cuando se reveló, fue la risa más grande de la noche.'
           }
         ]
       }
@@ -93,6 +145,47 @@ export const manualSections: ManualSection[] = [
   },
 
   {
+    id: 'ejemplos',
+    title: 'Ejemplos de Partidas',
+    content: 'Aprende viendo cómo se desarrollan partidas reales con diferentes modos activados.',
+    subsections: [
+      {
+        title: 'Partida Clásica (4 jugadores, 1 impostor)',
+        content: 'Palabra: MÓVIL\n\nJugadores: Ana (Civil), Luis (Impostor), Marta (Civil), Carlos (Civil Arquitecto)\n\n**RONDA DE DESCRIPCIONES:**\n- Carlos: "Lo usas todos los días"\n- Ana: "Tiene pantalla táctil"\n- Luis: "Se carga con cable" (pista: dispositivo electrónico)\n- Marta: "Tiene aplicaciones y cámara"\n\n**ANÁLISIS:** Luis fue demasiado genérico. Todos votaron por él.\n\n**RESULTADO:** Victoria Civil.',
+        cards: [
+          {
+            type: 'info',
+            title: 'Lección',
+            content: 'Como impostor, sé específico después de escuchar suficientes pistas. "Tiene pantalla" habría sido mejor que "se carga".'
+          }
+        ]
+      },
+      {
+        title: 'Partida con Nexus (6 jugadores, 2 impostores)',
+        content: 'Palabra: PIZZA\n\nImpostores con Nexus saben que ambos son cómplices.\n\n**ESTRATEGIA COORDINADA:**\n- Impostor 1 acusa sutilmente a un civil\n- Impostor 2 "defiende" al civil pero planta duda\n- Resultado: Dividen al grupo',
+        cards: [
+          {
+            type: 'success',
+            title: 'Sinergia',
+            content: 'Nexus permite juegos mentales avanzados. Coordinaos con miradas o patrones de voto.'
+          }
+        ]
+      },
+      {
+        title: 'Partida con Renuncia Activada (5 jugadores)',
+        content: 'Impostor original: Pedro\n\nPedro ve su carta de impostor pero activa "TRANSFERIR".\n\nAhora Pedro es Testigo Silencioso (sabe que hubo cambio).\nEl nuevo impostor es María (no sabe que Pedro lo sabe).\n\n**DRAMA:** Pedro puede acusar sabiendo que hay impostor, pero sin saber quién.',
+        cards: [
+          {
+            type: 'danger',
+            title: 'Riesgo',
+            content: 'Si transfieres, pierdes el control pero ganas información única. Úsalo tácticamente.'
+          }
+        ]
+      }
+    ]
+  },
+
+  {
     id: 'roles',
     title: 'Roles del Juego',
     content: 'Además de Civiles e Impostores, existen roles especiales que añaden profundidad estratégica.',
@@ -131,6 +224,27 @@ export const manualSections: ManualSection[] = [
         ]
       },
       {
+        title: 'Magistrado (Protocolo Magistrado)',
+        content: 'Un civil especial elegido aleatoriamente que actúa como "alcalde" de la partida. Su voto cuenta doble en la votación final. Solo se activa con 6+ jugadores.',
+        cards: [
+          {
+            type: 'highlight',
+            title: 'Responsabilidad',
+            content: [
+              '🗳️ Voto Doble: Su decisión tiene el doble de peso',
+              '⚖️ Árbitro Natural: Debe mantener el orden en el debate',
+              '👁️ Blanco Fácil: Los impostores pueden intentar desacreditarle',
+              '💡 Estrategia: No reveles tu identidad prematuramente'
+            ]
+          },
+          {
+            type: 'warning',
+            title: 'Activación',
+            content: 'Requiere mínimo 6 jugadores y debe activarse en los ajustes del modo "Protocolos".'
+          }
+        ]
+      },
+      {
         title: 'Oráculo (Protocolo Oráculo)',
         content: 'Un civil especial que puede dar una pista mejorada a los demás civiles. Ve posibles pistas y lee una en voz alta antes de que el impostor vea su carta.',
         cards: [
@@ -150,6 +264,28 @@ export const manualSections: ManualSection[] = [
                 title: 'Poder',
                 content: 'Le da más información para hacer descripciones creíbles al tener que hablar primero.'
             }
+        ]
+      },
+      {
+        title: 'Testigo Silencioso (Protocolo Renuncia)',
+        content: 'Si usas TRANSFERIR en el Protocolo Renuncia, te conviertes en un Testigo Silencioso durante esa ronda.',
+        cards: [
+          {
+            type: 'highlight',
+            title: 'Características',
+            content: [
+              '✅ Sabes que EXISTE un impostor (certeza)',
+              '❌ NO sabes quién es el nuevo impostor',
+              '🎭 Puedes acusar con más confianza que otros civiles',
+              '⚠️ Si acusas mal, perderás credibilidad',
+              '💡 Tu palabra secreta sigue siendo la del civil'
+            ]
+          },
+          {
+            type: 'warning',
+            title: 'Estrategia',
+            content: 'Observa quién actúa más nervioso. Tú sabes que hubo un cambio, así que busca comportamiento extraño.'
+          }
         ]
       },
       {
@@ -218,6 +354,23 @@ export const manualSections: ManualSection[] = [
     content: 'Personaliza tu experiencia activando diferentes modos en los ajustes.',
     subsections: [
       {
+        title: 'Comparativa Rápida de Modos',
+        content: 'Tabla que te ayuda a decidir qué activar según tu grupo.',
+        cards: [
+          {
+            type: 'highlight',
+            title: 'Guía de Activación',
+            content: [
+              '🟢 Principiantes → Modo Pista + Arquitecto',
+              '🟡 Intermedios → Pista + Oráculo + Nexus',
+              '🔴 Expertos → Sin Pista + Troll + Vanguardia + Renuncia',
+              '🍺 Fiesta → Party + Troll + Oráculo',
+              '🧠 Hardcore → Memoria (Difícil) + Sin Pista + Troll'
+            ]
+          }
+        ]
+      },
+      {
         title: 'Modo Pista',
         content: 'Los impostores reciben una pista relacionada con la palabra secreta en lugar de "ERES EL IMPOSTOR". Recomendado para principiantes o grupos casuales.',
       },
@@ -276,6 +429,46 @@ export const manualSections: ManualSection[] = [
                 title: 'Dinámica',
                 content: 'Si transfieres, te conviertes en un "Testigo Silencioso" que sabe que hubo un cambio pero no conoce al nuevo impostor.'
             }
+        ]
+      }
+    ]
+  },
+
+  {
+    id: 'logros',
+    title: 'Logros y Desafíos',
+    content: 'Objetivos secretos que desbloquear jugando. (Próximamente en v11.0)',
+    subsections: [
+      {
+        title: 'Logros de Supervivencia',
+        content: 'Colecciona estos hitos durante tu carrera como jugador.',
+        cards: [
+          {
+            type: 'success',
+            title: 'Ejemplos',
+            content: [
+              '🛡️ Inamovible: 10 partidas como civil seguidas',
+              '👑 Maestro del Engaño: Ganar 5 veces como impostor',
+              '🎭 Camaleón: Sobrevivir siendo impostor sin pistas',
+              '🔥 Racha Imposible: 20 sesiones sin ser impostor',
+              '💀 Némesis: Eliminar correctamente a 10 impostores'
+            ]
+          }
+        ]
+      },
+      {
+        title: 'Desafíos Semanales',
+        content: 'Retos limitados en el tiempo que recompensan con insignias.',
+        cards: [
+          {
+            type: 'highlight',
+            title: 'Esta Semana',
+            content: [
+              '🎯 El Silencioso: Gana sin hablar más de 5 palabras',
+              '🧠 Memoria Perfecta: Completa 3 rondas en Modo Memoria sin fallar',
+              '🍺 Fiestero: Juega 10 rondas en Modo Party'
+            ]
+          }
         ]
       }
     ]
@@ -366,6 +559,56 @@ export const manualSections: ManualSection[] = [
   },
 
   {
+    id: 'troubleshooting',
+    title: 'Solución de Problemas',
+    content: 'Qué hacer cuando algo no funciona como esperabas.',
+    subsections: [
+      {
+        title: 'Problemas Comunes',
+        content: 'Lista de errores frecuentes y sus soluciones.',
+        cards: [
+          {
+            type: 'warning',
+            title: '🔴 La app se cierra sola',
+            content: 'Solución: Limpia la caché del navegador o reinstala la PWA. Si persiste, desactiva Modo Memoria.'
+          },
+          {
+            type: 'warning',
+            title: '🔴 No guarda mi progreso',
+            content: 'Solución: Verifica que las cookies estén habilitadas. El juego usa localStorage para guardar.'
+          },
+          {
+            type: 'warning',
+            title: '🔴 El drag & drop no funciona en móvil',
+            content: 'Solución: Mantén presionado el icono ≡ durante 0.5s antes de arrastrar. Si sigue fallando, desactiva gestos del navegador.'
+          },
+          {
+            type: 'warning',
+            title: '🔴 Pantalla blanca después de actualizar',
+            content: 'Solución: Fuerza la recarga (Ctrl+Shift+R en escritorio, o limpia caché en móvil).'
+          }
+        ]
+      },
+      {
+        title: 'Contacto y Reportar Bugs',
+        content: 'Si encuentras un problema no listado aquí:',
+        cards: [
+          {
+            type: 'info',
+            title: 'Cómo Reportar',
+            content: [
+              '📧 Email: bugs@impostor9.app (ficticio)',
+              '🐛 GitHub: github.com/javirerffggg/Impostor-9.0/issues',
+              '💬 Discord: discord.gg/impostor9 (ficticio)',
+              '📸 Adjunta: Captura + pasos para reproducir + dispositivo'
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  {
     id: 'faq',
     title: 'Preguntas Frecuentes',
     content: 'Solución a dudas comunes.',
@@ -385,7 +628,109 @@ export const manualSections: ManualSection[] = [
         {
             title: 'Técnicas',
             content: '¿Puedo mentir? Sí, sobre todo si eres impostor. ¿Puedo buscar en Google? No, arruina el juego.',
+        },
+        {
+          title: 'Comportamientos Confusos Explicados',
+          content: 'Cosas que parecen bugs pero son intencionales.',
+          cards: [
+            {
+              type: 'info',
+              title: 'No es un bug',
+              content: [
+                '✓ "Siempre me toca a mí": INFINITUM corrige desequilibrios, no es aleatorio puro',
+                '✓ "No puedo añadir más de 20 jugadores": Límite de diseño para mantener el ritmo',
+                '✓ "El timer sigue después de revelar": Es para presión psicológica intencional',
+                '✓ "No veo mis estadísticas": Usa Debug Mode para ver datos (toca logo 5 veces)'
+              ]
+            }
+          ]
         }
+    ]
+  },
+
+  {
+    id: 'changelog',
+    title: 'Historial de Versiones',
+    content: 'Registro de cambios y mejoras del sistema.',
+    subsections: [
+      {
+        title: 'v10.0 - Magistrado & Memoria',
+        content: 'Febrero 2026\n\n• Nuevo rol: Magistrado con voto doble\n• Modo Memoria implementado\n• Sistema INFINITUM mejorado\n• Corrección de bugs en Renuncia',
+      },
+      {
+        title: 'v9.0 - Refactorización Core',
+        content: 'Enero 2026\n\n• Modularización del código (vault, lexicon, protocols)\n• Protocolo Renuncia estabilizado\n• Mejoras de rendimiento en móvil',
+      },
+      {
+        title: 'v8.5 - Party Mode 2.0',
+        content: 'Diciembre 2025\n\n• Intensidad variable en Modo Fiesta\n• Bartender y roles sociales\n• Sistema de hidratación forzada',
+      }
+    ]
+  },
+
+  {
+    id: 'dev-docs',
+    title: 'Documentación para Desarrolladores',
+    content: 'Guía técnica para contribuidores o curiosos del código.',
+    subsections: [
+      {
+        title: 'Arquitectura del Sistema',
+        content: 'Impostor 9.0 está construido con React + TypeScript. La lógica está separada en módulos core.',
+        codeBlocks: [
+          {
+            title: 'Estructura de Carpetas',
+            content: `/hooks → Estado global (useGameState)
+/utils/core → Módulos principales
+  /vault → Historial de jugadores
+  /infinitum → Motor de selección
+  /paranoia → Detección de patrones
+  /lexicon → Gestión de palabras
+  /protocols → Renuncia, Magistrado, etc.
+/components → UI Components
+/types → TypeScript Interfaces`
+          }
+        ]
+      },
+      {
+        title: 'Contribuir al Proyecto',
+        content: 'El proyecto es open-source. Acepta pull requests con:',
+        cards: [
+          {
+            type: 'info',
+            title: 'Requisitos',
+            content: [
+              '✓ Fork del repo: github.com/javirerffggg/Impostor-9.0',
+              '✓ Tests pasando (npm test)',
+              '✓ Documentación actualizada',
+              '✓ Commits con formato: feat/fix/docs(scope): message'
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  {
+    id: 'secretos',
+    title: 'Secretos y Easter Eggs',
+    content: 'Cosas ocultas que descubrir por tu cuenta... o leer aquí si no tienes paciencia.',
+    subsections: [
+      {
+        title: 'Debug Mode',
+        content: 'Toca el logo "IMPOSTOR" en la pantalla principal 5 veces rápido. Verás las entrañas del sistema.',
+      },
+      {
+        title: 'Tema Secreto "Void"',
+        content: 'Cambia tu dispositivo a modo oscuro + activa modo avión + reinicia la app. Aparecerá un tema completamente negro con acentos morados.',
+      },
+      {
+        title: 'Palabra Imposible',
+        content: 'Si la palabra secreta es "IMPOSTOR", el sistema activa automáticamente Modo Troll. Probabilidad: 0.01%.',
+      },
+      {
+        title: 'Protocolo Ciego',
+        content: 'Si INFINITUM detecta paranoia extrema (>95%), puede activar "Protocolo Ciego" donde la selección es totalmente aleatoria por una ronda.',
+      }
     ]
   },
 

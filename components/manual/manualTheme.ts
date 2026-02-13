@@ -38,5 +38,13 @@ export const manualTheme = {
     strategies: '#FBBF24',   // Amber
     faq: '#22D3EE',          // Cyan
     glossary: '#818CF8',     // Indigo
+    
+    // New Sections
+    examples: '#FCD34D',     // Amber Light
+    achievements: '#F43F5E', // Rose
+    troubleshoot: '#EF4444', // Red
+    changelog: '#38BDF8',    // Sky
+    dev: '#64748B',          // Slate Dark
+    secrets: '#8B5CF6',      // Violet Dark
   }
 };
