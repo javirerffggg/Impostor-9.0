@@ -361,6 +361,19 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
     }
 };
 
+export const getTheme = (name: ThemeName): ThemeConfig => {
+    const theme = THEMES[name];
+    if (!theme) return THEMES['luminous']; // Fallback
+    
+    // Ensure critical properties exist with fallbacks
+    return {
+        ...theme,
+        cardBg: theme.cardBg || theme.bg,
+        border: theme.border || 'rgba(255,255,255,0.1)',
+        shadow: theme.shadow || 'none'
+    };
+};
+
 export const PARTY_PROMPTS = {
     setup: [
         "¡Somos una multitud! {RANDOM_PLAYER}, bebe un trago para celebrar la reunión.",

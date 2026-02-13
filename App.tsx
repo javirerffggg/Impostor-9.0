@@ -1,5 +1,6 @@
-import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
-import { THEMES, PLAYER_COLORS } from './constants';
+
+import React, { useState, useEffect, lazy, Suspense, useMemo, useCallback } from 'react';
+import { THEMES, PLAYER_COLORS, getTheme } from './constants';
 import { ThemeName } from './types';
 import { useGameState } from './hooks/useGameState';
 import { useAudioSystem } from './hooks/useAudioSystem';
@@ -45,8 +46,8 @@ function App() {
         }
     });
 
-    // Memoize heavy objects
-    const theme = useMemo(() => THEMES[themeName], [themeName]);
+    // Memoize heavy objects using helper
+    const theme = useMemo(() => getTheme(themeName), [themeName]);
     const currentPlayerColor = useMemo(
         () => PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length],
         [gameState.currentPlayerIndex]
@@ -76,22 +77,29 @@ function App() {
 
     // -- KONAMI CODE LISTENER --
     const [konamiSequence, setKonamiSequence] = useState<string[]>([]);
-    const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    const [konamiActivated, setKonamiActivated] = useState(false);
+    const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
 
     useEffect(() => {
+        if (konamiActivated) return;
+
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (konamiActivated) return;
+
             setKonamiSequence(prev => {
-                const newSeq = [...prev, e.key].slice(-10); // Mantener últimas 10 teclas
+                // Use code instead of key for better cross-layout support
+                const newSeq = [...prev, e.code].slice(-10); 
                 
                 // Comprobar si coincide con Konami Code
                 if (JSON.stringify(newSeq) === JSON.stringify(KONAMI_CODE)) {
+                    setKonamiActivated(true);
                     // Activar debug con easter egg especial
                     setGameState(prev => ({
                         ...prev,
                         debugState: { 
                             ...prev.debugState, 
                             isEnabled: true,
-                            easterEggUnlocked: true // Nueva propiedad
+                            easterEggUnlocked: true 
                         }
                     }));
                     
@@ -105,7 +113,9 @@ function App() {
                     
                     if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
                     
-                    alert('🎮 KONAMI CODE ACTIVATED!\n\nModo Centinela Legendary desbloqueado.');
+                    setTimeout(() => {
+                        alert('🎮 KONAMI CODE ACTIVATED!\n\nModo Centinela Legendary desbloqueado.');
+                    }, 100);
                     
                     return [];
                 }
@@ -116,7 +126,7 @@ function App() {
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [konamiActivated]);
 
     // -- Effects --
 
@@ -185,60 +195,75 @@ function App() {
         }
     };
 
-    const handleNextPlayer = (viewTime: number) => {
+    const handleNextPlayer = useCallback((viewTime: number) => {
         if (isExiting) return;
 
-        // 1. Guardar tiempo de visualización
+        setIsExiting(true);
+
+        // Functional update to avoid race conditions
         setGameState(prev => {
             const newData = [...prev.gameData];
-            if (newData[prev.currentPlayerIndex]) newData[prev.currentPlayerIndex].viewTime = viewTime;
+            if (newData[prev.currentPlayerIndex]) {
+                newData[prev.currentPlayerIndex].viewTime = viewTime;
+            }
+            
+            const nextIndex = prev.currentPlayerIndex + 1;
+            
+            // Trigger party mode inside update context to ensure correctness
+            if (prev.settings.partyMode && nextIndex < prev.players.length) {
+                 setTimeout(() => triggerPartyMessage('revealing'), 50);
+            }
+            
             return { ...prev, gameData: newData };
         });
 
-        // 2. Trigger Party Mode si procede
-        if (gameState.settings.partyMode && gameState.currentPlayerIndex < gameState.players.length - 1) {
-             triggerPartyMessage('revealing');
-        }
-
-        const nextIndex = gameState.currentPlayerIndex + 1;
-        const isLast = nextIndex >= gameState.players.length;
-
-        // 3. Animación de salida de la carta actual
-        setIsExiting(true);
-
+        // Continue transition logic
         setTimeout(() => {
-            if (isLast) {
-                // Fin del juego o paso a Magistrado
-                if (gameState.magistradoData) {
-                    setShowMagistradoAnnouncement(true);
-                    // No cambiamos fase aún, el modal lo hará
-                    setIsExiting(false);
-                } else {
-                    setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
-                    if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
-                    setIsExiting(false);
-                }
-            } else if (gameState.settings.passPhoneMode) {
-                // MODO PASES ACTIVADO: Mostrar pantalla "Pasa el teléfono"
-                setTransitionName(gameState.players[nextIndex].name);
-                setIsExiting(false); 
+            setGameState(prev => {
+                const nextIndex = prev.currentPlayerIndex + 1;
+                const isLast = nextIndex >= prev.players.length;
 
-                setTimeout(() => {
-                    setIsExiting(true); 
+                if (isLast) {
+                    // Fin del juego o paso a Magistrado
+                    if (prev.magistradoData) {
+                        setShowMagistradoAnnouncement(true);
+                        setIsExiting(false);
+                        return prev; // Do not change phase yet, modal handles it
+                    } else {
+                        setIsExiting(false);
+                        if (prev.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                        return { 
+                            ...prev, 
+                            phase: 'results', 
+                            currentDrinkingPrompt: "" 
+                        };
+                    }
+                } 
+                
+                if (prev.settings.passPhoneMode) {
+                    // MODO PASES ACTIVADO: Mostrar pantalla "Pasa el teléfono"
+                    setTransitionName(prev.players[nextIndex].name);
+                    setIsExiting(false); 
+
                     setTimeout(() => {
-                        setTransitionName(null);
-                        setGameState(prev => ({ ...prev, currentPlayerIndex: nextIndex }));
-                        setIsExiting(false); 
-                    }, 300);
-                }, 2000);
-            } else {
+                        setIsExiting(true); 
+                        setTimeout(() => {
+                            setTransitionName(null);
+                            setGameState(p => ({ ...p, currentPlayerIndex: nextIndex }));
+                            setIsExiting(false); 
+                        }, 300);
+                    }, 2000);
+                    
+                    return prev; // Don't update index yet
+                } 
+                
                 // MODO PASES DESACTIVADO: Transición directa
                 setTransitionName(null);
-                setGameState(prev => ({ ...prev, currentPlayerIndex: nextIndex }));
                 setIsExiting(false);
-            }
+                return { ...prev, currentPlayerIndex: nextIndex };
+            });
         }, 300);
-    };
+    }, [isExiting, triggerPartyMessage]);
 
     const handleBackToSetup = () => {
         setIsPixelating(true);

@@ -1,8 +1,4 @@
 
-
-
-
-
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -21,6 +17,7 @@ import {
 import { applyRenunciaDecision } from '../utils/protocols/renuncia';
 import { CATEGORIES_DATA } from '../categories';
 import { calculatePartyIntensity } from '../utils/partyLogic';
+import { shuffleArray } from '../utils/utils/helpers';
 
 const DEFAULT_SETTINGS: GameState['settings'] = {
     hintMode: false,
@@ -53,6 +50,48 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
 const STORAGE_KEY_SETTINGS = 'impostor_settings_persist_v1';
 const STORAGE_KEY_SESSION = 'impostor_session_state_v1';
+
+// --- SAFE STORAGE HELPER ---
+const safeLocalStorageSet = (key: string, value: any): boolean => {
+    try {
+        const serialized = JSON.stringify(value);
+        
+        // Check size before saving (5MB limit typical)
+        const sizeInBytes = new Blob([serialized]).size;
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        
+        if (sizeInMB > 4.5) { // Leave 0.5MB buffer
+            console.warn(`Data too large (${sizeInMB.toFixed(2)}MB). Compressing...`);
+            
+            // Trim old match logs if history is too big
+            const parsed = JSON.parse(serialized);
+            if (parsed.matchLogs && parsed.matchLogs.length > 50) {
+                parsed.matchLogs = parsed.matchLogs.slice(0, 50);
+                localStorage.setItem(key, JSON.stringify(parsed));
+                return true;
+            }
+        }
+        
+        localStorage.setItem(key, serialized);
+        return true;
+    } catch (e) {
+        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+            // Try clearing old data
+            try {
+                const oldKeys = ['impostor_game_history_v1', 'old_cache_key'];
+                oldKeys.forEach(k => localStorage.removeItem(k));
+                
+                localStorage.setItem(key, JSON.stringify(value));
+                return true;
+            } catch {
+                console.warn('⚠️ Almacenamiento lleno. Algunas estadísticas no se guardarán.');
+                return false;
+            }
+        }
+        console.error('Storage error:', e);
+        return false;
+    }
+};
 
 const getInitialHistory = (): GameState['history'] => {
     try {
@@ -127,8 +166,13 @@ const getInitialSession = (): { players: Player[], impostorCount: number } => {
     } catch (e) {
         console.error("Error loading session state:", e);
     }
+    
+    // Usar Date.now() también para defaults para asegurar IDs únicos
     return {
-        players: DEFAULT_PLAYERS.map((name, i) => ({ id: i.toString(), name })),
+        players: DEFAULT_PLAYERS.map((name) => ({ 
+            id: `default_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
+            name 
+        })),
         impostorCount: 1
     };
 };
@@ -178,35 +222,23 @@ export const useGameState = () => {
         localStorage.setItem('impostor_saved_players', JSON.stringify(savedPlayers));
     }, [savedPlayers]);
 
-    // Save history effect (Persistence)
+    // Save history effect (Persistence) - USING SAFE STORAGE
     useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(gameState.history));
-        } catch (e) {
-            console.error("Error saving game history:", e);
-        }
+        safeLocalStorageSet(STORAGE_KEY_HISTORY, gameState.history);
     }, [gameState.history]);
 
-    // Save settings effect (Persistence)
+    // Save settings effect (Persistence) - USING SAFE STORAGE
     useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(gameState.settings));
-        } catch (e) {
-            console.error("Error saving game settings:", e);
-        }
+        safeLocalStorageSet(STORAGE_KEY_SETTINGS, gameState.settings);
     }, [gameState.settings]);
 
-    // Save active session state (Persistence)
+    // Save active session state (Persistence) - USING SAFE STORAGE
     useEffect(() => {
-        try {
-            const sessionData = {
-                players: gameState.players,
-                impostorCount: gameState.impostorCount
-            };
-            localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(sessionData));
-        } catch (e) {
-            console.error("Error saving session state:", e);
-        }
+        const sessionData = {
+            players: gameState.players,
+            impostorCount: gameState.impostorCount
+        };
+        safeLocalStorageSet(STORAGE_KEY_SESSION, sessionData);
     }, [gameState.players, gameState.impostorCount]);
 
     // Actions
@@ -302,42 +334,66 @@ export const useGameState = () => {
     }, []);
 
     const runGameGeneration = useCallback(() => {
-        const result = generateGameData({
-            players: gameState.players,
-            impostorCount: gameState.impostorCount,
-            useHintMode: gameState.settings.hintMode,
-            useTrollMode: gameState.settings.trollMode,
-            useArchitectMode: gameState.settings.architectMode,
-            useOracleMode: gameState.settings.oracleMode,
-            useVanguardiaMode: gameState.settings.vanguardiaMode,
-            useNexusMode: gameState.settings.nexusMode,
-            useRenunciaMode: gameState.settings.renunciaMode,
-            useMagistradoMode: gameState.settings.protocolMagistrado,
-            selectedCats: gameState.settings.selectedCategories,
-            history: gameState.history,
-            debugOverrides: gameState.debugState.isEnabled ? {
-                forceTroll: gameState.debugState.forceTroll,
-                forceArchitect: gameState.debugState.forceArchitect
-            } : undefined,
-            isPartyMode: gameState.settings.partyMode,
-            memoryModeConfig: gameState.settings.memoryModeConfig
-        });
+        // Usar functional update para acceder a estado más reciente
+        setGameState(prev => {
+            const result = generateGameData({
+                players: prev.players,
+                impostorCount: prev.impostorCount,
+                useHintMode: prev.settings.hintMode,
+                useTrollMode: prev.settings.trollMode,
+                useArchitectMode: prev.settings.architectMode,
+                useOracleMode: prev.settings.oracleMode,
+                useVanguardiaMode: prev.settings.vanguardiaMode,
+                useNexusMode: prev.settings.nexusMode,
+                useRenunciaMode: prev.settings.renunciaMode,
+                useMagistradoMode: prev.settings.protocolMagistrado,
+                selectedCats: prev.settings.selectedCategories,
+                history: prev.history,
+                debugOverrides: prev.debugState.isEnabled ? {
+                    forceTroll: prev.debugState.forceTroll,
+                    forceArchitect: prev.debugState.forceArchitect
+                } : undefined,
+                isPartyMode: prev.settings.partyMode,
+                memoryModeConfig: prev.settings.memoryModeConfig
+            });
 
-        setCurrentWordPair(result.wordPair);
+            // Update local refs (side effects are tricky inside setGameState, but these are for immediate UI sync)
+            setCurrentWordPair(result.wordPair);
 
-        // Handle Architect
-        if (result.isArchitectTriggered) {
-            const options = generateArchitectOptions(gameState.settings.selectedCategories);
-            setArchitectOptions(options);
-            setArchitectRegenCount(0);
-            
-            setGameState(prev => ({
+            // Handle Architect
+            if (result.isArchitectTriggered) {
+                const options = generateArchitectOptions(prev.settings.selectedCategories);
+                setArchitectOptions(options);
+                setArchitectRegenCount(0);
+                
+                // Adjust current player index to the architect
+                const architectIndex = result.players.findIndex(p => p.isArchitect);
+                
+                return {
+                    ...prev,
+                    phase: 'architect',
+                    gameData: result.players, // Initial assignment
+                    isTrollEvent: result.isTrollEvent,
+                    trollScenario: result.trollScenario,
+                    isArchitectRound: true,
+                    startingPlayer: result.designatedStarter,
+                    currentPlayerIndex: architectIndex !== -1 ? architectIndex : 0,
+                    history: result.newHistory,
+                    partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
+                    oracleSetup: result.oracleSetup,
+                    renunciaData: result.renunciaData,
+                    magistradoData: result.magistradoData
+                };
+            }
+
+            // Standard Start
+            return {
                 ...prev,
-                phase: 'architect',
-                gameData: result.players, // Initial assignment
+                phase: result.oracleSetup ? 'oracle' : 'revealing',
+                gameData: result.players,
                 isTrollEvent: result.isTrollEvent,
                 trollScenario: result.trollScenario,
-                isArchitectRound: true,
+                isArchitectRound: false,
                 startingPlayer: result.designatedStarter,
                 currentPlayerIndex: 0,
                 history: result.newHistory,
@@ -345,41 +401,16 @@ export const useGameState = () => {
                 oracleSetup: result.oracleSetup,
                 renunciaData: result.renunciaData,
                 magistradoData: result.magistradoData
-            }));
-            
-            // Adjust current player index to the architect
-            const architectIndex = result.players.findIndex(p => p.isArchitect);
-            if (architectIndex !== -1) {
-                 setGameState(prev => ({ ...prev, currentPlayerIndex: architectIndex }));
-            }
-            return;
-        }
-
-        // Standard Start
-        setGameState(prev => ({
-            ...prev,
-            phase: prev.phase === 'oracle' ? 'oracle' : (result.oracleSetup ? 'oracle' : 'revealing'),
-            gameData: result.players,
-            isTrollEvent: result.isTrollEvent,
-            trollScenario: result.trollScenario,
-            isArchitectRound: false,
-            startingPlayer: result.designatedStarter,
-            currentPlayerIndex: 0,
-            history: result.newHistory,
-            partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
-            oracleSetup: result.oracleSetup,
-            renunciaData: result.renunciaData,
-            magistradoData: result.magistradoData
-        }));
-
-        if (result.oracleSetup) {
-             setGameState(prev => ({ ...prev, phase: 'oracle' }));
-        }
+            };
+        });
 
         return { hydrationTimer: 0 }; 
-    }, [gameState.players, gameState.impostorCount, gameState.settings, gameState.history, gameState.debugState]);
+    }, []);
 
     const handleArchitectRegenerate = useCallback(() => {
+        // Need current settings for regeneration, access via prev state in a real component or ref, 
+        // here using dependency on gameState.settings is acceptable if this function is recreated on setting change
+        // OR pass settings as arg. For simplicity, we use dependencies here as it's triggered by user.
         if (architectRegenCount >= 3) return;
         const newOptions = generateArchitectOptions(gameState.settings.selectedCategories);
         setArchitectOptions(newOptions);
@@ -417,10 +448,29 @@ export const useGameState = () => {
                 }
             });
 
+            // ✅ Actualizar oracleSetup si existe con la nueva palabra
+            let updatedOracleSetup = prev.oracleSetup;
+            if (updatedOracleSetup) {
+                const hints = selection.wordPair.hints && selection.wordPair.hints.length >= 3 
+                    ? selection.wordPair.hints.slice(0, 3) 
+                    : shuffleArray([
+                        ...(selection.wordPair.hints || []), 
+                        selection.wordPair.hint || "Sin Pista", 
+                        "RUIDO"
+                    ]).slice(0, 3);
+
+                updatedOracleSetup = {
+                    ...updatedOracleSetup,
+                    availableHints: hints,
+                    civilWord: selection.wordPair.civ 
+                };
+            }
+
             return {
                 ...prev,
                 gameData: newGameData,
-                phase: prev.oracleSetup ? 'oracle' : 'revealing',
+                oracleSetup: updatedOracleSetup,
+                phase: updatedOracleSetup ? 'oracle' : 'revealing',
                 currentPlayerIndex: 0
             };
         });

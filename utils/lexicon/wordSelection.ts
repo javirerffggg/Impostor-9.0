@@ -64,7 +64,8 @@ const shouldResetCategory = (
     const totalAvailable = categoryWords.length;
     
     // Si todas las palabras han sido usadas, resetear
-    return exhaustion.usedWords.length >= totalAvailable;
+    // También resetear si > 95% usadas para evitar repetir las mismas pocas palabras al final
+    return exhaustion.usedWords.length >= totalAvailable || (exhaustion.usedWords.length / totalAvailable) > 0.95;
 };
 
 /**
@@ -75,6 +76,7 @@ const resetCategoryPool = (
     history: GameState['history']
 ): GameState['history']['categoryExhaustion'][string] => {
     const existing = history.categoryExhaustion?.[categoryName];
+    console.log(`Resetting exhaustion for category: ${categoryName}`);
     
     return {
         usedWords: [],
@@ -186,7 +188,7 @@ export const selectLexiconWord = (
     updatedHistory.categoryExhaustion[chosenCategoryName] = 
         validateAndSyncCategoryExhaustion(chosenCategoryName, updatedHistory);
 
-    // 🆕 Verificar si necesita reset
+    // 🆕 Verificar si necesita reset (100% or >95% exhausted)
     if (shouldResetCategory(chosenCategoryName, updatedHistory)) {
         updatedHistory.categoryExhaustion[chosenCategoryName] = 
             resetCategoryPool(chosenCategoryName, updatedHistory);

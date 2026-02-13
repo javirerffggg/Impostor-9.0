@@ -246,14 +246,15 @@ export const generateGameData = (config: GameConfig): {
         playerWeights[0].weight = 999999; 
     }
 
-    const grandTotalWeight = playerWeights.reduce((sum, pw) => sum + pw.weight, 0);
+    // Filter duplicates if any
+    const uniqueCandidates = playerWeights.filter((v, i, a) => a.findIndex(t => (t.player.id === v.player.id)) === i);
 
     const selectedImpostors: Player[] = [];
     const selectedKeys: string[] = []; 
     const telemetryData: SelectionTelemetry[] = [];
 
     for (let i = 0; i < impostorCount; i++) {
-        let availableCandidates = playerWeights.filter(pw => !selectedKeys.includes(pw.player.name.trim().toLowerCase()));
+        let availableCandidates = uniqueCandidates.filter(pw => !selectedKeys.includes(pw.player.name.trim().toLowerCase()));
         if (availableCandidates.length === 0) break;
 
         if (i > 0) {
@@ -266,15 +267,30 @@ export const generateGameData = (config: GameConfig): {
 
         const totalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
         
+        // SAFEGUARD: If total weight is 0 or NaN, fallback to equal distribution
+        if (totalWeight <= 0 || isNaN(totalWeight)) {
+            console.warn('Infinitum: Total weight is invalid. Fallback to equal distribution.');
+            availableCandidates.forEach(pw => {
+                pw.weight = 100;
+                pw.telemetry.finalWeight = 100;
+                pw.telemetry.probabilityPercent = (100 / availableCandidates.length);
+            });
+        } else {
+            availableCandidates.forEach(pw => {
+                pw.telemetry.finalWeight = pw.weight;
+                pw.telemetry.probabilityPercent = (pw.weight / totalWeight) * 100;
+            });
+        }
+        
         availableCandidates.forEach(pw => {
-            pw.telemetry.finalWeight = pw.weight;
-            pw.telemetry.probabilityPercent = totalWeight > 0 ? (pw.weight / totalWeight) * 100 : 0;
             if (!telemetryData.find(t => t.playerId === pw.player.id)) {
                 telemetryData.push(pw.telemetry);
             }
         });
 
-        let randomTicket = Math.random() * totalWeight;
+        // Recalculate total weight after safeguard to ensure it's valid for selection
+        const safeTotalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
+        let randomTicket = Math.random() * safeTotalWeight;
         let selectedIndex = -1;
 
         for (let j = 0; j < availableCandidates.length; j++) {
@@ -456,7 +472,9 @@ export const generateGameData = (config: GameConfig): {
         const isImp = selectedKeys.includes(key);
         const weightObj = playerWeights.find(pw => pw.player.name.trim().toLowerCase() === key);
         const rawWeight = weightObj ? weightObj.weight : 0;
-        const probability = grandTotalWeight > 0 ? (rawWeight / grandTotalWeight) * 100 : 0;
+        const probability = uniqueCandidates.reduce((sum, c) => sum + c.weight, 0) > 0 
+            ? (rawWeight / uniqueCandidates.reduce((sum, c) => sum + c.weight, 0)) * 100 
+            : 0;
         const isOracle = p.id === oracleId;
         const isArchitect = p.id === architectId;
         const isAlcalde = p.id === alcaldePlayer?.id;
@@ -635,7 +653,7 @@ export const generateGameData = (config: GameConfig): {
             lastWords: newHistoryWords,
             lastCategories: newHistoryCategories,
             globalWordUsage: newGlobalWordUsage,
-            categoryExhaustion: workingHistory.categoryExhaustion, // 🆕 Incluir exhaustion actualizado
+            categoryExhaustion: workingHistory.categoryExhaustion, 
             playerStats: newPlayerStats,
             lastTrollRound: isTrollEvent ? currentRound : workingHistory.lastTrollRound,
             lastArchitectRound: isArchitectTriggered ? currentRound : workingHistory.lastArchitectRound,

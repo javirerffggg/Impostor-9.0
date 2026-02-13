@@ -110,6 +110,8 @@ export const useAudioSystem = (
             window.removeEventListener('keydown', handleInteraction);
             if (audioRef.current) {
                 audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                audioRef.current.src = '';
                 audioRef.current = null;
             }
         };
