@@ -61,8 +61,8 @@ export const generateGameData = (config: GameConfig): {
     const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig, categorySettings } = config;
     
     const currentRound = history.roundCounter + 1;
-    const availableCategories = selectedCats.length > 0 ? selectedCats : Object.keys(CATEGORIES_DATA);
-
+    
+    // --- STEP 1: DETECT TROLL EVENT ---
     let isTrollEvent = false;
     let trollScenario: TrollScenario | null = null;
 
@@ -107,6 +107,20 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
+    // --- STEP 2: SELECT CATEGORY & WORD (FOR BOTH NORMAL AND TROLL) ---
+    // ✅ Fix: Use selectLexiconWord even for trolls to maintain rotation/explorer integrity
+    const { 
+        categoryName: catName, 
+        wordPair, 
+        updatedHistory: historyWithWordTracking, 
+        telemetry: categoryTelemetry 
+    } = selectLexiconWord(
+        selectedCats, 
+        history,
+        categorySettings
+    );
+
+    // --- STEP 3: HANDLE TROLL SCENARIO ---
     if (isTrollEvent) {
         if (!trollScenario) { 
             const roll = Math.random() * 100;
@@ -115,9 +129,11 @@ export const generateGameData = (config: GameConfig): {
             else trollScenario = 'falsa_alarma';
         }
 
-        const catName = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+        // For troll events, we might use a random word from the SAME category
+        // to confuse players, or stick with the selected one. 
+        // Let's use the selected category but pick a random pair for chaos generation
         const catDataList = CATEGORIES_DATA[catName];
-        const basePair = catDataList[Math.floor(Math.random() * catDataList.length)];
+        const trollBasePair = catDataList[Math.floor(Math.random() * catDataList.length)];
         const noiseIndex = Math.floor(Math.random() * players.length);
 
         const generateBabylonHint = (playerIndex: number): string => {
@@ -135,12 +151,12 @@ export const generateGameData = (config: GameConfig): {
 
         let trollPlayers: GamePlayer[] = [];
         if (trollScenario === 'espejo_total') {
-            trollPlayers = players.map((p, idx) => ({ ...p, role: 'Impostor', word: generateBabylonHint(idx), realWord: basePair.civ, isImp: true, category: catName, areScore: 0, impostorProbability: 100, viewTime: 0 }));
+            trollPlayers = players.map((p, idx) => ({ ...p, role: 'Impostor', word: generateBabylonHint(idx), realWord: trollBasePair.civ, isImp: true, category: catName, areScore: 0, impostorProbability: 100, viewTime: 0 }));
         } else if (trollScenario === 'civil_solitario') {
             const civilIndex = Math.floor(Math.random() * players.length);
-            trollPlayers = players.map((p, idx) => ({ ...p, role: idx === civilIndex ? 'Civil' : 'Impostor', word: idx === civilIndex ? basePair.civ : generateBabylonHint(idx), realWord: basePair.civ, isImp: idx !== civilIndex, category: catName, areScore: 0, impostorProbability: idx === civilIndex ? 0 : 100, viewTime: 0 }));
+            trollPlayers = players.map((p, idx) => ({ ...p, role: idx === civilIndex ? 'Civil' : 'Impostor', word: idx === civilIndex ? trollBasePair.civ : generateBabylonHint(idx), realWord: trollBasePair.civ, isImp: idx !== civilIndex, category: catName, areScore: 0, impostorProbability: idx === civilIndex ? 0 : 100, viewTime: 0 }));
         } else {
-            trollPlayers = players.map(p => ({ ...p, role: 'Civil', word: basePair.civ, realWord: basePair.civ, isImp: false, category: catName, areScore: 0, impostorProbability: 0, viewTime: 0 }));
+            trollPlayers = players.map(p => ({ ...p, role: 'Civil', word: trollBasePair.civ, realWord: trollBasePair.civ, isImp: false, category: catName, areScore: 0, impostorProbability: 0, viewTime: 0 }));
         }
 
         const vocalisStarter = runVocalisProtocol(players, history, false);
@@ -150,12 +166,16 @@ export const generateGameData = (config: GameConfig): {
             trollPlayers = assignPartyRoles(trollPlayers, history, history.playerStats);
         }
 
+        // Calculate Exhaustion for logs
+        const exhaustionRate = historyWithWordTracking.categoryExhaustion?.[catName]?.usedWords.length /
+                               historyWithWordTracking.categoryExhaustion?.[catName]?.totalWords || 0;
+
         const newLog: MatchLog = {
             id: Date.now().toString(),
             timestamp: Date.now(),
             round: currentRound,
             category: catName,
-            word: basePair.civ,
+            word: trollBasePair.civ,
             impostors: trollPlayers.filter(p => p.isImp).map(p => p.name),
             civilians: trollPlayers.filter(p => !p.isImp).map(p => p.name),
             isTroll: true,
@@ -165,7 +185,10 @@ export const generateGameData = (config: GameConfig): {
             architect: null,
             leteoGrade: 0,
             entropyLevel: 0,
-            affectsINFINITUM: false
+            affectsINFINITUM: false,
+            // v12.5 Exhaustion Warning
+            categoryExhaustionRate: exhaustionRate,
+            exhaustionWarning: exhaustionRate > 0.95 ? 'critical' : exhaustionRate > 0.8 ? 'high' : exhaustionRate > 0.6 ? 'medium' : 'none'
         };
         const currentLogs = history.matchLogs || [];
         const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
@@ -173,7 +196,7 @@ export const generateGameData = (config: GameConfig): {
         return { 
             players: trollPlayers, isTrollEvent: true, trollScenario: trollScenario, isArchitectTriggered: false, designatedStarter: vocalisStarter.name,
             newHistory: { 
-                ...history, 
+                ...historyWithWordTracking, 
                 roundCounter: currentRound, 
                 lastTrollRound: currentRound, 
                 lastStartingPlayers: newStartingPlayers,
@@ -184,16 +207,11 @@ export const generateGameData = (config: GameConfig): {
                 lastBreakProtocol: breakProtocolType || 'manual',
                 matchLogs: updatedLogs
             },
-            wordPair: basePair
+            wordPair: trollBasePair
         };
     }
-
-    // 🆕 SELECCIÓN EXHAUSTIVA DE PALABRA CON NUEVOS AJUSTES & TELEMETRÍA
-    const { categoryName: catName, wordPair, updatedHistory: historyWithWordTracking, telemetry: categoryTelemetry } = selectLexiconWord(
-        selectedCats, 
-        history,
-        categorySettings // Pass new settings including rotation
-    );
+    
+    // --- STEP 4: NORMAL GAME LOGIC ---
     
     // 🆕 Usar el historial actualizado en lugar del original para los siguientes pasos
     const workingHistory = historyWithWordTracking;
@@ -219,7 +237,7 @@ export const generateGameData = (config: GameConfig): {
     shuffledPlayers.forEach(p => {
         const key = p.name.trim().toLowerCase();
         const vault = getVault(key, calculationStats);
-        totalEstimatedWeight += calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, 0, 0); 
+        totalEstimatedWeight += calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, 0, 0, workingHistory.categoryUsageStats); 
     });
     const avgWeight = totalEstimatedWeight / (shuffledPlayers.length || 1);
 
@@ -235,7 +253,16 @@ export const generateGameData = (config: GameConfig): {
         } else {
             weight = (vault.metrics.totalSessions === 0) 
                 ? 100 
-                : calculateInfinitumWeight(p, vault, catName, currentRound, coolingFactor, avgWeight, entropyLevel);
+                : calculateInfinitumWeight(
+                    p, 
+                    vault, 
+                    catName, 
+                    currentRound, 
+                    coolingFactor, 
+                    avgWeight, 
+                    entropyLevel,
+                    workingHistory.categoryUsageStats // ✅ Pass Stats for Affinity calculation
+                );
         }
         
         playerWeights.push({ 
@@ -628,6 +655,10 @@ export const generateGameData = (config: GameConfig): {
         ? [newBartenderId, ...lastBartenders].slice(0, 10) 
         : lastBartenders;
 
+    // Calculate Exhaustion for logs
+    const exhaustionRate = workingHistory.categoryExhaustion?.[catName]?.usedWords.length /
+                           workingHistory.categoryExhaustion?.[catName]?.totalWords || 0;
+
     const newLog: MatchLog = {
         id: Date.now().toString(),
         timestamp: Date.now(),
@@ -656,7 +687,9 @@ export const generateGameData = (config: GameConfig): {
         magistrado: alcaldePlayer?.name,
         // ✨ NUEVO: Telemetría de Selección de Categoría
         categorySelectionTelemetry: categoryTelemetry,
-        // ✨ NUEVO: Guardar rotation index si se usó
+        // ✨ NUEVO: Alerta de Exhaustion
+        categoryExhaustionRate: exhaustionRate,
+        exhaustionWarning: exhaustionRate > 0.95 ? 'critical' : exhaustionRate > 0.8 ? 'high' : exhaustionRate > 0.6 ? 'medium' : 'none'
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);

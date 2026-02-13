@@ -1,6 +1,42 @@
 
-import { Player, InfinityVault } from '../../types';
+
+import { Player, InfinityVault, GameState } from '../../types';
 import { getVault } from './vault';
+
+/**
+ * 🆕 Calcula boost basado en la rareza de la categoría seleccionada (Sinergia Categoría-Impostor)
+ */
+export const calculateCategoryAffinityFactor = (
+    vault: InfinityVault,
+    categoryName: string,
+    categoryStats: GameState['history']['categoryUsageStats']
+): number => {
+    const catStats = categoryStats?.[categoryName];
+    
+    // ¿Es una categoría "rara" (poco usada)?
+    // Consideramos rara si se ha jugado menos de 3 veces
+    const timesUsed = catStats?.totalTimesSelected || 0;
+    const isRare = timesUsed < 3;
+    
+    // ¿El jugador tiene experiencia como impostor en esta categoría?
+    const playerCatDNA = vault.categoryDNA[categoryName];
+    const playerHasExperience = playerCatDNA && playerCatDNA.timesAsImpostor > 0;
+    
+    // CASO 1: Categoría rara + Jugador con experiencia
+    // Lógica: Ya conoce bien esta categoría rara, démosle chance a otros
+    if (isRare && playerHasExperience) {
+        return 0.7; // -30% de peso
+    }
+    
+    // CASO 2: Categoría rara + Jugador SIN experiencia
+    // Lógica: Priorizar que experimente esta categoría como impostor por primera vez
+    if (isRare && !playerHasExperience) {
+        return 1.3; // +30% de peso
+    }
+    
+    // CASO 3: Categoría común -> No ajustar significativamente
+    return 1.0;
+};
 
 export const calculateInfinitumWeight = (
     player: Player, 
@@ -9,7 +45,8 @@ export const calculateInfinitumWeight = (
     currentRound: number,
     coolingDownFactor: number = 1.0, 
     averageWeightEstimate: number = 100,
-    entropyLevel: number = 0
+    entropyLevel: number = 0,
+    categoryUsageStats?: GameState['history']['categoryUsageStats'] // NEW PARAM
 ): number => {
     
     if (vault.metrics.quarantineRounds > 0) {
@@ -31,20 +68,26 @@ export const calculateInfinitumWeight = (
     else if (history[2]) v_rs *= 0.60; 
     else if (history[3]) v_rs *= 1.0;  
 
-    // C. Motor de Afinidad de Categoría (V_ac)
+    // C. Motor de Afinidad de Categoría (V_ac) - Lógica Clásica
     let v_ac = 1.0;
     const catDNA = vault.categoryDNA[category];
     if (catDNA && catDNA.timesAsImpostor > 0) {
         v_ac *= 0.8; 
     }
 
-    // D. Cálculo Ponderado Estándar
-    const calculatedWeight = (v_fk * v_rs * v_ac);
+    // D. NEW: Sinergia Avanzada de Categoría
+    let v_synergy = 1.0;
+    if (categoryUsageStats) {
+        v_synergy = calculateCategoryAffinityFactor(vault, category, categoryUsageStats);
+    }
 
-    // E. Ruido Cuántico
+    // E. Cálculo Ponderado Estándar
+    const calculatedWeight = (v_fk * v_rs * v_ac * v_synergy);
+
+    // F. Ruido Cuántico
     const noise = Math.random() * (averageWeightEstimate * 0.3);
 
-    // F. LETEO Integration
+    // G. LETEO Integration
     const finalWeight = (calculatedWeight * (1 - entropyLevel)) + (100 * entropyLevel);
 
     return finalWeight + noise;

@@ -1,9 +1,11 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig } from '../../types';
-import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu } from 'lucide-react';
+import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu, BatteryWarning } from 'lucide-react';
 import { PLAYER_COLORS } from '../../constants';
 
 interface Props {
@@ -19,6 +21,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     const isTroll = gameState.isTrollEvent;
     const trollScenario = gameState.trollScenario;
     const isParty = gameState.settings.partyMode;
+    const lastLog = gameState.history.matchLogs[0];
     
     // Stats calculation
     const allViewTimes = gameState.gameData.map(p => p.viewTime || 0);
@@ -333,6 +336,24 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                     <div className="h-1 w-12 mx-auto mt-6 rounded-full opacity-50" style={{ backgroundColor: theme.accent }} />
                 )}
             </div>
+
+            {/* ⚠️ CATEGORY EXHAUSTION WARNING */}
+            {lastLog.exhaustionWarning && lastLog.exhaustionWarning !== 'none' && !isTroll && (
+                <div className={`
+                    w-full max-w-sm mb-6 p-3 rounded-xl border flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-top duration-500
+                    ${lastLog.exhaustionWarning === 'critical' ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30'}
+                `}>
+                    <BatteryWarning size={18} className={lastLog.exhaustionWarning === 'critical' ? 'text-red-400 animate-pulse' : 'text-amber-400'} />
+                    <div className="flex-1">
+                        <p className={`text-[10px] font-black uppercase tracking-wide ${lastLog.exhaustionWarning === 'critical' ? 'text-red-300' : 'text-amber-300'}`}>
+                            {lastLog.exhaustionWarning === 'critical' ? 'CATEGORÍA AGOTADA' : 'RESERVAS BAJAS'}
+                        </p>
+                        <p className={`text-[9px] leading-tight opacity-80 ${lastLog.exhaustionWarning === 'critical' ? 'text-red-200' : 'text-amber-200'}`}>
+                            Has usado el {Math.round((lastLog.categoryExhaustionRate || 0) * 100)}% de palabras en "{lastLog.category}". Añade más categorías para mantener la variedad.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* 🎭 BANNER DE TROLL EVENT */}
             {isTroll && (

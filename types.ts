@@ -169,6 +169,10 @@ export interface MatchLog {
         finalProbabilities: Record<string, number>;
         selectionReason: string;
     };
+    
+    // v12.5: Alertas de Agotamiento
+    exhaustionWarning?: 'none' | 'medium' | 'high' | 'critical';
+    categoryExhaustionRate?: number;
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
