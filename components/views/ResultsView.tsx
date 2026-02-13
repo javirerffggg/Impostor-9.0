@@ -1,21 +1,80 @@
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, ThemeConfig } from '../../types';
+import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu, BatteryWarning } from 'lucide-react';
 import { PLAYER_COLORS } from '../../constants';
+import { RenunciaDecisionView } from '../RenunciaDecisionView';
+import { PartyNotification } from '../PartyNotification';
+import { SwipeRevealCard } from '../SwipeRevealCard';
+import { MemoryRevealCard } from '../MemoryRevealCard';
+import { IdentityCard } from '../IdentityCard';
+import { Smartphone, ArrowRight } from 'lucide-react';
 
 interface Props {
     gameState: GameState;
     theme: ThemeConfig;
     onBack: () => void;
     onReplay: () => void;
+    currentPlayerColor: string;
+    onNextPlayer: (viewTime: number) => void;
+    onOracleConfirm: (hint: string) => void;
+    onRenunciaDecision: (decision: RenunciaDecision) => void;
+    onRenunciaRoleSeen: () => void;
+    isExiting: boolean;
+    transitionName?: string | null;
 }
 
-export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onReplay }) => {
+// --- SUB-COMPONENT: DIGIT FLIP TIMER ---
+const DigitFlip: React.FC<{ value: number; theme: ThemeConfig }> = ({ value, theme }) => {
+    const [displayValue, setDisplayValue] = useState(value);
+    const [isFlipping, setIsFlipping] = useState(false);
+  
+    useEffect(() => {
+      if (value !== displayValue) {
+        setIsFlipping(true);
+        const timeout = setTimeout(() => {
+          setDisplayValue(value);
+          setIsFlipping(false);
+        }, 300);
+        return () => clearTimeout(timeout);
+      }
+    }, [value, displayValue]);
+  
+    return (
+      <div 
+        className="relative overflow-hidden rounded-xl sm:rounded-2xl"
+        style={{
+          width: 'clamp(2.5rem, 10vw, 4.5rem)',
+          height: 'clamp(3.5rem, 14vw, 6rem)',
+          backgroundColor: `${theme.cardBg}`,
+          backdropFilter: 'blur(20px)',
+          border: `1px solid ${theme.border}`,
+          boxShadow: `0 10px 40px -10px ${theme.accent}20`
+        }}
+      >
+        {/* 3D Lighting Effects */}
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none z-10" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent pointer-events-none z-10" />
+        <div className="absolute inset-x-0 top-1/2 h-[1px] bg-black/30 z-10 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
+        
+        <div 
+          className={`
+            flex items-center justify-center h-full text-3xl sm:text-6xl font-black
+            transition-all duration-300
+            ${isFlipping ? 'animate-flip-out' : 'animate-flip-in'}
+          `}
+          style={{ 
+            color: theme.text,
+            fontFamily: "'JetBrains Mono', monospace",
+            textShadow: `0 0 20px ${theme.accent}30, 0 2px 4px rgba(0,0,0,0.5)`
+          }}
+        >
+          {displayValue}
+        </div>
+      </div>
+    );
+};
+
+export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onReplay, currentPlayerColor, onNextPlayer, onOracleConfirm, onRenunciaDecision, onRenunciaRoleSeen, isExiting, transitionName }) => {
     const impostors = gameState.gameData.filter(p => p.isImp);
     const civilWord = gameState.gameData.find(p => !p.isImp)?.realWord || "???";
     const isTroll = gameState.isTrollEvent;
@@ -61,12 +120,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         }, 1000);
         return () => clearInterval(interval);
     }, [isDecrypted]);
-
-    const formatTime = (totalSeconds: number) => {
-        const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const s = (totalSeconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-    };
 
     // Vocalis Effect (Speaker Selection)
     useEffect(() => {
@@ -146,155 +199,254 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         };
     }, []);
 
-    // --- RENDER: PRE-REVEAL (TIMER & BUTTON) ---
+    // --- RENDER: PRE-REVEAL (DEBATE PHASE) ---
     if (!isDecrypted) {
         return (
-            <div className="flex flex-col h-full items-center justify-between p-6 pb-12 relative z-10 animate-in fade-in duration-700 pt-[calc(3rem+env(safe-area-inset-top))]">
+            <div className="flex flex-col h-full items-center justify-between relative z-10 animate-in fade-in duration-700 bg-black/20">
                 
-                {/* 1. TOP SECTION: TIMER */}
-                <div className="w-full text-center space-y-6 relative z-20">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                        <span style={{ color: theme.sub }} className="text-[10px] font-black uppercase tracking-[0.2em]">Debate en Curso</span>
-                    </div>
-                    
-                    <div className="relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-white/5 rounded-full blur-[50px]" />
-                        <h1 
-                            className="text-8xl font-black tracking-tighter tabular-nums relative z-10"
-                            style={{ 
-                                color: theme.text,
-                                fontFamily: "'JetBrains Mono', monospace",
-                                textShadow: `0 0 40px ${theme.accent}30`
-                            }}
-                        >
-                            {formatTime(timerSeconds)}
-                        </h1>
-                    </div>
-                </div>
-
-                {/* 2. MIDDLE SECTION: VOCALIS (SPEAKER) */}
-                <div className="flex-1 flex items-center justify-center w-full relative">
+                {/* 1. HEADER CONTEXTUAL */}
+                <header className="absolute top-0 left-0 right-0 z-30 pt-[calc(0.5rem+env(safe-area-inset-top))] px-4 sm:px-6">
                     <div 
-                        className="w-full max-w-sm relative rounded-3xl p-8 flex flex-col items-center gap-4 transition-all duration-700"
+                        className="flex items-center justify-between p-3 rounded-2xl backdrop-blur-2xl transition-all duration-500 animate-in slide-in-from-top"
                         style={{
-                            backgroundColor: vocalisLocked ? `${theme.cardBg}` : 'transparent',
-                            backdropFilter: vocalisLocked ? 'blur(20px)' : 'none',
-                            border: vocalisLocked ? `1px solid ${theme.border}` : '1px solid transparent',
-                            boxShadow: vocalisLocked ? `0 20px 40px -10px ${theme.accent}10` : 'none'
+                            backgroundColor: `${theme.cardBg}80`,
+                            border: `1px solid ${theme.border}50`
                         }}
                     >
-                         <div 
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full blur-[60px] opacity-10 transition-opacity duration-1000"
-                            style={{ backgroundColor: theme.accent, opacity: vocalisLocked ? 0.2 : 0 }}
-                        />
-
-                        <div className="flex flex-col items-center relative z-10">
-                            <span style={{ color: theme.sub }} className="text-[9px] font-bold uppercase tracking-[0.3em] mb-2 opacity-70">
-                                {vocalisLocked ? "Empieza a hablar" : "Va a empezar a hablar..."}
+                        <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60" style={{ color: theme.sub }}>
+                                    Ronda #{gameState.history.roundCounter}
+                                </span>
+                                <span className="text-xs sm:text-sm font-bold" style={{ color: theme.text }}>
+                                    {gameState.players.length} Jugadores
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+                            <div className="relative">
+                                <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                <div className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                            </div>
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-red-400">
+                                EN VIVO
                             </span>
-                            
-                            <h2 
-                                className={`text-4xl font-black text-center leading-none tracking-tight transition-all duration-500 
-                                ${vocalisLocked ? 'scale-100 opacity-100 blur-0' : 'scale-95 opacity-50 blur-sm'}`}
-                                style={{ color: theme.text }}
-                            >
-                                {scannedName}
-                            </h2>
-
-                            {isParty && vocalisLocked && (
-                                <div className="mt-3 flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/20">
-                                    <Beer size={12} className="text-pink-400" />
-                                    <span className="text-[9px] font-black text-pink-400 uppercase tracking-widest">SHOT</span>
-                                </div>
-                            )}
                         </div>
                     </div>
-                </div>
+                </header>
 
-                {/* 3. BOTTOM SECTION: BUTTON */}
-                <div className="w-full max-w-sm relative z-30">
-                    <button
-                        className="group relative w-full h-20 rounded-full overflow-hidden touch-none select-none transition-all duration-300 active:scale-[0.98]"
-                        style={{ 
-                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                            backdropFilter: 'blur(10px)',
-                            border: `1px solid ${theme.border}`,
-                            boxShadow: isHoldingDecrypt 
-                                ? `0 0 30px ${theme.accent}40` 
-                                : '0 10px 30px -10px rgba(0,0,0,0.3)'
-                        }}
-                        onPointerDown={(e) => {
-                            e.preventDefault();
-                            setIsHoldingDecrypt(true);
-                        }}
-                        onPointerUp={(e) => {
-                            e.preventDefault();
-                            setIsHoldingDecrypt(false);
-                        }}
-                        onPointerLeave={() => setIsHoldingDecrypt(false)}
-                        onContextMenu={(e) => e.preventDefault()}
-                    >
+                {/* 2. MAIN CONTENT CONTAINER */}
+                <div className="flex-1 w-full flex flex-col items-center justify-center gap-6 sm:gap-10 pt-20 px-4">
+                    
+                    {/* A. PREMIUM TIMER */}
+                    <div className="relative flex items-center justify-center gap-1 sm:gap-2 scale-90 sm:scale-100 transition-transform">
+                        <DigitFlip value={Math.floor(timerSeconds / 60 / 10)} theme={theme} />
+                        <DigitFlip value={Math.floor(timerSeconds / 60) % 10} theme={theme} />
+                        
+                        <div className="flex flex-col gap-1.5 sm:gap-2 px-1">
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse" style={{ backgroundColor: theme.accent }} />
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse delay-500" style={{ backgroundColor: theme.accent }} />
+                        </div>
+                        
+                        <DigitFlip value={Math.floor((timerSeconds % 60) / 10)} theme={theme} />
+                        <DigitFlip value={(timerSeconds % 60) % 10} theme={theme} />
+                    </div>
+
+                    {/* B. VOCALIS SPOTLIGHT SECTION */}
+                    <div className="relative w-full max-w-sm sm:max-w-md flex items-center justify-center">
+                        {/* Spotlight Effect */}
                         <div 
-                            className="absolute top-0 left-0 h-full transition-all duration-[50ms] ease-linear"
-                            style={{ 
-                                width: `${decryptProgress}%`,
-                                background: `linear-gradient(90deg, ${theme.accent}20, ${theme.accent}60)`,
-                                opacity: isHoldingDecrypt ? 1 : 0
+                            className={`absolute w-[150%] h-[150%] pointer-events-none transition-opacity duration-1000 ${vocalisLocked ? 'opacity-100' : 'opacity-0'}`}
+                            style={{
+                                background: `radial-gradient(circle at center, ${theme.accent}15 0%, ${theme.accent}05 30%, transparent 70%)`,
+                                animation: vocalisLocked ? 'pulse 3s ease-in-out infinite' : 'none'
                             }}
                         />
-
-                        {!isHoldingDecrypt && (
-                            <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_2s_infinite]" 
-                                 style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)' }} 
-                            />
-                        )}
-
-                        <div className="relative z-10 w-full h-full flex items-center justify-between px-2">
-                            <div 
-                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 
-                                ${isHoldingDecrypt ? 'bg-white text-black scale-90' : 'bg-white/5 text-white/80'}`}
-                                style={{ color: isHoldingDecrypt ? theme.accent : theme.text }}
+                        
+                        <div 
+                            className={`relative w-full transition-all duration-700 ease-out ${vocalisLocked ? 'scale-100 opacity-100' : 'scale-95 opacity-70 blur-sm'}`}
+                        >
+                            <div
+                                className="relative rounded-[2rem] p-6 sm:p-8 overflow-hidden backdrop-blur-3xl"
+                                style={{
+                                    backgroundColor: `${theme.cardBg}DD`,
+                                    border: `1px solid ${vocalisLocked ? theme.accent : theme.border}`,
+                                    boxShadow: vocalisLocked ? `0 20px 60px -15px ${theme.accent}20` : 'none'
+                                }}
                             >
-                                <Fingerprint 
-                                    size={28} 
-                                    className={`transition-all duration-300 ${isHoldingDecrypt ? 'scale-110' : 'scale-100'}`} 
-                                />
-                            </div>
-
-                            <div className="flex-1 flex flex-col items-start pl-4 pointer-events-none">
-                                <span 
-                                    className="text-sm font-black uppercase tracking-[0.25em] transition-all duration-300"
-                                    style={{ 
-                                        color: theme.text,
-                                        textShadow: isHoldingDecrypt ? `0 0 20px ${theme.accent}` : 'none',
-                                        letterSpacing: isHoldingDecrypt ? '0.35em' : '0.25em'
-                                    }}
-                                >
-                                    {isHoldingDecrypt ? "ANALIZANDO" : "MANTENER"}
-                                </span>
-                                <span 
-                                    className="text-[9px] font-bold uppercase tracking-widest transition-opacity duration-300"
-                                    style={{ color: theme.sub, opacity: isHoldingDecrypt ? 0.8 : 0.5 }}
-                                >
-                                    {isHoldingDecrypt ? `${Math.floor(decryptProgress)}% COMPLETADO` : "PARA REVELAR RESULTADOS"}
-                                </span>
-                            </div>
-
-                            <div className="pr-6 opacity-50 transition-opacity duration-300 group-hover:opacity-100">
-                                {isHoldingDecrypt ? (
-                                    <Unlock size={20} className="text-white animate-pulse" />
-                                ) : (
-                                    <Lock size={20} style={{ color: theme.text }} />
+                                {vocalisLocked && (
+                                    <div 
+                                        className="absolute inset-0 opacity-10 pointer-events-none"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${theme.accent}40 0%, transparent 50%, ${theme.accent}40 100%)`,
+                                            backgroundSize: '200% 200%',
+                                            animation: 'gradient-shift 3s ease-in-out infinite'
+                                        }}
+                                    />
                                 )}
+                                
+                                <div className="relative z-10 text-center space-y-4 sm:space-y-6">
+                                    {/* Animated Mic Icon */}
+                                    <div className="inline-flex items-center justify-center">
+                                        <div 
+                                            className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all duration-500 ${vocalisLocked ? 'bg-white/10' : 'bg-white/5'}`}
+                                            style={{ boxShadow: vocalisLocked ? `0 0 30px ${theme.accent}30` : 'none' }}
+                                        >
+                                            {vocalisLocked && [...Array(3)].map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="absolute inset-0 rounded-full border-2"
+                                                    style={{
+                                                        borderColor: theme.accent,
+                                                        animation: `soundwave 2s ease-out infinite ${i * 0.6}s`
+                                                    }}
+                                                />
+                                            ))}
+                                            <svg 
+                                                width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                                style={{ color: theme.accent }}
+                                                className={`w-8 h-8 sm:w-10 sm:h-10 ${vocalisLocked ? 'animate-pulse' : ''}`}
+                                            >
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="currentColor"/>
+                                                <path d="M19 10v2a7 7 0 1 1-14 0v-2M12 19v4M8 23h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${vocalisLocked ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
+                                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: theme.sub }}>
+                                                {vocalisLocked ? "MICRÓFONO ACTIVO" : "CALCULANDO TURNO..."}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <h2 
+                                        className={`text-3xl sm:text-5xl font-black leading-none tracking-tight transition-all duration-500`}
+                                        style={{ color: theme.text, textShadow: vocalisLocked ? `0 0 30px ${theme.accent}30` : 'none' }}
+                                    >
+                                        {scannedName}
+                                    </h2>
+                                    
+                                    {vocalisLocked && (
+                                        <div className="pt-4 border-t animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ borderColor: `${theme.border}50` }}>
+                                            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: theme.text }}>Tu turno para hablar</p>
+                                            <p className="text-[10px] opacity-60 leading-relaxed mt-1" style={{ color: theme.sub }}>Describe la palabra sin mencionarla</p>
+                                        </div>
+                                    )}
+
+                                    {isParty && vocalisLocked && (
+                                        <div className="animate-in zoom-in duration-300">
+                                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-pink-500/30 bg-pink-500/10">
+                                                <Beer size={14} className="text-pink-400" />
+                                                <span className="text-xs font-black text-pink-400 uppercase tracking-wider">Shot al terminar</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </button>
-                    
-                    <div className={`mt-4 text-center transition-opacity duration-500 ${isHoldingDecrypt ? 'opacity-0' : 'opacity-40'}`}>
-                         <p className="text-[9px] font-medium uppercase tracking-widest" style={{ color: theme.sub }}>
-                             Sistema Seguro • Encriptación v2.0
-                         </p>
+                    </div>
+
+                    {/* C. BIOMETRIC UNLOCK BUTTON */}
+                    <div className="w-full max-w-xs sm:max-w-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+                        <button
+                            className="group relative w-full h-20 sm:h-24 rounded-[2rem] overflow-hidden touch-none select-none active:scale-[0.98] transition-transform"
+                            onPointerDown={(e) => {
+                                e.preventDefault();
+                                setIsHoldingDecrypt(true);
+                                if (navigator.vibrate) navigator.vibrate([10, 20, 30]);
+                            }}
+                            onPointerUp={(e) => {
+                                e.preventDefault();
+                                setIsHoldingDecrypt(false);
+                            }}
+                            onPointerLeave={() => setIsHoldingDecrypt(false)}
+                            onContextMenu={(e) => e.preventDefault()}
+                        >
+                            {/* Base Layer */}
+                            <div 
+                                className="absolute inset-0 transition-all duration-300"
+                                style={{
+                                    backgroundColor: isHoldingDecrypt ? `${theme.accent}10` : 'rgba(0,0,0,0.3)',
+                                    backdropFilter: 'blur(20px)',
+                                    border: `2px solid ${isHoldingDecrypt ? theme.accent : theme.border}`,
+                                    borderRadius: '2rem',
+                                    boxShadow: isHoldingDecrypt 
+                                        ? `0 0 40px ${theme.accent}30, inset 0 2px 10px rgba(0,0,0,0.3)`
+                                        : '0 10px 30px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)'
+                                }}
+                            />
+                            
+                            {/* Progress Layer */}
+                            <div 
+                                className="absolute inset-0 transition-all duration-100 ease-linear"
+                                style={{
+                                    width: `${decryptProgress}%`,
+                                    background: `linear-gradient(90deg, ${theme.accent}60 0%, ${theme.accent}90 50%, ${theme.accent}60 100%)`,
+                                    backgroundSize: '200% 100%',
+                                    animation: isHoldingDecrypt ? 'shimmer-progress 1.5s linear infinite' : 'none',
+                                    borderRadius: '2rem'
+                                }}
+                            />
+                            
+                            {/* Shine Effect */}
+                            {!isHoldingDecrypt && (
+                                <div 
+                                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                    style={{
+                                        background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)`,
+                                        animation: 'slide-shine 2s ease-in-out infinite'
+                                    }}
+                                />
+                            )}
+                            
+                            {/* Content */}
+                            <div className="relative z-10 h-full flex items-center px-4 sm:px-6">
+                                {/* Fingerprint Icon */}
+                                <div className={`relative flex items-center justify-center transition-all duration-300 ${isHoldingDecrypt ? 'scale-110' : 'scale-100'}`} style={{ width: '3.5rem', height: '3.5rem' }}>
+                                    <div 
+                                        className={`absolute inset-0 rounded-full border-2 transition-all duration-300 ${isHoldingDecrypt ? 'scale-125 opacity-0' : 'scale-100 opacity-100'}`}
+                                        style={{ borderColor: theme.accent, animation: isHoldingDecrypt ? 'ping 1s cubic-bezier(0,0,0.2,1) infinite' : 'none' }}
+                                    />
+                                    <div className={`relative z-10 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 ${isHoldingDecrypt ? 'bg-white text-black shadow-xl' : 'bg-white/10 text-white'}`}>
+                                        <Fingerprint size={24} className={isHoldingDecrypt ? 'text-black' : 'text-white'} />
+                                    </div>
+                                </div>
+                                
+                                {/* Text */}
+                                <div className="flex-1 ml-4 sm:ml-6 space-y-0.5 text-left">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`font-black uppercase tracking-[0.2em] transition-all duration-300 ${isHoldingDecrypt ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`} style={{ color: theme.text, textShadow: isHoldingDecrypt ? `0 0 20px ${theme.accent}60` : 'none' }}>
+                                            {isHoldingDecrypt ? "ESCANEANDO" : "MANTENER"}
+                                        </span>
+                                        {isHoldingDecrypt && <span className="text-[10px] font-mono tabular-nums animate-pulse" style={{ color: theme.accent }}>{Math.floor(decryptProgress)}%</span>}
+                                    </div>
+                                    <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider transition-opacity duration-300" style={{ color: theme.sub, opacity: isHoldingDecrypt ? 0.9 : 0.6 }}>
+                                        {isHoldingDecrypt ? "Verificando identidad..." : "Para revelar resultados"}
+                                    </p>
+                                </div>
+                                
+                                {/* Status Icon */}
+                                <div className="ml-2">
+                                    {isHoldingDecrypt ? (
+                                        <div className="animate-spin w-5 h-5 rounded-full border-2 border-t-transparent" style={{ borderColor: theme.accent, borderTopColor: 'transparent' }} />
+                                    ) : (
+                                        <Lock size={18} style={{ color: theme.sub }} className="opacity-60" />
+                                    )}
+                                </div>
+                            </div>
+                        </button>
+                        
+                        <div className={`mt-3 flex items-center justify-between px-4 transition-opacity duration-300 ${isHoldingDecrypt ? 'opacity-0' : 'opacity-50'}`}>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                                <span className="text-[8px] font-mono uppercase tracking-widest" style={{ color: theme.sub }}>Sistema Seguro</span>
+                            </div>
+                            <span className="text-[8px] font-mono uppercase tracking-widest" style={{ color: theme.sub }}>AES-256 • v2.0</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -689,6 +841,36 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                     0% { clip: rect(60px, 9999px, 70px, 0); }
                     20% { clip: rect(10px, 9999px, 20px, 0); }
                     100% { clip: rect(30px, 9999px, 50px, 0); }
+                }
+                @keyframes flip-in {
+                    0% { transform: rotateX(-90deg); opacity: 0; }
+                    100% { transform: rotateX(0deg); opacity: 1; }
+                }
+                @keyframes flip-out {
+                    0% { transform: rotateX(0deg); opacity: 1; }
+                    100% { transform: rotateX(90deg); opacity: 0; }
+                }
+                .animate-flip-in { animation: flip-in 300ms ease-out forwards; }
+                .animate-flip-out { animation: flip-out 300ms ease-in forwards; }
+                
+                @keyframes soundwave {
+                    0% { transform: scale(1); opacity: 1; }
+                    100% { transform: scale(1.5); opacity: 0; }
+                }
+                
+                @keyframes gradient-shift {
+                    0%, 100% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                }
+                
+                @keyframes shimmer-progress {
+                    0% { background-position: -200% center; }
+                    100% { background-position: 200% center; }
+                }
+                
+                @keyframes slide-shine {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(200%); }
                 }
             `}</style>
         </div>

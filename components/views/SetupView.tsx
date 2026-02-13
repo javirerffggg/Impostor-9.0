@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield, Bug } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield, Bug, AlertTriangle, Gamepad2 } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
@@ -36,100 +36,220 @@ interface Props {
     onHydrationUnlock: () => void;
 }
 
-// Sub-component for Sortable Player Item
-const SortablePlayer: React.FC<{
-    player: Player;
-    index: number;
-    theme: ThemeConfig;
-    onRemove: (id: string) => void;
-    stats?: { games: number; wins: number; civilStreak: number; impostorRatio: number } | null;
+// Sub-component for Sortable Player Item (Premium Version)
+const PlayerCardPremium: React.FC<{
+  player: Player;
+  index: number;
+  theme: ThemeConfig;
+  onRemove: (id: string) => void;
+  stats?: { games: number; wins: number; civilStreak: number } | null;
 }> = ({ player, index, theme, onRemove, stats }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging
-    } = useSortable({ id: player.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: player.id });
 
-    const avatarColor = getPlayerColor(index);
+  const [showStats, setShowStats] = useState(false);
+  const avatarColor = getPlayerColor(index);
 
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.8 : 1,
-        backgroundColor: avatarColor.bg, // Usamos el color del jugador como fondo
-        zIndex: isDragging ? 50 : 'auto',
-        position: 'relative' as 'relative',
-        boxShadow: isDragging ? `0 10px 20px -5px ${avatarColor.bg}` : `0 4px 10px -5px ${avatarColor.bg}80`,
-        border: 'none'
-    };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    zIndex: isDragging ? 50 : 'auto',
+  };
 
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className="flex justify-between items-center p-3 rounded-lg animate-in slide-in-from-left duration-300 group touch-manipulation min-h-[3.5rem]"
-        >
-            {/* Drag Handle */}
-            <div 
-                {...attributes} 
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing mr-3 flex-shrink-0 opacity-60 hover:opacity-100"
-                style={{ color: 'white' }}
-            >
-                <GripVertical size={16} />
-            </div>
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group animate-in slide-in-from-left fade-in duration-300"
+      // style={{ animationDelay: `${index * 50}ms` }} // JSX style override issue if mixed with style variable
+      onMouseEnter={() => setShowStats(true)}
+      onMouseLeave={() => setShowStats(false)}
+    >
+      {/* Card principal */}
+      <div 
+        className={`
+          relative overflow-hidden rounded-2xl p-3
+          transition-all duration-300
+          ${isDragging ? 'scale-105 rotate-2' : 'scale-100 hover:scale-102'}
+        `}
+        style={{
+          backgroundColor: avatarColor.bg,
+          boxShadow: isDragging 
+            ? `0 20px 40px -10px ${avatarColor.bg}, 0 0 0 2px ${avatarColor.bg}40`
+            : `0 8px 24px -10px ${avatarColor.bg}80`,
+          animationDelay: `${index * 50}ms`
+        }}
+      >
+        {/* Gradient overlay */}
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            background: `linear-gradient(135deg, rgba(255,255,255,0.2), transparent)`
+          }}
+        />
+        
+        {/* Pattern decorativo */}
+        <div 
+          className="absolute -right-4 -top-4 w-24 h-24 opacity-5"
+          style={{
+            background: `radial-gradient(circle, white 2px, transparent 2px)`,
+            backgroundSize: '12px 12px'
+          }}
+        />
+        
+        <div className="relative z-10 flex items-center gap-3">
+          {/* Drag handle */}
+          <div 
+            {...attributes} 
+            {...listeners}
+            className="
+              cursor-grab active:cursor-grabbing
+              p-1.5 -ml-1 rounded-lg
+              opacity-40 hover:opacity-100
+              transition-all duration-200
+              hover:bg-white/10
+            "
+            style={{ color: 'white' }}
+          >
+            <GripVertical size={14} strokeWidth={2.5} />
+          </div>
 
-            {/* Name */}
-            <span style={{ color: 'white' }} className="font-bold text-base leading-snug flex-1 mr-2 line-clamp-2 drop-shadow-sm">
-                {player.name}
-            </span>
+          {/* Avatar con iniciales */}
+          <div 
+            className="
+              relative w-10 h-10 rounded-xl flex items-center justify-center
+              font-black text-sm shrink-0
+              transition-transform duration-300
+              group-hover:scale-110
+            "
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              color: 'white',
+              backdropFilter: 'blur(10px)',
+              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            {getPlayerInitials(player.name)}
             
-            <button 
-                onClick={() => onRemove(player.id)} 
-                style={{ color: 'white' }} 
-                className="hover:opacity-100 opacity-60 transition-opacity shrink-0 p-1"
-            >
-                <X size={16} strokeWidth={3} />
-            </button>
-
-            {/* Stats Tooltip */}
+            {/* Indicador de stats disponibles */}
             {stats && (
-                <div 
-                    className="absolute top-full left-0 right-0 mt-2 p-3 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 backdrop-blur-xl border"
-                    style={{ 
-                        backgroundColor: theme.cardBg,
-                        borderColor: theme.accent,
-                    }}
-                >
-                    <div className="flex items-center justify-between text-[10px] gap-2">
-                        <div className="flex items-center gap-1">
-                            <TrendingUp size={10} style={{ color: theme.accent }} />
-                            <span style={{ color: theme.text }} className="font-bold">
-                                {stats.games}
-                            </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                            <Crown size={10} style={{ color: '#f59e0b' }} />
-                            <span style={{ color: theme.text }} className="font-bold">
-                                {stats.wins}
-                            </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                            <Shield size={10} style={{ color: '#10b981' }} />
-                            <span style={{ color: theme.text }} className="font-bold">
-                                {stats.civilStreak}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+              <div 
+                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white"
+                style={{ backgroundColor: '#10b981' }}
+              />
             )}
+          </div>
+
+          {/* Nombre */}
+          <span 
+            className="
+              flex-1 font-bold text-sm leading-tight
+              drop-shadow-sm line-clamp-2
+            "
+            style={{ color: 'white' }}
+          >
+            {player.name}
+          </span>
+          
+          {/* Botón eliminar */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(player.id);
+            }}
+            className="
+              w-8 h-8 rounded-lg flex items-center justify-center
+              opacity-60 hover:opacity-100
+              transition-all duration-200
+              hover:bg-white/20 active:scale-90
+              shrink-0
+            "
+            style={{ color: 'white' }}
+          >
+            <X size={16} strokeWidth={3} />
+          </button>
         </div>
-    );
+        
+        {/* Stats tooltip (hover) */}
+        {showStats && stats && (
+          <div 
+            className="
+              absolute top-full left-0 right-0 mt-2 p-3 rounded-xl
+              backdrop-blur-2xl border z-50
+              animate-in slide-in-from-top-2 fade-in duration-200
+            "
+            style={{ 
+              backgroundColor: `${theme.cardBg}`,
+              borderColor: avatarColor.bg,
+              boxShadow: `0 10px 40px -10px ${avatarColor.bg}60`
+            }}
+          >
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="flex items-center justify-center mb-1">
+                  <TrendingUp size={12} style={{ color: theme.accent }} />
+                </div>
+                <p 
+                  className="text-lg font-black"
+                  style={{ color: theme.text }}
+                >
+                  {stats.games}
+                </p>
+                <p 
+                  className="text-[8px] font-bold uppercase opacity-60"
+                  style={{ color: theme.sub }}
+                >
+                  Partidas
+                </p>
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-center mb-1">
+                  <Crown size={12} className="text-yellow-400" />
+                </div>
+                <p 
+                  className="text-lg font-black"
+                  style={{ color: theme.text }}
+                >
+                  {stats.wins}
+                </p>
+                <p 
+                  className="text-[8px] font-bold uppercase opacity-60"
+                  style={{ color: theme.sub }}
+                >
+                  Victorias
+                </p>
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-center mb-1">
+                  <Shield size={12} className="text-green-400" />
+                </div>
+                <p 
+                  className="text-lg font-black"
+                  style={{ color: theme.text }}
+                >
+                  {stats.civilStreak}
+                </p>
+                <p 
+                  className="text-[8px] font-bold uppercase opacity-60"
+                  style={{ color: theme.sub }}
+                >
+                  Racha
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export const SetupView: React.FC<Props> = ({ 
@@ -142,7 +262,6 @@ export const SetupView: React.FC<Props> = ({
     const [autocompleteResults, setAutocompleteResults] = useState<string[]>([]);
     const [validationError, setValidationError] = useState<string | null>(null);
     
-    // Refs for race condition fix
     const autocompleteTimeoutRef = useRef<number | null>(null);
 
     // --- ACTIVATION LOGIC (VISUAL FEEDBACK) ---
@@ -156,7 +275,6 @@ export const SetupView: React.FC<Props> = ({
 
         const now = Date.now();
         
-        // Reset si pasaron más de 2 segundos desde el último tap
         if (now - lastTapTime > 2000) {
             setTapCount(1);
         } else {
@@ -166,29 +284,24 @@ export const SetupView: React.FC<Props> = ({
         setLastTapTime(now);
         setShowActivationProgress(true);
         
-        // Vibración según el progreso
         if (navigator.vibrate) {
-            const pattern = tapCount < 4 ? 30 : [50, 50, 100]; // Triple vibración en el 5to
+            const pattern = tapCount < 4 ? 30 : [50, 50, 100];
             navigator.vibrate(pattern);
         }
         
-        // Limpiar timeout anterior
         if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
         
-        // Ocultar progress después de 2s de inactividad
         tapTimeoutRef.current = window.setTimeout(() => {
             setShowActivationProgress(false);
             setTapCount(0);
         }, 2000);
         
-        // Activar debug mode al 5to tap
         if (tapCount + 1 >= 5) {
             setGameState(prev => ({
                 ...prev,
                 debugState: { ...prev.debugState, isEnabled: true }
             }));
             
-            // Confetti de activación
             confetti({
                 particleCount: 100,
                 spread: 70,
@@ -196,13 +309,11 @@ export const SetupView: React.FC<Props> = ({
                 colors: [theme.accent, '#00ff00', '#ffffff']
             });
             
-            // Reset
             setTapCount(0);
             setShowActivationProgress(false);
         }
     };
 
-    // Cleanup
     useEffect(() => {
         return () => {
             if (autocompleteTimeoutRef.current) {
@@ -217,7 +328,6 @@ export const SetupView: React.FC<Props> = ({
     const isParty = gameState.settings.partyMode;
     const isValidToStart = gameState.players.length >= 3;
 
-    // Limits using constants
     const MIN_PLAYERS = GAME_LIMITS.MIN_PLAYERS;
     const MAX_PLAYERS = GAME_LIMITS.MAX_PLAYERS;
     const RECOMMENDED_PLAYERS = { min: GAME_LIMITS.RECOMMENDED_MIN, max: GAME_LIMITS.RECOMMENDED_MAX };
@@ -227,16 +337,14 @@ export const SetupView: React.FC<Props> = ({
     const isOverMax = playerCount > MAX_PLAYERS;
     const isRecommended = playerCount >= RECOMMENDED_PLAYERS.min && playerCount <= RECOMMENDED_PLAYERS.max;
 
-    // DnD Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // 8px de movimiento antes de activar drag
+                distance: 8,
             },
         })
     );
 
-    // Validation Logic
     const validatePlayerName = (name: string): { valid: boolean; error?: string } => {
         const trimmed = name.trim();
         
@@ -255,19 +363,16 @@ export const SetupView: React.FC<Props> = ({
         return { valid: true };
     };
 
-    // Input Effects
     useEffect(() => {
         const trimmed = newPlayerName.trim();
         if (trimmed.length >= 1) {
-            // Autocomplete filter
             const matches = savedPlayers.filter(name =>
                 name.toLowerCase().includes(trimmed.toLowerCase()) &&
                 !gameState.players.some(p => p.name === name)
-            ).slice(0, 5); // Limit results
+            ).slice(0, 5);
             setAutocompleteResults(matches);
             setShowAutocomplete(matches.length > 0);
 
-            // Validation check
             const validation = validatePlayerName(newPlayerName);
             setValidationError(validation.valid ? null : validation.error);
         } else {
@@ -280,11 +385,6 @@ export const SetupView: React.FC<Props> = ({
         const validation = validatePlayerName(newPlayerName);
         
         if (!validation.valid) {
-            // Shake animation logic would go here
-            const input = document.getElementById('player-name-input');
-            input?.classList.remove('animate-shake');
-            void input?.offsetWidth; // trigger reflow
-            input?.classList.add('animate-shake');
             return;
         }
         
@@ -333,7 +433,6 @@ export const SetupView: React.FC<Props> = ({
     };
 
     const modes: GameModeItem[] = [
-        // TAB: BÁSICOS
         {
             id: 'hint',
             name: 'Pistas',
@@ -362,7 +461,6 @@ export const SetupView: React.FC<Props> = ({
             icon: <Brain size={20} />,
             isActive: gameState.settings.memoryModeConfig.enabled
         },
-        // TAB: PROTOCOLOS
         {
             id: 'architect',
             name: 'Arquitecto',
@@ -386,7 +484,6 @@ export const SetupView: React.FC<Props> = ({
             isActive: gameState.settings.renunciaMode,
             isDisabled: gameState.impostorCount < 2
         },
-        // TAB: ALIANZAS
         {
             id: 'nexus',
             name: 'Nexus',
@@ -459,359 +556,858 @@ export const SetupView: React.FC<Props> = ({
              )}
 
             <div className="flex-1 overflow-y-auto px-2 pb-48 space-y-4">
-                <header className="pt-6 text-center space-y-2 mb-2">
-                    <div className="relative inline-block">
-                        <h1 
-                            onClick={handleLogoTap}
-                            style={{ color: theme.text, fontFamily: theme.font }} 
-                            className="text-5xl font-black italic tracking-tighter select-none cursor-pointer active:scale-95 transition-transform"
-                        >
-                            IMPOSTOR
-                        </h1>
-                        
-                        {/* Indicador de progreso de activación */}
-                        {showActivationProgress && (
-                            <div className="absolute -bottom-3 left-0 right-0 flex gap-1 justify-center">
-                                {[...Array(5)].map((_, i) => (
-                                    <div
-                                        key={i}
-                                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                                            i < tapCount ? 'scale-125' : 'scale-75 opacity-30'
-                                        }`}
-                                        style={{
-                                            backgroundColor: i < tapCount ? theme.accent : theme.sub,
-                                            boxShadow: i < tapCount ? `0 0 8px ${theme.accent}` : 'none'
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                        
-                        {/* Badge de "Modo Centinela Activo" */}
-                        {gameState.debugState.isEnabled && (
-                            <div 
-                                className="absolute -top-3 -right-6 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase animate-in slide-in-from-bottom duration-300"
-                                style={{
-                                    backgroundColor: theme.cardBg,
-                                    borderColor: theme.accent,
-                                    color: theme.accent,
-                                    boxShadow: `0 0 15px ${theme.accent}40`
-                                }}
-                            >
-                                <div className="flex items-center gap-1">
-                                    <Bug size={8} /> CENTINELA
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    {isParty && <p style={{ color: theme.accent }} className="text-xs font-black uppercase tracking-[0.3em] animate-pulse">DRINKING EDITION</p>}
-                </header>
+                
+                {/* --- HEADER ULTRA PREMIUM --- */}
+                <header className="pt-8 pb-6 text-center space-y-4 mb-4 relative">
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {[...Array(20)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-1 h-1 rounded-full opacity-30"
+                        style={{
+                          left: `${Math.random() * 100}%`,
+                          top: `${Math.random() * 100}%`,
+                          backgroundColor: theme.accent,
+                          animation: `float ${3 + Math.random() * 4}s ease-in-out infinite ${Math.random() * 2}s`,
+                          animationDirection: Math.random() > 0.5 ? 'normal' : 'alternate'
+                        }}
+                      />
+                    ))}
+                  </div>
 
-                <div 
-                    style={{ 
-                        backgroundColor: theme.cardBg, 
-                        borderColor: theme.border, 
-                        borderRadius: theme.radius,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }} 
-                    className="p-5 border backdrop-blur-md premium-border"
-                >
-                    {/* PLAYER HEADER & PROGRESS */}
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex flex-col flex-1 mr-4">
-                            <div className="flex justify-between items-end mb-1">
-                                <h3 style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-widest">
-                                    Jugadores
-                                </h3>
-                                <span 
-                                    className="text-[10px] font-black tabular-nums"
-                                    style={{ 
-                                        color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.text 
-                                    }}
-                                >
-                                    {playerCount}/{MAX_PLAYERS}
-                                </span>
-                            </div>
-                            
-                            <div className="h-1.5 bg-black/20 rounded-full overflow-hidden w-full">
-                                <div 
-                                    className="h-full transition-all duration-300 rounded-full"
-                                    style={{
-                                        width: `${Math.min((playerCount / MAX_PLAYERS) * 100, 100)}%`,
-                                        backgroundColor: isUnderMin 
-                                            ? '#ef4444' 
-                                            : isRecommended 
-                                                ? theme.accent 
-                                                : '#f59e0b'
-                                    }}
-                                />
-                            </div>
-                            <p className="text-[9px] font-bold mt-1.5 opacity-80" style={{ 
-                                color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.sub 
-                            }}>
-                                {isUnderMin 
-                                    ? `Faltan ${MIN_PLAYERS - playerCount} jugadores` 
-                                    : isRecommended 
-                                        ? '✓ Cantidad ideal'
-                                        : isOverMax 
-                                            ? '⚠️ Límite alcanzado'
-                                            : 'Puedes añadir más'
-                                }
-                            </p>
-                        </div>
-                        <Users size={20} color={theme.accent} className="shrink-0" />
+                  <div className="relative inline-block group">
+                    <div 
+                      className="absolute inset-0 blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"
+                      style={{
+                        background: `radial-gradient(circle, ${theme.accent}80 0%, transparent 70%)`,
+                        transform: 'scale(1.5)'
+                      }}
+                    />
+                    
+                    <div 
+                      className="relative px-8 py-4 rounded-3xl backdrop-blur-xl"
+                      style={{
+                        backgroundColor: `${theme.cardBg}40`,
+                        border: `1px solid ${theme.border}`,
+                        boxShadow: `
+                          0 20px 60px -15px ${theme.accent}20,
+                          inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                        `
+                      }}
+                    >
+                      <div 
+                        className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none"
+                      >
+                        <div 
+                          className="absolute inset-0 opacity-20"
+                          style={{
+                            background: `linear-gradient(
+                              to bottom,
+                              transparent 0%,
+                              ${theme.accent}40 50%,
+                              transparent 100%
+                            )`,
+                            height: '30%',
+                            animation: 'scan-vertical 3s ease-in-out infinite'
+                          }}
+                        />
+                      </div>
+                      
+                      <h1 
+                        onClick={handleLogoTap}
+                        className="
+                          text-5xl sm:text-6xl font-black italic tracking-tighter select-none 
+                          cursor-pointer transition-all duration-300
+                          hover:scale-105 active:scale-95
+                          relative z-10
+                        "
+                        style={{ 
+                          color: theme.text,
+                          fontFamily: theme.font,
+                          textShadow: `
+                            0 0 30px ${theme.accent}40,
+                            0 2px 10px rgba(0, 0, 0, 0.3)
+                          `,
+                          background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.accent} 100%)`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          backgroundClip: 'text'
+                        }}
+                      >
+                        IMPOSTOR
+                      </h1>
+                      
+                      <div 
+                        className="absolute -bottom-2 right-4 px-2 py-0.5 rounded-full border text-[8px] font-mono"
+                        style={{
+                          backgroundColor: theme.bg,
+                          borderColor: theme.border,
+                          color: theme.sub,
+                          opacity: 0.4
+                        }}
+                      >
+                        v12.5
+                      </div>
                     </div>
                     
-                    {/* DRAG & DROP PLAYER GRID */}
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <SortableContext
-                            items={gameState.players.map(p => p.id)}
-                            strategy={verticalListSortingStrategy}
+                    {showActivationProgress && (
+                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        {[...Array(5)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="relative overflow-hidden rounded-full"
+                            style={{
+                              width: i < tapCount ? '24px' : '8px',
+                              height: '4px',
+                              backgroundColor: i < tapCount ? theme.accent : `${theme.sub}40`,
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: i < tapCount ? `0 0 10px ${theme.accent}` : 'none'
+                            }}
+                          >
+                            {i < tapCount && (
+                              <div 
+                                className="absolute inset-0"
+                                style={{
+                                  background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)`,
+                                  animation: 'shimmer 1s infinite'
+                                }}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {gameState.debugState.isEnabled && (
+                      <div 
+                        className="absolute -top-3 -right-3 animate-in zoom-in duration-300"
+                      >
+                        <div 
+                          className="relative px-3 py-1.5 rounded-xl border-2 backdrop-blur-xl"
+                          style={{
+                            backgroundColor: `${theme.cardBg}F0`,
+                            borderColor: theme.accent,
+                            boxShadow: `0 0 20px ${theme.accent}60, inset 0 1px 0 rgba(255,255,255,0.2)`
+                          }}
                         >
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                {gameState.players.map((p, idx) => {
-                                    const key = p.name.trim().toLowerCase();
-                                    const vault = getVault(key, gameState.history.playerStats);
-                                    const stats = vault.metrics.totalSessions > 0 ? {
-                                        games: vault.metrics.totalSessions,
-                                        wins: vault.metrics.totalImpostorWins,
-                                        civilStreak: vault.metrics.civilStreak,
-                                        impostorRatio: vault.metrics.impostorRatio
-                                    } : null;
-
-                                    return (
-                                        <SortablePlayer
-                                            key={p.id}
-                                            player={p}
-                                            index={idx}
-                                            theme={theme}
-                                            onRemove={onRemovePlayer}
-                                            stats={stats}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
-
-                    {/* INPUT & AUTOCOMPLETE */}
-                    <div className="relative">
-                        <div className="flex gap-2 mb-2">
-                            <input 
-                                id="player-name-input"
-                                value={newPlayerName}
-                                onChange={(e) => setNewPlayerName(e.target.value)}
-                                onKeyDown={(e) => { 
-                                    if (e.key === 'Enter') handleAddPlayer();
-                                }}
-                                onFocus={() => {
-                                    if (autocompleteTimeoutRef.current) clearTimeout(autocompleteTimeoutRef.current);
-                                    if (newPlayerName.length >= 1) setShowAutocomplete(true);
-                                }}
-                                onBlur={() => {
-                                    autocompleteTimeoutRef.current = window.setTimeout(() => setShowAutocomplete(false), 200);
-                                }}
-                                placeholder="Nuevo Jugador..."
-                                disabled={playerCount >= MAX_PLAYERS}
-                                className={`flex-1 min-w-0 rounded-lg px-4 py-3 outline-none text-sm font-bold transition-all placeholder:text-inherit placeholder:opacity-40 ${
-                                    validationError ? 'border border-red-500' : 'border border-transparent focus:border-white/30'
-                                }`}
-                                style={{ backgroundColor: theme.border, color: theme.text }}
-                                autoComplete="off"
-                            />
-                            <button 
-                                onClick={() => { onSaveToBank(newPlayerName); setNewPlayerName(""); }}
-                                style={{ backgroundColor: theme.border, color: theme.sub }}
-                                className="w-12 rounded-lg font-bold hover:bg-white/10 active:scale-90 transition-transform flex items-center justify-center shrink-0"
-                                title="Guardar en banco"
+                          <div 
+                            className="absolute inset-0 rounded-xl opacity-50"
+                            style={{
+                              background: `linear-gradient(45deg, ${theme.accent}, transparent, ${theme.accent})`,
+                              backgroundSize: '200% 200%',
+                              animation: 'gradient-rotate 3s linear infinite',
+                              filter: 'blur(4px)'
+                            }}
+                          />
+                          
+                          <div className="relative z-10 flex items-center gap-1.5">
+                            <Bug size={12} style={{ color: theme.accent }} className="animate-pulse" />
+                            <span 
+                              className="text-[9px] font-black uppercase tracking-wider"
+                              style={{ color: theme.accent }}
                             >
-                                <Save size={20} />
-                            </button>
-                            <button 
-                                onClick={handleAddPlayer}
-                                disabled={playerCount >= MAX_PLAYERS}
-                                style={{ backgroundColor: playerCount >= MAX_PLAYERS ? theme.border : theme.accent }}
-                                className="w-12 rounded-lg text-white font-bold active:scale-90 transition-transform shadow-lg flex items-center justify-center shrink-0 disabled:opacity-50"
-                            >
-                                <Check size={24} />
-                            </button>
+                              CENTINELA
+                            </span>
+                          </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {isParty && (
+                    <div className="relative inline-block animate-in zoom-in duration-500 delay-200">
+                      <div 
+                        className="absolute inset-0 blur-xl opacity-50"
+                        style={{ backgroundColor: '#ec4899' }}
+                      />
+                      <div 
+                        className="relative px-4 py-1.5 rounded-full border backdrop-blur-xl"
+                        style={{
+                          backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                          borderColor: 'rgba(236, 72, 153, 0.3)'
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Beer size={12} className="text-pink-400 animate-bounce" />
+                          <span className="text-xs font-black uppercase tracking-[0.3em] text-pink-400">
+                            DRINKING EDITION
+                          </span>
+                          <Beer size={12} className="text-pink-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </header>
 
-                        {/* Error Message */}
-                        {validationError && (
-                            <p className="text-[10px] font-bold text-red-500 absolute -bottom-5 left-1 animate-in slide-in-from-top-1 fade-in duration-200">
-                                {validationError}
-                            </p>
-                        )}
+                {/* --- CARD DE JUGADORES PREMIUM --- */}
+                <div 
+                  className="p-5 border backdrop-blur-2xl relative overflow-hidden group"
+                  style={{ 
+                    backgroundColor: `${theme.cardBg}F5`,
+                    borderColor: theme.border,
+                    borderRadius: '24px',
+                    boxShadow: `
+                      0 20px 60px -15px rgba(0, 0, 0, 0.3),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.05)
+                    `
+                  }}
+                >
+                  <div 
+                    className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle at 50% 50%, ${theme.accent}, transparent 70%)`,
+                      animation: 'pulse-slow 4s ease-in-out infinite'
+                    }}
+                  />
+                  
+                  <div className="flex justify-between items-start mb-5 relative z-10">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users size={16} style={{ color: theme.accent }} />
+                        <h3 
+                          className="text-xs font-black uppercase tracking-[0.25em]"
+                          style={{ color: theme.sub }}
+                        >
+                          Sala de Jugadores
+                        </h3>
+                      </div>
+                      
+                      <div className="relative h-2 rounded-full overflow-hidden bg-black/20 backdrop-blur-sm">
+                        <div 
+                          className="absolute inset-0 opacity-10"
+                          style={{
+                            backgroundImage: `repeating-linear-gradient(
+                              90deg,
+                              transparent,
+                              transparent 10px,
+                              rgba(255,255,255,0.1) 10px,
+                              rgba(255,255,255,0.1) 11px
+                            )`
+                          }}
+                        />
+                        
+                        <div 
+                          className="absolute inset-y-0 left-0 transition-all duration-500 ease-out"
+                          style={{
+                            width: `${Math.min((playerCount / MAX_PLAYERS) * 100, 100)}%`,
+                            background: isUnderMin 
+                              ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                              : isRecommended 
+                                ? `linear-gradient(90deg, ${theme.accent}, ${theme.accent}CC)`
+                                : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                            boxShadow: isRecommended ? `0 0 10px ${theme.accent}40` : 'none'
+                          }}
+                        >
+                          <div 
+                            className="absolute inset-0 opacity-40"
+                            style={{
+                              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)',
+                              backgroundSize: '200% 100%',
+                              animation: 'shimmer-progress 2s linear infinite'
+                            }}
+                          />
+                        </div>
+                        
+                        {[MIN_PLAYERS, RECOMMENDED_PLAYERS.min, RECOMMENDED_PLAYERS.max, MAX_PLAYERS].map((milestone, i) => (
+                          <div
+                            key={i}
+                            className="absolute top-0 bottom-0 w-px bg-white/20"
+                            style={{
+                              left: `${(milestone / MAX_PLAYERS) * 100}%`
+                            }}
+                          />
+                        ))}
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-2">
+                        <p 
+                          className="text-[10px] font-bold flex items-center gap-1.5"
+                          style={{ 
+                            color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.sub 
+                          }}
+                        >
+                          {isUnderMin && <AlertTriangle size={10} />}
+                          {isRecommended && <Check size={10} />}
+                          <span>
+                            {isUnderMin 
+                              ? `Faltan ${MIN_PLAYERS - playerCount} jugadores` 
+                              : isRecommended 
+                                ? 'Cantidad ideal' 
+                                : isOverMax 
+                                  ? 'Límite alcanzado'
+                                  : 'Puedes añadir más'
+                            }
+                          </span>
+                        </p>
+                        
+                        <span 
+                          className="text-xs font-black tabular-nums px-2 py-0.5 rounded-full"
+                          style={{ 
+                            backgroundColor: isRecommended ? `${theme.accent}20` : 'rgba(0,0,0,0.2)',
+                            color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.text 
+                          }}
+                        >
+                          {playerCount}/{MAX_PLAYERS}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={gameState.players.map(p => p.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="grid grid-cols-2 gap-3 mb-5 relative z-10">
+                        {gameState.players.map((p, idx) => {
+                          const key = p.name.trim().toLowerCase();
+                          const vault = getVault(key, gameState.history.playerStats);
+                          const stats = vault.metrics.totalSessions > 0 ? {
+                            games: vault.metrics.totalSessions,
+                            wins: vault.metrics.totalImpostorWins,
+                            civilStreak: vault.metrics.civilStreak,
+                            impostorRatio: vault.metrics.impostorRatio
+                          } : null;
 
-                        {/* Autocomplete Dropdown */}
-                        {showAutocomplete && autocompleteResults.length > 0 && (
-                            <div 
-                                className="absolute top-full left-0 right-0 mt-2 rounded-xl border overflow-hidden z-30 shadow-2xl animate-in slide-in-from-top-2 duration-200"
-                                style={{ 
-                                    backgroundColor: theme.cardBg,
-                                    borderColor: theme.border,
-                                    backdropFilter: 'blur(20px)'
-                                }}
-                            >
-                                {autocompleteResults.map((name, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            onAddPlayer(name);
-                                            setNewPlayerName('');
-                                            setShowAutocomplete(false);
-                                        }}
-                                        className="w-full px-4 py-3 text-left font-bold text-xs transition-colors hover:bg-white/10 flex items-center gap-3 border-b border-white/5 last:border-0"
-                                        style={{ color: theme.text }}
-                                    >
-                                        <div 
-                                            className="w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] shrink-0"
-                                            style={{
-                                                backgroundColor: getPlayerColor(idx).bg,
-                                                color: getPlayerColor(idx).text
-                                            }}
-                                        >
-                                            {getPlayerInitials(name)}
-                                        </div>
-                                        {name}
-                                    </button>
-                                ))}
+                          return (
+                            <PlayerCardPremium
+                              key={p.id}
+                              player={p}
+                              index={idx}
+                              theme={theme}
+                              onRemove={onRemovePlayer}
+                              stats={stats}
+                            />
+                          );
+                        })}
+                        
+                        {gameState.players.length === 0 && (
+                          <div 
+                            className="col-span-2 py-12 text-center space-y-4 rounded-2xl border-2 border-dashed"
+                            style={{ borderColor: `${theme.border}40` }}
+                          >
+                            <div className="relative inline-block">
+                              <div 
+                                className="absolute inset-0 blur-xl opacity-20"
+                                style={{ backgroundColor: theme.accent }}
+                              />
+                              <Users 
+                                size={48} 
+                                style={{ color: theme.sub }}
+                                className="opacity-40 relative z-10"
+                              />
                             </div>
+                            <div className="space-y-1">
+                              <p 
+                                className="text-sm font-bold"
+                                style={{ color: theme.text }}
+                              >
+                                Ningún jugador aún
+                              </p>
+                              <p 
+                                className="text-xs opacity-60"
+                                style={{ color: theme.sub }}
+                              >
+                                Añade al menos {MIN_PLAYERS} para empezar
+                              </p>
+                            </div>
+                          </div>
                         )}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                  
+                  <div className="relative z-10">
+                    <div 
+                      className="relative rounded-2xl overflow-hidden backdrop-blur-xl mb-3"
+                      style={{
+                        backgroundColor: `${theme.border}80`,
+                        border: `2px solid ${validationError ? '#ef4444' : 'transparent'}`,
+                        boxShadow: validationError 
+                          ? '0 0 0 4px rgba(239, 68, 68, 0.1)' 
+                          : `inset 0 2px 4px rgba(0, 0, 0, 0.1)`
+                      }}
+                    >
+                      <div className="flex gap-2 p-2">
+                        <input 
+                          id="player-name-input"
+                          value={newPlayerName}
+                          onChange={(e) => setNewPlayerName(e.target.value)}
+                          onKeyDown={(e) => { 
+                            if (e.key === 'Enter' && !validationError) handleAddPlayer();
+                          }}
+                          onFocus={() => {
+                            if (autocompleteTimeoutRef.current) clearTimeout(autocompleteTimeoutRef.current);
+                            if (newPlayerName.length >= 1) setShowAutocomplete(true);
+                          }}
+                          onBlur={() => {
+                            autocompleteTimeoutRef.current = window.setTimeout(() => setShowAutocomplete(false), 200);
+                          }}
+                          placeholder="Nuevo Jugador..."
+                          disabled={playerCount >= MAX_PLAYERS}
+                          className="
+                            flex-1 min-w-0 bg-transparent px-4 py-3 
+                            outline-none text-sm font-bold 
+                            placeholder:opacity-40 disabled:opacity-50
+                          "
+                          style={{ color: theme.text }}
+                          autoComplete="off"
+                        />
+                        
+                        <button 
+                          onClick={() => { 
+                            if (newPlayerName.trim()) {
+                              onSaveToBank(newPlayerName); 
+                              setNewPlayerName(""); 
+                            }
+                          }}
+                          className="
+                            w-11 h-11 rounded-xl flex items-center justify-center
+                            transition-all duration-200
+                            hover:scale-105 active:scale-95
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                          "
+                          style={{ 
+                            backgroundColor: `${theme.border}CC`,
+                            color: theme.sub 
+                          }}
+                          title="Guardar en banco"
+                          disabled={!newPlayerName.trim()}
+                        >
+                          <Save size={18} />
+                        </button>
+                        
+                        <button 
+                          onClick={handleAddPlayer}
+                          disabled={playerCount >= MAX_PLAYERS || !!validationError}
+                          className="
+                            w-11 h-11 rounded-xl flex items-center justify-center
+                            transition-all duration-200
+                            hover:scale-105 active:scale-95
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            shadow-lg
+                          "
+                          style={{ 
+                            backgroundColor: playerCount >= MAX_PLAYERS || validationError 
+                              ? theme.border 
+                              : theme.accent,
+                            color: '#ffffff'
+                          }}
+                        >
+                          <Check size={20} strokeWidth={3} />
+                        </button>
+                      </div>
+                      
+                      {newPlayerName.length > 0 && (
+                        <div 
+                          className="absolute bottom-1 right-14 text-[9px] font-mono opacity-40"
+                          style={{ color: theme.sub }}
+                        >
+                          {newPlayerName.length}/20
+                        </div>
+                      )}
                     </div>
 
-                    {/* BANK SHORTCUT (If autocomplete empty but bank exists) */}
-                    {!showAutocomplete && savedPlayers.length > 0 && gameState.players.length === 0 && (
-                         <div className="mt-6 pt-4 border-t border-white/5">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Database size={12} color={theme.sub}/>
-                                <h4 style={{ color: theme.sub }} className="text-[10px] font-black uppercase tracking-widest">Sugerencias</h4>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {savedPlayers.slice(0, 6).map((name, idx) => (
-                                    <button 
-                                        key={idx}
-                                        onClick={() => onAddPlayer(name)}
-                                        style={{ 
-                                            borderColor: theme.border,
-                                            color: theme.sub
-                                        }}
-                                        className="px-3 py-1.5 rounded-full border text-[10px] font-bold hover:bg-white/5 transition-colors"
-                                    >
-                                        + {name}
-                                    </button>
-                                ))}
-                            </div>
-                         </div>
+                    {validationError && (
+                      <div 
+                        className="
+                          flex items-center gap-2 px-3 py-2 rounded-xl mb-3
+                          animate-in slide-in-from-top-2 fade-in duration-200
+                        "
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)'
+                        }}
+                      >
+                        <AlertTriangle size={12} className="text-red-400 shrink-0" />
+                        <p className="text-[10px] font-bold text-red-400 flex-1">
+                          {validationError}
+                        </p>
+                      </div>
                     )}
 
-                    {/* IMPOSTOR COUNTER (MOVED HERE) */}
-                    <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Ghost size={14} style={{ color: theme.sub }} />
-                            <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-widest">Impostores</p>
+                    {showAutocomplete && autocompleteResults.length > 0 && (
+                      <div 
+                        className="
+                          absolute top-full left-0 right-0 mt-2 
+                          rounded-2xl border overflow-hidden z-50 
+                          backdrop-blur-2xl
+                          animate-in slide-in-from-top-4 fade-in duration-300
+                        "
+                        style={{ 
+                          backgroundColor: `${theme.cardBg}F8`,
+                          borderColor: theme.accent,
+                          boxShadow: `
+                            0 20px 60px -15px ${theme.accent}30,
+                            0 0 0 1px ${theme.accent}10 inset
+                          `
+                        }}
+                      >
+                        <div 
+                          className="px-4 py-2 border-b flex items-center gap-2"
+                          style={{ 
+                            backgroundColor: `${theme.accent}10`,
+                            borderColor: `${theme.border}50`
+                          }}
+                        >
+                          <Database size={10} style={{ color: theme.accent }} />
+                          <span 
+                            className="text-[9px] font-black uppercase tracking-wider"
+                            style={{ color: theme.accent }}
+                          >
+                            Desde tu banco
+                          </span>
                         </div>
-                        <div style={{ backgroundColor: theme.border }} className="flex items-center gap-3 rounded-lg p-1">
-                            <button 
-                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.max(1, prev.impostorCount - 1)}))}
+                        
+                        {autocompleteResults.map((name, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              onAddPlayer(name);
+                              setNewPlayerName('');
+                              setShowAutocomplete(false);
+                            }}
+                            className="
+                              w-full px-4 py-3 text-left 
+                              transition-all duration-200
+                              hover:bg-white/10 active:bg-white/5
+                              flex items-center gap-3 
+                              border-b border-white/5 last:border-0
+                              group
+                            "
+                          >
+                            <div 
+                              className="
+                                w-10 h-10 rounded-xl flex items-center justify-center 
+                                font-black text-sm shrink-0
+                                transition-transform duration-200
+                                group-hover:scale-110
+                              "
+                              style={{
+                                backgroundColor: getPlayerColor(idx).bg,
+                                color: getPlayerColor(idx).text,
+                                boxShadow: `0 4px 12px ${getPlayerColor(idx).bg}40`
+                              }}
+                            >
+                              {getPlayerInitials(name)}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <p 
+                                className="font-bold text-sm"
                                 style={{ color: theme.text }}
-                                className="w-7 h-7 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
-                            >-</button>
-                            <span style={{ color: theme.text }} className="font-bold w-4 text-center">{gameState.impostorCount}</span>
-                            <button 
-                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.min(gameState.players.length - 1, prev.impostorCount + 1)}))}
-                                style={{ color: theme.text }}
-                                className="w-7 h-7 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
-                            >+</button>
+                              >
+                                {name}
+                              </p>
+                              {(() => {
+                                const key = name.trim().toLowerCase();
+                                const vault = getVault(key, gameState.history.playerStats);
+                                return vault.metrics.totalSessions > 0 && (
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span 
+                                      className="text-[9px] font-mono opacity-60"
+                                      style={{ color: theme.sub }}
+                                    >
+                                      {vault.metrics.totalSessions} partidas
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                            
+                            <ChevronRight 
+                              size={16} 
+                              style={{ color: theme.sub }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div 
+                    className="mt-5 pt-5 border-t relative"
+                    style={{ borderColor: `${theme.border}50` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="p-2 rounded-xl"
+                          style={{ backgroundColor: `${theme.accent}10` }}
+                        >
+                          <Ghost size={16} style={{ color: theme.accent }} />
                         </div>
+                        <div>
+                          <p 
+                            className="text-xs font-black uppercase tracking-wider"
+                            style={{ color: theme.text }}
+                          >
+                            Impostores
+                          </p>
+                          <p 
+                            className="text-[9px] font-bold opacity-60"
+                            style={{ color: theme.sub }}
+                          >
+                            {gameState.impostorCount === 1 ? 'Clásico' : 'Caos múltiple'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className="flex items-center gap-1 p-1 rounded-xl backdrop-blur-xl"
+                        style={{ 
+                          backgroundColor: `${theme.border}80`,
+                          border: `1px solid ${theme.border}`
+                        }}
+                      >
+                        <button 
+                          onClick={() => setGameState(prev => ({
+                            ...prev, 
+                            impostorCount: Math.max(1, prev.impostorCount - 1)
+                          }))}
+                          className="
+                            w-9 h-9 rounded-lg flex items-center justify-center 
+                            font-black text-lg
+                            transition-all duration-200
+                            hover:bg-white/10 active:scale-90
+                          "
+                          style={{ color: theme.text }}
+                        >
+                          −
+                        </button>
+                        
+                        <div 
+                          className="w-12 h-9 rounded-lg flex items-center justify-center font-black text-lg"
+                          style={{ 
+                            backgroundColor: `${theme.accent}20`,
+                            color: theme.accent 
+                          }}
+                        >
+                          {gameState.impostorCount}
+                        </div>
+                        
+                        <button 
+                          onClick={() => setGameState(prev => ({
+                            ...prev, 
+                            impostorCount: Math.min(gameState.players.length - 1, prev.impostorCount + 1)
+                          }))}
+                          className="
+                            w-9 h-9 rounded-lg flex items-center justify-center 
+                            font-black text-lg
+                            transition-all duration-200
+                            hover:bg-white/10 active:scale-90
+                          "
+                          style={{ color: theme.text }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
+                  </div>
                 </div>
 
+                {/* --- CENTRO DE MANDO (MODOS) --- */}
                 <div 
+                    className="p-5 border backdrop-blur-2xl relative overflow-hidden group"
                     style={{ 
-                        backgroundColor: theme.cardBg, 
+                        backgroundColor: `${theme.cardBg}F5`, 
                         borderColor: theme.border, 
-                        borderRadius: theme.radius,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }} 
-                    className="p-5 border backdrop-blur-md premium-border"
+                        borderRadius: '24px',
+                        boxShadow: `
+                          0 20px 60px -15px rgba(0, 0, 0, 0.3),
+                          inset 0 1px 0 rgba(255, 255, 255, 0.05)
+                        `
+                    }}
                 >
-                    {/* NEW TABBED MODE SELECTOR (Only content in this card now) */}
-                    <GameModeWithTabs 
-                        modes={modes}
-                        theme={theme}
-                        onModeToggle={handleModeToggle}
+                    <div 
+                      className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                      style={{
+                        background: `radial-gradient(circle at 50% 50%, ${theme.accent}, transparent 70%)`,
+                        animation: 'pulse-slow 4s ease-in-out infinite'
+                      }}
                     />
+                    
+                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                       <Gamepad2 size={16} style={{ color: theme.accent }} />
+                       <h3 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: theme.sub }}>
+                          Protocolos de Misión
+                       </h3>
+                    </div>
+                    
+                    <div className="relative z-10">
+                        <GameModeWithTabs 
+                            modes={modes}
+                            theme={theme}
+                            onModeToggle={handleModeToggle}
+                        />
+                    </div>
                 </div>
                 
-                <div className="flex w-full gap-3">
+                {/* --- ACCIONES --- */}
+                <div className="grid grid-cols-2 gap-3">
                     <button 
                         onClick={onOpenCategories}
+                        className="
+                            relative p-4 rounded-[24px] border overflow-hidden group text-left
+                            transition-all duration-300 active:scale-95 hover:scale-[1.02]
+                        "
                         style={{ 
-                            borderColor: theme.border, 
-                            color: theme.text, 
-                            backgroundColor: theme.cardBg, 
-                            borderRadius: theme.radius,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            backgroundColor: `${theme.cardBg}F5`,
+                            borderColor: theme.border,
+                            boxShadow: `0 10px 40px -10px rgba(0,0,0,0.2)`
                         }}
-                        className="flex-1 py-4 border flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest hover:opacity-80 active:scale-95 transition-all backdrop-blur-md transform-gpu"
                     >
-                        <LayoutGrid size={16} /> Categorías
+                        <div 
+                            className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
+                            style={{ background: `linear-gradient(135deg, ${theme.accent}10, transparent)` }} 
+                        />
+                        <div className="relative z-10 flex flex-col justify-between h-full min-h-[80px]">
+                            <div className="p-2 rounded-xl w-fit mb-2" style={{ backgroundColor: `${theme.accent}15` }}>
+                                <LayoutGrid size={20} style={{ color: theme.accent }} />
+                            </div>
+                            <div>
+                                <span className="text-xs font-black uppercase tracking-wider block" style={{ color: theme.text }}>Categorías</span>
+                                <span className="text-[9px] opacity-60 font-medium" style={{ color: theme.sub }}>Gestionar temas</span>
+                            </div>
+                        </div>
                     </button>
 
                     <button 
                         onClick={onOpenSettings}
+                        className="
+                            relative p-4 rounded-[24px] border overflow-hidden group text-left
+                            transition-all duration-300 active:scale-95 hover:scale-[1.02]
+                        "
                         style={{ 
-                            borderColor: theme.border, 
-                            color: theme.sub,
-                            backgroundColor: theme.border,
-                            borderRadius: theme.radius,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            backgroundColor: `${theme.cardBg}F5`,
+                            borderColor: theme.border,
+                            boxShadow: `0 10px 40px -10px rgba(0,0,0,0.2)`
                         }}
-                        className="flex-1 py-4 px-2 border flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest hover:opacity-80 active:scale-95 transition-all backdrop-blur-md transform-gpu"
                     >
-                        <Settings size={16} className="shrink-0" /> <span className="truncate">Ajustes y ayuda</span>
+                        <div 
+                            className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
+                            style={{ background: `linear-gradient(135deg, ${theme.sub}10, transparent)` }} 
+                        />
+                        <div className="relative z-10 flex flex-col justify-between h-full min-h-[80px]">
+                            <div className="p-2 rounded-xl w-fit mb-2" style={{ backgroundColor: `${theme.border}` }}>
+                                <Settings size={20} style={{ color: theme.sub }} />
+                            </div>
+                            <div>
+                                <span className="text-xs font-black uppercase tracking-wider block" style={{ color: theme.text }}>Ajustes</span>
+                                <span className="text-[9px] opacity-60 font-medium" style={{ color: theme.sub }}>Configuración y ayuda</span>
+                            </div>
+                        </div>
                     </button>
                 </div>
             </div>
 
-            <div className="fixed bottom-0 left-0 w-full p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-20 pointer-events-none flex justify-center items-center">
-                <div className="relative w-full max-w-xs group">
-                    {isValidToStart && (
-                        <div
-                            className="absolute inset-1 rounded-full opacity-50 blur-xl"
-                            style={{
-                                backgroundColor: theme.accent,
-                                animation: 'aura-pulse 2s ease-in-out infinite'
-                            }}
-                        />
-                    )}
+            {/* --- START BUTTON ULTRA PREMIUM (CLEAN) --- */}
+            <div className="fixed bottom-0 left-0 w-full p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-30 pointer-events-none">
+              <div className="max-w-md mx-auto relative group">
+                {/* Glow effect sutil */}
+                {isValidToStart && (
+                  <div
+                    className="absolute inset-0 blur-3xl opacity-30 animate-pulse"
+                    style={{
+                      backgroundColor: theme.accent,
+                      animation: 'pulse-glow 3s ease-in-out infinite'
+                    }}
+                  />
+                )}
 
-                    <button 
-                        onClick={onStartGame}
-                        disabled={!isValidToStart}
-                        style={{ 
-                            backgroundColor: !isValidToStart ? 'gray' : theme.accent,
-                            boxShadow: '0 0 0 1px rgba(255,255,255,0.1)'
-                        }}
-                        className="w-full py-3.5 relative z-10 text-white font-black text-base active:scale-90 transition-all duration-100 flex items-center justify-center gap-3 pointer-events-auto rounded-full overflow-hidden transform-gpu"
+                <button 
+                  onClick={onStartGame}
+                  disabled={!isValidToStart}
+                  className="
+                    relative w-full h-16 pointer-events-auto
+                    rounded-full overflow-hidden
+                    transition-all duration-300
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    active:scale-95
+                    group
+                  "
+                  style={{ 
+                    backgroundColor: !isValidToStart ? '#334155' : theme.accent,
+                    boxShadow: isValidToStart 
+                      ? `
+                        0 20px 60px -15px ${theme.accent},
+                        0 0 0 1px rgba(255, 255, 255, 0.1) inset
+                      `
+                      : '0 10px 30px -10px rgba(0, 0, 0, 0.5)'
+                  }}
+                >
+                  {/* Animated gradient overlay */}
+                  {isValidToStart && (
+                    <div 
+                      className="absolute inset-0 opacity-30"
+                      style={{
+                        background: `linear-gradient(
+                          135deg,
+                          transparent 0%,
+                          rgba(255, 255, 255, 0.3) 50%,
+                          transparent 100%
+                        )`,
+                        backgroundSize: '200% 200%',
+                        animation: 'gradient-slide 3s ease-in-out infinite'
+                      }}
+                    />
+                  )}
+                  
+                  {/* Shimmer effect */}
+                  {isValidToStart && (
+                    <div 
+                      className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  )}
+                  
+                  {/* Contenido del botón */}
+                  <div className="relative z-10 h-full flex items-center justify-center gap-3 px-6">
+                    <span className="text-white font-black text-lg uppercase tracking-wider flex items-center gap-3">
+                      {isParty ? "COMENZAR EL BOTELLÓN" : "EMPEZAR PARTIDA"}
+                    </span>
+                    
+                    <div 
+                      className={`
+                        transition-all duration-300
+                        ${isValidToStart ? 'translate-x-0' : '-translate-x-2'}
+                      `}
                     >
-                        {isValidToStart && (
-                            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite]" 
-                                 style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)' }} 
-                            />
-                        )}
-                        
-                        <span className="relative z-10 flex items-center gap-3">
-                            {isParty ? "COMENZAR EL BOTELLÓN" : "EMPEZAR PARTIDA"} <ChevronRight strokeWidth={4} size={20} />
-                        </span>
-                    </button>
-                </div>
+                      <ChevronRight 
+                        strokeWidth={4} 
+                        size={24} 
+                        className="text-white"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Contador de jugadores en el botón */}
+                  {isValidToStart && (
+                    <div 
+                      className="
+                        absolute top-2 right-4 
+                        px-2 py-0.5 rounded-full
+                        text-[9px] font-black uppercase
+                        backdrop-blur-xl
+                      "
+                      style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                        color: 'white'
+                      }}
+                    >
+                      {playerCount} jugadores
+                    </div>
+                  )}
+                </button>
+              </div>
             </div>
             
             <style>{`
@@ -822,6 +1418,29 @@ export const SetupView: React.FC<Props> = ({
                 }
                 .animate-shake {
                     animation: shake 0.3s ease-in-out;
+                }
+                @keyframes scan-vertical {
+                    0%, 100% { transform: translateY(-100%); }
+                    50% { transform: translateY(300%); }
+                }
+                
+                @keyframes gradient-rotate {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
+                
+                @keyframes pulse-glow {
+                    0%, 100% { opacity: 0.3; transform: scale(0.95); }
+                    50% { opacity: 0.5; transform: scale(1.05); }
+                }
+                
+                @keyframes gradient-slide {
+                    0%, 100% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                }
+                @keyframes shimmer-progress {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
                 }
             `}</style>
         </div>

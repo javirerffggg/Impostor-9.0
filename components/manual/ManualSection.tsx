@@ -1,12 +1,10 @@
 
-
-
 import React from 'react';
 import { ThemeConfig } from '../../types';
 import { ManualCard } from './ManualCard';
 import { ManualCodeBlock } from './ManualCodeBlock';
-import { manualTheme } from './manualTheme';
 import { ManualSection as ManualSectionType } from './manualData';
+import { ChevronDown } from 'lucide-react';
 
 interface Props {
   section: ManualSectionType;
@@ -37,7 +35,7 @@ export const ManualSection: React.FC<Props> = ({ section, theme, searchQuery }) 
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom duration-500">
       {/* Main Title */}
-      <h1 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase mb-6 sm:mb-8 leading-tight tracking-tight"
+      <h1 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase mb-6 sm:mb-8 leading-tight tracking-tight drop-shadow-sm"
         style={{ color: theme.text }}>
         {highlightText(section.title)}
       </h1>
@@ -50,33 +48,50 @@ export const ManualSection: React.FC<Props> = ({ section, theme, searchQuery }) 
         </p>
       </div>
 
-      {/* Subsections */}
-      {section.subsections?.map((subsection, idx) => (
-        <div key={idx} className="mb-12 border-l-2 pl-4 sm:pl-6" style={{ borderColor: theme.border }}>
-          
-          {/* Subsection Title */}
-          <h2 className="text-xl sm:text-2xl font-black uppercase mb-3 flex items-center gap-3"
-            style={{ color: theme.text }}>
-            {highlightText(subsection.title)}
-          </h2>
+      {/* Subsections as Accordions */}
+      <div className="space-y-4">
+        {section.subsections?.map((subsection, idx) => (
+          <details 
+            key={idx} 
+            className="group rounded-xl border overflow-hidden transition-all duration-300 open:bg-black/10"
+            style={{ 
+                borderColor: 'rgba(255,255,255,0.1)',
+                backgroundColor: 'rgba(255,255,255,0.02)'
+            }}
+            open={!!searchQuery} // Auto-open if searching
+          >
+            <summary className="flex items-center justify-between p-4 sm:p-5 cursor-pointer list-none select-none hover:bg-white/5 transition-colors">
+                <h2 className="text-lg sm:text-xl font-black uppercase flex items-center gap-3"
+                    style={{ color: theme.text }}>
+                    {highlightText(subsection.title)}
+                </h2>
+                <ChevronDown 
+                    size={20} 
+                    style={{ color: theme.sub }} 
+                    className="transition-transform duration-300 group-open:rotate-180" 
+                />
+            </summary>
 
-          {/* Subsection Content */}
-          <p className="text-sm sm:text-base leading-relaxed mb-6 opacity-70"
-            style={{ color: theme.text }}>
-            {highlightText(subsection.content)}
-          </p>
+            <div className="px-4 sm:px-5 pb-6 pt-2 animate-in slide-in-from-top-2 fade-in duration-300">
+                {/* Subsection Content */}
+                <p className="text-sm sm:text-base leading-relaxed mb-6 opacity-70"
+                    style={{ color: theme.text }}>
+                    {highlightText(subsection.content)}
+                </p>
 
-          {/* Cards */}
-          {subsection.cards?.map((card, cardIdx) => (
-            <ManualCard key={cardIdx} card={card} theme={theme} />
-          ))}
+                {/* Cards */}
+                {subsection.cards?.map((card, cardIdx) => (
+                    <ManualCard key={cardIdx} card={card} theme={theme} />
+                ))}
 
-          {/* Code Blocks */}
-          {subsection.codeBlocks?.map((code, codeIdx) => (
-            <ManualCodeBlock key={codeIdx} code={code} theme={theme} />
-          ))}
-        </div>
-      ))}
+                {/* Code Blocks */}
+                {subsection.codeBlocks?.map((code, codeIdx) => (
+                    <ManualCodeBlock key={codeIdx} code={code} theme={theme} />
+                ))}
+            </div>
+          </details>
+        ))}
+      </div>
     </div>
   );
 };
