@@ -1,11 +1,11 @@
 
 
-
 import React, { useRef, useState, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
 import { Fingerprint, Lock, Play, ArrowRight, Eye, Beer, MousePointerClick } from 'lucide-react';
 import { CATEGORIES_DATA } from '../categories';
 import { RoleContent } from './RoleContent';
+import { revealImpostorEffect } from '../utils/effects';
 
 interface Props {
     player: GamePlayer;
@@ -20,7 +20,8 @@ interface Props {
     partyIntensity?: PartyIntensity; 
     debugMode?: boolean; 
     onOracleConfirm?: (hint: string) => void;
-    isRenunciaPending?: boolean; // New Prop
+    isRenunciaPending?: boolean;
+    impostorEffectsEnabled?: boolean; // New Prop
 }
 
 export const IdentityCard: React.FC<Props> = ({ 
@@ -36,7 +37,8 @@ export const IdentityCard: React.FC<Props> = ({
     partyIntensity, 
     debugMode, 
     onOracleConfirm,
-    isRenunciaPending 
+    isRenunciaPending,
+    impostorEffectsEnabled = true
 }) => {
     const [isHolding, setIsHolding] = useState(false);
     const [hasInteracted, setHasInteracted] = useState(false);
@@ -98,6 +100,12 @@ export const IdentityCard: React.FC<Props> = ({
             window.removeEventListener('blur', handleGlobalRelease);
         };
     }, [onRevealEnd, player.isOracle, oracleSelectionMade, isHolding]);
+
+    useEffect(() => {
+        if (isHolding && player.isImp && impostorEffectsEnabled) {
+            revealImpostorEffect();
+        }
+    }, [isHolding, player.isImp, impostorEffectsEnabled]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         if (oracleSelectionMade && player.isOracle) return;
@@ -167,7 +175,7 @@ export const IdentityCard: React.FC<Props> = ({
 
             <div className="w-full aspect-[3/4] relative" style={{ animation: (!isHolding && !hasInteracted && !isDragging) ? 'breathe 4s ease-in-out infinite' : 'none', transition: 'transform 0.3s ease-out' }}>
                 <div className="absolute rounded-full pointer-events-none" style={{ width: '140%', height: '140%', top: '-20%', left: '-20%', filter: 'blur(60px)', background: `radial-gradient(circle, ${color}50 0%, transparent 60%)`, zIndex: -1, transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.05}deg)`, transition: isDragging ? 'none' : 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)', opacity: 0.6, willChange: 'transform' }} />
-                <div ref={cardRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()} style={{ ...premiumStyle, borderRadius: theme.radius, backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', transition: isDragging ? 'none' : 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-width 0.1s ease', transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.03 + rotationOverride}deg)`, animation: (isHolding && !player.isImp) ? 'reveal-pulse 2s infinite' : 'none', touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab', willChange: 'transform, box-shadow' } as React.CSSProperties} className={`w-full h-full relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp ? 'animate-impostor-shake' : ''}`}>
+                <div ref={cardRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()} style={{ ...premiumStyle, borderRadius: theme.radius, backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', transition: isDragging ? 'none' : 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-width 0.1s ease', transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.03 + rotationOverride}deg)`, animation: (isHolding && !player.isImp) ? 'reveal-pulse 2s infinite' : 'none', touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab', willChange: 'transform, box-shadow' } as React.CSSProperties} className={`w-full h-full relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp && impostorEffectsEnabled ? 'animate-impostor-shake' : ''}`}>
                     {isHolding && player.isImp && (
                         <>
                             <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-repeat animate-static-noise" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} />

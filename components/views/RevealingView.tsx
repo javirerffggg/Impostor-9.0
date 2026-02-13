@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
@@ -192,6 +194,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
                                 partyIntensity={gameState.partyState.intensity} 
                                 debugMode={gameState.debugState.isEnabled}
                                 onOracleConfirm={(hint) => { setHasSeenCurrentCard(true); onOracleConfirm(hint); }}
+                                impostorEffectsEnabled={gameState.settings.impostorEffects} // Prop pasada
                             />
                         )
                     )
@@ -261,6 +264,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
         prevProps.transitionName === nextProps.transitionName &&
         prevProps.gameState.renunciaData === nextProps.gameState.renunciaData &&
         prevProps.gameState.currentDrinkingPrompt === nextProps.gameState.currentDrinkingPrompt &&
-        prevProps.theme.name === nextProps.theme.name
+        prevProps.theme.name === nextProps.theme.name &&
+        prevProps.gameState.settings.impostorEffects === nextProps.gameState.settings.impostorEffects // Check settings too
     );
 });

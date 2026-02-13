@@ -1,11 +1,10 @@
 
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity, GameState } from '../types';
 import { ChevronUp } from 'lucide-react';
 import { RoleContent } from './RoleContent';
 import { CATEGORIES_DATA } from '../categories';
+import { revealImpostorEffect } from '../utils/effects';
 
 interface SwipeRevealCardProps {
     player: GamePlayer;
@@ -91,6 +90,12 @@ export const SwipeRevealCard: React.FC<SwipeRevealCardProps> = ({
             }
         };
     }, [player.id]);
+
+    useEffect(() => {
+        if (isRevealed && player.isImp && settings.impostorEffects) {
+            revealImpostorEffect();
+        }
+    }, [isRevealed, player.isImp, settings.impostorEffects]);
 
     // Bloquear scroll durante drag con optimizaciones específicas para iOS
     useEffect(() => {

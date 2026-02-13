@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig } from '../../types';
 import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu } from 'lucide-react';
@@ -44,6 +46,9 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     // --- MENU CONFIRMATION STATE ---
     const [showMenuConfirm, setShowMenuConfirm] = useState(false);
     const confirmTimeoutRef = useRef<number | null>(null);
+
+    // --- TOOLTIP STATE ---
+    const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
     // Timer Logic
     useEffect(() => {
@@ -518,9 +523,52 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                     </div>
                                     
                                     <div 
-                                        className={`w-2 h-2 rounded-full ${suspicion.dotColor}`} 
-                                        title={suspicion.label}
-                                    />
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedPlayerId(expandedPlayerId === p.id ? null : p.id);
+                                        }}
+                                        className="cursor-pointer relative p-2 -m-2"
+                                    >
+                                        <div 
+                                            className={`w-2 h-2 rounded-full ${suspicion.dotColor}`} 
+                                        />
+                                        
+                                        {expandedPlayerId === p.id && (
+                                            <div 
+                                                className="absolute right-0 top-full mt-2 p-3 rounded-xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 w-48 z-50"
+                                                style={{
+                                                    backgroundColor: theme.cardBg,
+                                                    borderColor: theme.border,
+                                                    backdropFilter: 'blur(20px)',
+                                                    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
+                                                }}
+                                            >
+                                                <p className="text-xs font-bold mb-2 pb-1 border-b border-white/5" style={{ color: theme.text }}>
+                                                    Análisis
+                                                </p>
+                                                <div className="space-y-1.5 text-[10px]" style={{ color: theme.sub }}>
+                                                    <div className="flex justify-between">
+                                                        <span>Tiempo:</span>
+                                                        <span className="font-mono font-bold" style={{ color: theme.text }}>{(p.viewTime / 1000).toFixed(1)}s</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Promedio:</span>
+                                                        <span className="font-mono font-bold" style={{ color: theme.text }}>{(avgViewTime / 1000).toFixed(1)}s</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Estado:</span>
+                                                        <span style={{ color: suspicion.color }} className="font-bold">{suspicion.label}</span>
+                                                    </div>
+                                                    <p className="pt-2 mt-1 text-[9px] opacity-80 leading-relaxed" style={{ color: theme.text, borderTop: `1px solid ${theme.border}` }}>
+                                                        {suspicion.label === 'Lento' && '🐢 Demasiado tiempo. ¿Dudaba al ver su rol?'}
+                                                        {suspicion.label === 'Rápido' && '⚡ Muy rápido. ¿Sabía qué hacer o estaba nervioso?'}
+                                                        {suspicion.label === 'Normal' && '✅ Comportamiento estándar dentro de la media.'}
+                                                        {suspicion.label === '-' && '❓ Sin datos suficientes.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );

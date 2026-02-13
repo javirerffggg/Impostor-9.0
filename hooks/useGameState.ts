@@ -1,4 +1,8 @@
 
+
+
+
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -28,6 +32,7 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
     nexusMode: false,
     passPhoneMode: false,
     shuffleEnabled: false,
+    impostorEffects: true, // Default to true
     revealMethod: 'hold',
     swipeSensitivity: 'medium',
     hapticFeedback: true,
@@ -142,7 +147,12 @@ const INITIAL_STATE: GameState = {
     isArchitectRound: false,
     history: getInitialHistory(),
     settings: getInitialSettings(),
-    debugState: { isEnabled: false, forceTroll: null, forceArchitect: false },
+    debugState: { 
+        isEnabled: false, 
+        forceTroll: null, 
+        forceArchitect: false,
+        godModeAssignments: {}
+    },
     partyState: { intensity: 'aperitivo', consecutiveHardcoreRounds: 0, isHydrationLocked: false },
     currentDrinkingPrompt: "",
     theme: 'luminous'

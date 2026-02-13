@@ -222,6 +222,7 @@ export interface GameState {
         nexusMode: boolean;
         passPhoneMode: boolean;
         shuffleEnabled: boolean;
+        impostorEffects: boolean; // ✨ NUEVO: Control de FX Impostor
         revealMethod: 'hold' | 'swipe';
         swipeSensitivity: 'low' | 'medium' | 'high';
         hapticFeedback: boolean;
@@ -237,6 +238,8 @@ export interface GameState {
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
         forceRenuncia?: boolean;
+        godModeAssignments?: Record<string, string>; // ✨ NUEVO: Asignación manual
+        easterEggUnlocked?: boolean; // ✨ NUEVO
     };
     partyState: {
         intensity: PartyIntensity;

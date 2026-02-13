@@ -1,10 +1,5 @@
 
 
-
-
-
-
-
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Background } from './components/Background';
 import { PartyNotification } from './components/PartyNotification';
@@ -17,6 +12,8 @@ import { ThemeName } from './types';
 import { useGameState } from './hooks/useGameState';
 import { useAudioSystem } from './hooks/useAudioSystem';
 import { usePartyPrompts } from './hooks/usePartyPrompts';
+// @ts-ignore
+import confetti from 'canvas-confetti';
 
 // --- NEW VIEW IMPORTS ---
 import { SetupView } from './components/views/SetupView';
@@ -69,10 +66,51 @@ function App() {
     useAudioSystem(gameState.settings.soundEnabled, volume, actions.updateSettings);
     const { triggerPartyMessage } = usePartyPrompts(gameState, setGameState, batteryLevel, setBatteryLevel);
 
-    const debugTapTimerRef = useRef<number | null>(null);
-    const [debugTapCount, setDebugTapCount] = useState(0);
-
     const currentPlayerColor = PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length];
+
+    // -- KONAMI CODE LISTENER --
+    const [konamiSequence, setKonamiSequence] = useState<string[]>([]);
+    const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            setKonamiSequence(prev => {
+                const newSeq = [...prev, e.key].slice(-10); // Mantener últimas 10 teclas
+                
+                // Comprobar si coincide con Konami Code
+                if (JSON.stringify(newSeq) === JSON.stringify(KONAMI_CODE)) {
+                    // Activar debug con easter egg especial
+                    setGameState(prev => ({
+                        ...prev,
+                        debugState: { 
+                            ...prev.debugState, 
+                            isEnabled: true,
+                            easterEggUnlocked: true // Nueva propiedad
+                        }
+                    }));
+                    
+                    // Efecto especial único
+                    confetti({
+                        particleCount: 200,
+                        spread: 160,
+                        origin: { y: 0.5 },
+                        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00']
+                    });
+                    
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+                    
+                    alert('🎮 KONAMI CODE ACTIVATED!\n\nModo Centinela Legendary desbloqueado.');
+                    
+                    return [];
+                }
+                
+                return newSeq;
+            });
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     // -- Effects --
 
@@ -211,23 +249,6 @@ function App() {
         setTimeout(() => handleStartGame(), 400); 
     };
 
-    const handleTitleTap = () => {
-        if (gameState.debugState.isEnabled) return;
-        if (debugTapTimerRef.current) clearTimeout(debugTapTimerRef.current);
-        
-        setDebugTapCount(prev => {
-            const newCount = prev + 1;
-            if (newCount >= 5) {
-                if (navigator.vibrate) navigator.vibrate([100, 50, 50, 50, 200]);
-                setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, isEnabled: true } }));
-                return 0;
-            }
-            return newCount;
-        });
-        // 1500ms window to make it easier on mobile
-        debugTapTimerRef.current = window.setTimeout(() => setDebugTapCount(0), 1500);
-    };
-
     const handleHydrationUnlock = () => {
         setGameState(prev => ({ ...prev, partyState: { ...prev.partyState, isHydrationLocked: false } }));
     };
@@ -344,7 +365,7 @@ function App() {
                     onStartGame={handleStartGame}
                     onOpenSettings={() => setSettingsOpen(true)}
                     onOpenCategories={() => setCategoriesOpen(true)}
-                    onTitleTap={handleTitleTap}
+                    onTitleTap={() => {}} // Now handled internally by SetupView
                     theme={theme}
                     isPixelating={isPixelating}
                     hydrationTimer={hydrationTimer}
@@ -449,6 +470,12 @@ function App() {
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes equalizer { 0% { height: 10%; } 100% { height: 90%; } }
                 
+                @keyframes shake {
+                    0%, 100% { transform: translate(0, 0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translate(-2px, 0); }
+                    20%, 40%, 60%, 80% { transform: translate(2px, 0); }
+                }
+
                 .gold-glow {
                     color: #FFD700;
                     text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);

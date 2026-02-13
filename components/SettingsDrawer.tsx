@@ -1,10 +1,12 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState, MemoryDifficulty } from '../types';
 import { THEMES } from '../constants';
-import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp, Brain, Zap } from 'lucide-react';
+import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp, Brain, Zap, Sparkles } from 'lucide-react';
 import { getMemoryConfigForDifficulty } from '../utils/memoryWordGenerator';
 
 interface Props {
@@ -74,7 +76,7 @@ export const SettingsDrawer: React.FC<Props> = ({
                     <div className="flex flex-col">
                         <h2 style={{ color: theme.text }} className="text-3xl font-black italic tracking-tighter">SISTEMA</h2>
                         <span style={{ color: theme.sub }} className="text-[10px] font-mono uppercase tracking-widest opacity-70">
-                            Configuración v2.2 • Build 9022
+                            Configuración v2.3 • Build 9023
                         </span>
                     </div>
                     <button 
@@ -276,6 +278,25 @@ export const SettingsDrawer: React.FC<Props> = ({
                             </button>
 
                             <button
+                                onClick={() => onUpdateSettings({ impostorEffects: !gameState.settings.impostorEffects })}
+                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
+                                style={{ 
+                                    backgroundColor: gameState.settings.impostorEffects ? `${theme.accent}15` : theme.cardBg,
+                                    borderColor: gameState.settings.impostorEffects ? theme.accent : theme.border,
+                                }}
+                            >
+                                <div className="mb-3">
+                                    <div className={`p-2 rounded-full transition-colors ${gameState.settings.impostorEffects ? 'bg-white/20' : 'bg-black/20'}`} style={{ color: theme.text }}>
+                                        <Sparkles size={18} />
+                                    </div>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Efectos FX</p>
+                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">Confeti/Shake</p>
+                                </div>
+                            </button>
+
+                            <button
                                 onClick={() => onUpdateSettings({ passPhoneMode: !gameState.settings.passPhoneMode })}
                                 className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
                                 style={{ 
@@ -296,17 +317,17 @@ export const SettingsDrawer: React.FC<Props> = ({
 
                             <button
                                 onClick={onOpenHowToPlay}
-                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center"
+                                className="relative group overflow-hidden p-3 rounded-2xl border transition-all duration-300 active:scale-[0.98] flex flex-col items-center text-center col-span-2"
                                 style={{ backgroundColor: theme.cardBg, borderColor: theme.border }}
                             >
-                                <div className="mb-3">
+                                <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-full bg-black/20" style={{ color: theme.text }}>
                                         <BookOpen size={18} />
                                     </div>
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Manual</p>
-                                    <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">REGLAS</p>
+                                    <div className="space-y-0.5 text-left">
+                                        <p style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-wide">Manual Operativo</p>
+                                        <p style={{ color: theme.sub }} className="text-[8px] font-mono opacity-60 uppercase truncate">REGLAS Y GUÍA</p>
+                                    </div>
                                 </div>
                             </button>
                         </div>

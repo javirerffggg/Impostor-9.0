@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield, Bug } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
 import { getVault } from '../../utils/core/vault';
 import { GAME_LIMITS } from '../../constants';
+// @ts-ignore
+import confetti from 'canvas-confetti';
 
 // DnD Kit Imports
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -143,11 +145,71 @@ export const SetupView: React.FC<Props> = ({
     // Refs for race condition fix
     const autocompleteTimeoutRef = useRef<number | null>(null);
 
+    // --- ACTIVATION LOGIC (VISUAL FEEDBACK) ---
+    const [tapCount, setTapCount] = useState(0);
+    const [lastTapTime, setLastTapTime] = useState(0);
+    const [showActivationProgress, setShowActivationProgress] = useState(false);
+    const tapTimeoutRef = useRef<number | null>(null);
+
+    const handleLogoTap = () => {
+        if (gameState.debugState.isEnabled) return;
+
+        const now = Date.now();
+        
+        // Reset si pasaron más de 2 segundos desde el último tap
+        if (now - lastTapTime > 2000) {
+            setTapCount(1);
+        } else {
+            setTapCount(prev => prev + 1);
+        }
+        
+        setLastTapTime(now);
+        setShowActivationProgress(true);
+        
+        // Vibración según el progreso
+        if (navigator.vibrate) {
+            const pattern = tapCount < 4 ? 30 : [50, 50, 100]; // Triple vibración en el 5to
+            navigator.vibrate(pattern);
+        }
+        
+        // Limpiar timeout anterior
+        if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+        
+        // Ocultar progress después de 2s de inactividad
+        tapTimeoutRef.current = window.setTimeout(() => {
+            setShowActivationProgress(false);
+            setTapCount(0);
+        }, 2000);
+        
+        // Activar debug mode al 5to tap
+        if (tapCount + 1 >= 5) {
+            setGameState(prev => ({
+                ...prev,
+                debugState: { ...prev.debugState, isEnabled: true }
+            }));
+            
+            // Confetti de activación
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.3 },
+                colors: [theme.accent, '#00ff00', '#ffffff']
+            });
+            
+            // Reset
+            setTapCount(0);
+            setShowActivationProgress(false);
+        }
+    };
+
     // Cleanup
     useEffect(() => {
         return () => {
             if (autocompleteTimeoutRef.current) {
                 clearTimeout(autocompleteTimeoutRef.current);
+            }
+            if (tapTimeoutRef.current) {
+                clearTimeout(tapTimeoutRef.current);
             }
         };
     }, []);
@@ -298,8 +360,7 @@ export const SetupView: React.FC<Props> = ({
             name: 'Memoria',
             description: 'Palabras fugaces.',
             icon: <Brain size={20} />,
-            isActive: gameState.settings.memoryModeConfig.enabled,
-            isNew: true
+            isActive: gameState.settings.memoryModeConfig.enabled
         },
         // TAB: PROTOCOLOS
         {
@@ -315,8 +376,7 @@ export const SetupView: React.FC<Props> = ({
             description: 'Alcalde con voto doble.',
             icon: <Gavel size={20} />,
             isActive: gameState.settings.protocolMagistrado,
-            isDisabled: gameState.players.length < 6,
-            isNew: true
+            isDisabled: gameState.players.length < 6
         },
         {
             id: 'renuncia',
@@ -400,13 +460,50 @@ export const SetupView: React.FC<Props> = ({
 
             <div className="flex-1 overflow-y-auto px-2 pb-48 space-y-4">
                 <header className="pt-6 text-center space-y-2 mb-2">
-                    <h1 
-                        onClick={onTitleTap}
-                        style={{ color: theme.text, fontFamily: theme.font }} 
-                        className="text-5xl font-black italic tracking-tighter select-none cursor-default active:opacity-80 transition-opacity"
-                    >
-                        IMPOSTOR
-                    </h1>
+                    <div className="relative inline-block">
+                        <h1 
+                            onClick={handleLogoTap}
+                            style={{ color: theme.text, fontFamily: theme.font }} 
+                            className="text-5xl font-black italic tracking-tighter select-none cursor-pointer active:scale-95 transition-transform"
+                        >
+                            IMPOSTOR
+                        </h1>
+                        
+                        {/* Indicador de progreso de activación */}
+                        {showActivationProgress && (
+                            <div className="absolute -bottom-3 left-0 right-0 flex gap-1 justify-center">
+                                {[...Array(5)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                            i < tapCount ? 'scale-125' : 'scale-75 opacity-30'
+                                        }`}
+                                        style={{
+                                            backgroundColor: i < tapCount ? theme.accent : theme.sub,
+                                            boxShadow: i < tapCount ? `0 0 8px ${theme.accent}` : 'none'
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Badge de "Modo Centinela Activo" */}
+                        {gameState.debugState.isEnabled && (
+                            <div 
+                                className="absolute -top-3 -right-6 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase animate-in slide-in-from-bottom duration-300"
+                                style={{
+                                    backgroundColor: theme.cardBg,
+                                    borderColor: theme.accent,
+                                    color: theme.accent,
+                                    boxShadow: `0 0 15px ${theme.accent}40`
+                                }}
+                            >
+                                <div className="flex items-center gap-1">
+                                    <Bug size={8} /> CENTINELA
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     {isParty && <p style={{ color: theme.accent }} className="text-xs font-black uppercase tracking-[0.3em] animate-pulse">DRINKING EDITION</p>}
                 </header>
 

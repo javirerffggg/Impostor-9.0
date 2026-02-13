@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ThemeConfig } from '../types';
 
@@ -57,7 +58,7 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
     );
 
     return (
-        <div className="space-y-3 animate-in fade-in duration-300">
+        <div className="space-y-4 animate-in fade-in duration-300">
             {/* Tab Navigation */}
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
                 {(Object.keys(TABS) as TabId[]).map(tabId => {
@@ -71,30 +72,58 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
                         <button
                             key={tabId}
                             onClick={() => setActiveTab(tabId)}
-                            className="relative px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-wider whitespace-nowrap transition-all active:scale-95 flex items-center gap-2 shrink-0 overflow-hidden"
+                            className={`
+                                relative py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-wider 
+                                transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] active:scale-95 
+                                flex items-center justify-center shrink-0 overflow-hidden border
+                                ${isActive ? 'px-5 flex-grow' : 'px-0 w-12'}
+                            `}
                             style={{
-                                backgroundColor: isActive ? theme.accent : theme.border,
+                                backgroundColor: isActive ? theme.accent : theme.cardBg,
+                                borderColor: isActive ? theme.accent : theme.border,
                                 color: isActive ? 'white' : theme.sub,
-                                opacity: isActive ? 1 : 0.7,
-                                boxShadow: isActive ? `0 0 0 2px ${theme.accent}20` : 'none'
+                                opacity: isActive ? 1 : 0.6,
+                                boxShadow: isActive ? `0 4px 15px -5px ${theme.accent}50` : 'none'
                             }}
                         >
-                            <span className="text-sm">{tab.icon}</span>
-                            <span>{tab.label}</span>
+                            <span className="text-base relative z-10 transition-transform duration-300 group-hover:scale-110">{tab.icon}</span>
+                            
+                            <div className={`
+                                overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex items-center
+                                ${isActive ? 'max-w-[150px] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0'}
+                            `}>
+                                <span className="whitespace-nowrap">{tab.label}</span>
+                            </div>
+
                             {activeCount > 0 && (
-                                <span 
-                                    className="ml-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-black px-1"
+                                isActive ? (
+                                    <div className={`
+                                        ml-2 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-black px-1
+                                        animate-in zoom-in duration-300
+                                    `}
                                     style={{ 
-                                        backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : theme.accent,
-                                        color: isActive ? 'white' : 'white'
-                                    }}
-                                >
-                                    {activeCount}
-                                </span>
+                                        backgroundColor: 'rgba(255,255,255,0.25)',
+                                        color: 'white'
+                                    }}>
+                                        {activeCount}
+                                    </div>
+                                ) : (
+                                    <div 
+                                        className="absolute top-2 right-2 w-2 h-2 rounded-full border border-white/10 animate-in zoom-in duration-300 shadow-sm"
+                                        style={{ backgroundColor: theme.accent }}
+                                    />
+                                )
                             )}
+                            
+                            {/* Active Shine Effect */}
                             {isActive && (
                                 <div 
-                                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/40"
+                                    className="absolute inset-0 pointer-events-none opacity-20"
+                                    style={{
+                                        background: `linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.8) 50%, transparent 60%)`,
+                                        backgroundSize: '200% 100%',
+                                        animation: 'shimmer-tab 3s infinite'
+                                    }}
                                 />
                             )}
                         </button>
@@ -122,6 +151,10 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                @keyframes shimmer-tab {
+                    0% { background-position: 150% 0; }
+                    100% { background-position: -50% 0; }
+                }
             `}</style>
         </div>
     );
