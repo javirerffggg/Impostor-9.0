@@ -1,4 +1,5 @@
 
+
 import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, MagistradoData } from '../types';
 import { assignPartyRoles } from './partyLogic';
@@ -35,6 +36,14 @@ interface GameConfig {
     }
     isPartyMode?: boolean;
     memoryModeConfig?: GameState['settings']['memoryModeConfig'];
+    // ✨ NUEVO: Ajustes de categoría
+    categorySettings?: {
+        repetitionAvoidance: 'none' | 'soft' | 'medium' | 'hard';
+        rareBoost: boolean;
+        rotationMode?: boolean;
+        favorites?: string[]; // v12.4
+        explorerMode?: boolean; // v12.4
+    };
 }
 
 export const generateGameData = (config: GameConfig): { 
@@ -49,7 +58,7 @@ export const generateGameData = (config: GameConfig): {
     magistradoData?: MagistradoData;
     wordPair: CategoryData;
 } => {
-    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig } = config;
+    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig, categorySettings } = config;
     
     const currentRound = history.roundCounter + 1;
     const availableCategories = selectedCats.length > 0 ? selectedCats : Object.keys(CATEGORIES_DATA);
@@ -179,8 +188,12 @@ export const generateGameData = (config: GameConfig): {
         };
     }
 
-    // 🆕 SELECCIÓN EXHAUSTIVA DE PALABRA
-    const { categoryName: catName, wordPair, updatedHistory: historyWithWordTracking } = selectLexiconWord(selectedCats, history);
+    // 🆕 SELECCIÓN EXHAUSTIVA DE PALABRA CON NUEVOS AJUSTES & TELEMETRÍA
+    const { categoryName: catName, wordPair, updatedHistory: historyWithWordTracking, telemetry: categoryTelemetry } = selectLexiconWord(
+        selectedCats, 
+        history,
+        categorySettings // Pass new settings including rotation
+    );
     
     // 🆕 Usar el historial actualizado en lugar del original para los siguientes pasos
     const workingHistory = historyWithWordTracking;
@@ -380,6 +393,16 @@ export const generateGameData = (config: GameConfig): {
     const newHistoryCategories = [catName, ...workingHistory.lastCategories].slice(0, 3);
     const newGlobalWordUsage = { ...workingHistory.globalWordUsage };
     newGlobalWordUsage[wordPair.civ] = (newGlobalWordUsage[wordPair.civ] || 0) + 1;
+
+    // ✨ NUEVO: Actualizar Blacklist Temporal (Decrementar contadores)
+    const newTemporaryBlacklist: Record<string, number> = {};
+    if (workingHistory.temporaryBlacklist) {
+        Object.entries(workingHistory.temporaryBlacklist).forEach(([cat, rounds]) => {
+            if (rounds > 1) {
+                newTemporaryBlacklist[cat] = rounds - 1;
+            }
+        });
+    }
 
     let isArchitectTriggered = false;
     let architectId: string | undefined;
@@ -630,7 +653,10 @@ export const generateGameData = (config: GameConfig): {
             failureBonus: renunciaTelemetry.vectorFailure,
             candidateStreak: renunciaTelemetry.candidateStreak
         } : undefined,
-        magistrado: alcaldePlayer?.name
+        magistrado: alcaldePlayer?.name,
+        // ✨ NUEVO: Telemetría de Selección de Categoría
+        categorySelectionTelemetry: categoryTelemetry,
+        // ✨ NUEVO: Guardar rotation index si se usó
     };
     const currentLogs = history.matchLogs || [];
     const updatedLogs = [newLog, ...currentLogs].slice(0, 100);
@@ -653,7 +679,8 @@ export const generateGameData = (config: GameConfig): {
             lastWords: newHistoryWords,
             lastCategories: newHistoryCategories,
             globalWordUsage: newGlobalWordUsage,
-            categoryExhaustion: workingHistory.categoryExhaustion, 
+            categoryExhaustion: workingHistory.categoryExhaustion,
+            categoryUsageStats: workingHistory.categoryUsageStats,
             playerStats: newPlayerStats,
             lastTrollRound: isTrollEvent ? currentRound : workingHistory.lastTrollRound,
             lastArchitectRound: isArchitectTriggered ? currentRound : workingHistory.lastArchitectRound,
@@ -664,7 +691,12 @@ export const generateGameData = (config: GameConfig): {
             coolingDownRounds: finalCoolingRounds,
             lastBreakProtocol: breakProtocolType,
             matchLogs: updatedLogs,
-            lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : workingHistory.lastLeteoRound
+            lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : workingHistory.lastLeteoRound,
+            // ✨ NUEVO: Update rotation index
+            rotationIndex: workingHistory.rotationIndex,
+            // ✨ NUEVO: Update blacklist and explorer deck
+            temporaryBlacklist: newTemporaryBlacklist,
+            explorerDeck: workingHistory.explorerDeck
         },
         wordPair
     };

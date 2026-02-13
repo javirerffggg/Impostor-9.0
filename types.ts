@@ -161,6 +161,14 @@ export interface MatchLog {
         candidateStreak: number;
     };
     magistrado?: string; // Name of Alcalde
+    
+    // v12.3: Telemetría de Selección de Categoría
+    categorySelectionTelemetry?: {
+        candidateCategories: string[];
+        weights: Record<string, number>;
+        finalProbabilities: Record<string, number>;
+        selectionReason: string;
+    };
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
@@ -182,6 +190,14 @@ export interface CategoryExhaustionData {
     cycleCount: number;          // Cuántas veces se ha completado el ciclo
 }
 
+// ✨ NUEVO: Estadísticas de uso por categoría
+export interface CategoryUsageStats {
+    totalTimesSelected: number;        // Veces que salió la categoría
+    lastSelectedRound: number;         // Última ronda que salió
+    averageWordsPerSelection: number;  // Promedio de palabras vistas
+    exhaustionRate: number;            // % de palabras ya usadas (0-1)
+}
+
 export interface GameState {
     phase: 'setup' | 'revealing' | 'architect' | 'oracle' | 'discussion' | 'results';
     players: Player[];
@@ -199,6 +215,8 @@ export interface GameState {
         globalWordUsage: Record<string, number>;
         // ✨ NUEVO: Tracking persistente de palabras usadas por categoría
         categoryExhaustion?: Record<string, CategoryExhaustionData>;
+        // ✨ NUEVO: Tracking de uso de categorías
+        categoryUsageStats?: Record<string, CategoryUsageStats>;
         
         playerStats: Record<string, InfinityVault>;
         lastTrollRound: number;
@@ -211,6 +229,13 @@ export interface GameState {
         lastBreakProtocol: string | null;
         matchLogs: MatchLog[];
         lastLeteoRound?: number;
+        
+        // v12.3 Rotation Mode State
+        rotationIndex?: number;
+
+        // ✨ NUEVO: Gestión de Blacklist y Modo Explorador
+        temporaryBlacklist?: Record<string, number>; // Categoría -> Rondas restantes
+        explorerDeck?: string[]; // Categorías ya jugadas en el ciclo actual
     };
     settings: {
         hintMode: boolean;
@@ -232,6 +257,14 @@ export interface GameState {
         protocolMagistrado: boolean; // ✨ NUEVO
         magistradoMinPlayers: number; 
         memoryModeConfig: MemoryModeConfig; // v9.0 Memory Mode
+        // ✨ NUEVO: Ajustes de selección de categorías
+        categoryRepetitionAvoidance: 'none' | 'soft' | 'medium' | 'hard';
+        rareCategoryBoost: boolean;
+        rotationMode?: boolean; // v12.3: Modo Rotación secuencial
+        
+        // ✨ NUEVO v12.4
+        favoriteCategories?: string[]; // Lista de favoritos (2x peso)
+        explorerMode?: boolean; // Modo Explorador (deck de cartas)
     };
     debugState: {
         isEnabled: boolean;

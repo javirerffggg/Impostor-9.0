@@ -1,12 +1,9 @@
 
 
-
-
-
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState, MemoryDifficulty } from '../types';
 import { THEMES } from '../constants';
-import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp, Brain, Zap, Sparkles } from 'lucide-react';
+import { X, BookOpen, Volume2, VolumeX, Cpu, Monitor, Smartphone, Layers, MousePointer2, ChevronUp, Brain, Zap, Sparkles, Filter, Star, Repeat, Compass } from 'lucide-react';
 import { getMemoryConfigForDifficulty } from '../utils/memoryWordGenerator';
 
 interface Props {
@@ -76,7 +73,7 @@ export const SettingsDrawer: React.FC<Props> = ({
                     <div className="flex flex-col">
                         <h2 style={{ color: theme.text }} className="text-3xl font-black italic tracking-tighter">SISTEMA</h2>
                         <span style={{ color: theme.sub }} className="text-[10px] font-mono uppercase tracking-widest opacity-70">
-                            Configuración v2.3 • Build 9023
+                            Configuración v2.4 • Build 9045
                         </span>
                     </div>
                     <button 
@@ -90,6 +87,87 @@ export const SettingsDrawer: React.FC<Props> = ({
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-8 relative z-10 pb-12">
                     
+                    {/* CATEGORY LOGIC SETTINGS */}
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2 opacity-60 px-1">
+                            <Filter size={12} style={{ color: theme.text }} />
+                            <h3 style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-[0.2em]">
+                                Lógica de Categorías
+                            </h3>
+                        </div>
+
+                        <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <div className="flex flex-col">
+                                    <span style={{ color: theme.text }} className="text-xs font-bold">Anti-Repetición</span>
+                                    <span style={{ color: theme.sub }} className="text-[8px] opacity-70">Frecuencia de temas</span>
+                                </div>
+                                <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                                    {(['none', 'soft', 'medium', 'hard'] as const).map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => onUpdateSettings({ categoryRepetitionAvoidance: mode })}
+                                            className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase transition-all ${gameState.settings.categoryRepetitionAvoidance === mode ? 'bg-white/10 text-white shadow-sm' : 'text-white/40'}`}
+                                        >
+                                            {mode === 'none' ? 'Off' : mode === 'soft' ? 'Bajo' : mode === 'medium' ? 'Med' : 'Alto'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                        <Star size={10} className="text-yellow-400" fill="currentColor" />
+                                        <span style={{ color: theme.text }} className="text-xs font-bold">Boost de Rareza</span>
+                                    </div>
+                                    <span style={{ color: theme.sub }} className="text-[8px] opacity-70">Priorizar temas poco usados</span>
+                                </div>
+                                <button 
+                                    onClick={() => onUpdateSettings({ rareCategoryBoost: !gameState.settings.rareCategoryBoost })}
+                                    className="w-10 h-6 rounded-full relative transition-all"
+                                    style={{ backgroundColor: gameState.settings.rareCategoryBoost ? theme.accent : 'rgba(255,255,255,0.1)' }}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${gameState.settings.rareCategoryBoost ? 'left-5' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                        <Repeat size={10} style={{ color: theme.accent }} />
+                                        <span style={{ color: theme.text }} className="text-xs font-bold">Modo Rotación</span>
+                                    </div>
+                                    <span style={{ color: theme.sub }} className="text-[8px] opacity-70">Secuencial estricto</span>
+                                </div>
+                                <button 
+                                    onClick={() => onUpdateSettings({ rotationMode: !gameState.settings.rotationMode })}
+                                    className="w-10 h-6 rounded-full relative transition-all"
+                                    style={{ backgroundColor: gameState.settings.rotationMode ? theme.accent : 'rgba(255,255,255,0.1)' }}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${gameState.settings.rotationMode ? 'left-5' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                        <Compass size={10} className="text-emerald-400" />
+                                        <span style={{ color: theme.text }} className="text-xs font-bold">Modo Explorador</span>
+                                    </div>
+                                    <span style={{ color: theme.sub }} className="text-[8px] opacity-70">Garantiza variedad total (Deck)</span>
+                                </div>
+                                <button 
+                                    onClick={() => onUpdateSettings({ explorerMode: !gameState.settings.explorerMode })}
+                                    className="w-10 h-6 rounded-full relative transition-all"
+                                    style={{ backgroundColor: gameState.settings.explorerMode ? theme.accent : 'rgba(255,255,255,0.1)' }}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${gameState.settings.explorerMode ? 'left-5' : 'left-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
                     {/* MEMORY MODE SETTINGS (IF ENABLED) */}
                     {gameState.settings.memoryModeConfig.enabled && (
                         <section className="space-y-3">

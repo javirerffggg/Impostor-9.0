@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -44,7 +45,13 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
         displayTime: 10,
         wordCount: 5,
         highlightIntensity: 0.5
-    }
+    },
+    // ✨ NUEVO: Ajustes de selección de categorías
+    categoryRepetitionAvoidance: 'medium',
+    rareCategoryBoost: false,
+    rotationMode: false,
+    favoriteCategories: [],
+    explorerMode: false
 };
 
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
@@ -103,7 +110,11 @@ const getInitialHistory = (): GameState['history'] => {
                 return {
                     ...parsed,
                     // Ensure new fields exist if loading old history
-                    categoryExhaustion: parsed.categoryExhaustion || {}
+                    categoryExhaustion: parsed.categoryExhaustion || {},
+                    categoryUsageStats: parsed.categoryUsageStats || {},
+                    rotationIndex: parsed.rotationIndex || 0,
+                    temporaryBlacklist: parsed.temporaryBlacklist || {},
+                    explorerDeck: parsed.explorerDeck || []
                 };
             }
         }
@@ -117,6 +128,7 @@ const getInitialHistory = (): GameState['history'] => {
         lastCategories: [],
         globalWordUsage: {},
         categoryExhaustion: {}, // New Exhaustion System
+        categoryUsageStats: {}, // Usage Stats
         playerStats: {},
         lastTrollRound: 0,
         lastArchitectRound: 0,
@@ -126,7 +138,10 @@ const getInitialHistory = (): GameState['history'] => {
         paranoiaLevel: 0,
         coolingDownRounds: 0,
         lastBreakProtocol: null,
-        matchLogs: []
+        matchLogs: [],
+        rotationIndex: 0,
+        temporaryBlacklist: {},
+        explorerDeck: []
     };
 };
 
@@ -142,7 +157,9 @@ const getInitialSettings = (): GameState['settings'] => {
                 memoryModeConfig: {
                     ...DEFAULT_SETTINGS.memoryModeConfig,
                     ...(parsed.memoryModeConfig || {})
-                }
+                },
+                favoriteCategories: parsed.favoriteCategories || [],
+                explorerMode: parsed.explorerMode || false
             };
         }
     } catch (e) {
@@ -297,6 +314,37 @@ export const useGameState = () => {
         });
     }, []);
 
+    // ✨ NUEVO: Gestión de Favoritos
+    const toggleFavoriteCategory = useCallback((cat: string) => {
+        setGameState(prev => {
+            const current = prev.settings.favoriteCategories || [];
+            const exists = current.includes(cat);
+            return {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    favoriteCategories: exists
+                        ? current.filter(c => c !== cat)
+                        : [...current, cat]
+                }
+            };
+        });
+    }, []);
+
+    // ✨ NUEVO: Gestión de Blacklist Temporal
+    const blockCategoryTemporarily = useCallback((cat: string, rounds: number = 5) => {
+        setGameState(prev => ({
+            ...prev,
+            history: {
+                ...prev.history,
+                temporaryBlacklist: {
+                    ...prev.history.temporaryBlacklist,
+                    [cat]: rounds
+                }
+            }
+        }));
+    }, []);
+
     const toggleCollection = useCallback((colId: string) => {
         setGameState(prev => {
             const collection = CURATED_COLLECTIONS.find(c => c.id === colId);
@@ -354,7 +402,15 @@ export const useGameState = () => {
                     forceArchitect: prev.debugState.forceArchitect
                 } : undefined,
                 isPartyMode: prev.settings.partyMode,
-                memoryModeConfig: prev.settings.memoryModeConfig
+                memoryModeConfig: prev.settings.memoryModeConfig,
+                // ✨ NUEVO: Pasar ajustes completos de categoría
+                categorySettings: {
+                    repetitionAvoidance: prev.settings.categoryRepetitionAvoidance,
+                    rareBoost: prev.settings.rareCategoryBoost,
+                    rotationMode: prev.settings.rotationMode,
+                    favorites: prev.settings.favoriteCategories || [],
+                    explorerMode: prev.settings.explorerMode || false
+                }
             });
 
             // Update local refs (side effects are tricky inside setGameState, but these are for immediate UI sync)
@@ -579,6 +635,8 @@ export const useGameState = () => {
             saveToBank,
             deleteFromBank,
             toggleCategory,
+            toggleFavoriteCategory,
+            blockCategoryTemporarily,
             toggleCollection,
             toggleAllCategories,
             runGameGeneration,

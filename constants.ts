@@ -1,4 +1,5 @@
 
+
 import { ThemeConfig, ThemeName, CuratedCollection } from './types';
 
 export const GAME_LIMITS = {
@@ -9,6 +10,38 @@ export const GAME_LIMITS = {
     MIN_IMPOSTORS: 1,
     MAX_IMPOSTORS: 5
 } as const;
+
+export const CATEGORY_AFFINITY_GROUPS: Record<string, string[]> = {
+    'entertainment': [
+        "Películas y series", "Series de Éxito", "Dibujos Animados Retro", "Iconos del Pop",
+        "Cine de Terror", "Mundo Gamer", "Universo Marvel/DC", "Videojuegos", "Música y bandas",
+        "Cultura de internet"
+    ],
+    'food': [
+        "Comidas y bebidas", "Cocina y gastronomía", "Gastronomía Regional", "Supermercados Locales"
+    ],
+    'geography': [
+        "Países y ciudades", "Islas del Archipiélago", "Monumentos Nacionales", "Transporte",
+        "Transporte de Lujo", "Clima y naturaleza", "Clima Extremo"
+    ],
+    'knowledge': [
+        "Personas famosas", "Profesiones", "Escuela y educación", "Filosofía", "Zodiaco",
+        "Mitología Griega", "Ciencia y tecnología", "Tecnología del Mañana", "Elementos Químicos",
+        "Astronomía", "Cuerpo Humano (Órganos)", "Oficios en Extinción"
+    ],
+    'lifestyle': [
+        "Objetos cotidianos", "Marcas y logotipos", "Moda (Inditex)", "Vida Nocturna",
+        "Aficiones y actividades", "Juegos de Mesa Clásicos", "Papelería y Oficina",
+        "Colores y formas", "Emociones y sentimientos", "Emociones Complejas",
+        "Herramientas de Bricolaje", "Instrumentos de Cuerda", "Electrodomésticos Pequeños"
+    ],
+    'sports': [
+        "Deportes", "Deportes de Raqueta", "Superhéroes"
+    ],
+    'nature': [
+        "Animales"
+    ]
+};
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
     aura: {
@@ -446,7 +479,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Gastronomía y tradiciones locales.",
         vibe: "Cálido, tradicional, ideal para cenas.",
         icon: "Utensils",
-        categories: ["Gastronomía Regional", "Cocina y Gastronomía", "Comidas y Bebidas", "Fiestas Populares"]
+        categories: ["Gastronomía Regional", "Cocina y gastronomía", "Comidas y bebidas", "Fiestas Populares"]
     },
     {
         id: "digital",
@@ -454,7 +487,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Tecnología, internet y el mundo gaming.",
         vibe: "Moderno, frenético, para nativos digitales.",
         icon: "Zap",
-        categories: ["Cultura de Internet", "Ciencia y Tecnología", "Tecnología del Mañana", "Mundo Gamer", "Videojuegos"]
+        categories: ["Cultura de internet", "Ciencia y tecnología", "Tecnología del Mañana", "Mundo Gamer", "Videojuegos"]
     },
     {
         id: "redcarpet",
@@ -462,7 +495,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Famosos, pop, cine y series.",
         vibe: "Glamuroso, ruidoso, cultura popular.",
         icon: "Clapperboard",
-        categories: ["Personas Famosas", "Iconos del Pop", "Películas y Series", "Series de Éxito", "Cine de Terror"]
+        categories: ["Personas famosas", "Iconos del Pop", "Películas y series", "Series de Éxito", "Cine de Terror"]
     },
     {
         id: "global",
@@ -470,7 +503,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Viajes, países y monumentos.",
         vibe: "Aventurero, visual, transporta al grupo.",
         icon: "Compass",
-        categories: ["Países y Ciudades", "Islas del Archipiélago", "Monumentos Nacionales", "Transporte"]
+        categories: ["Países y ciudades", "Islas del Archipiélago", "Monumentos Nacionales", "Transporte"]
     },
     {
         id: "geek",
@@ -486,7 +519,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Moda, lujo y vida nocturna.",
         vibe: "Elegante, exclusivo, perfecto para fiestas.",
         icon: "Diamond",
-        categories: ["Marcas y Logotipos", "Moda (Inditex)", "Transporte de Lujo", "Vida Nocturna"]
+        categories: ["Marcas y logotipos", "Moda (Inditex)", "Transporte de Lujo", "Vida Nocturna"]
     },
     {
         id: "academic",
@@ -494,7 +527,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Academia, ciencia y filosofía.",
         vibe: "Intelectual, analítico, léxico preciso.",
         icon: "Book",
-        categories: ["Escuela y Educación", "Filosofía", "Elementos Químicos", "Astronomía", "Cuerpo Humano (Órganos)"]
+        categories: ["Escuela y educación", "Filosofía", "Elementos Químicos", "Astronomía", "Cuerpo Humano (Órganos)"]
     },
     {
         id: "nature",
@@ -502,7 +535,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Vida salvaje y entorno natural.",
         vibe: "Orgánico, salvaje, mundo físico.",
         icon: "Leaf",
-        categories: ["Animales", "Clima y Naturaleza", "Clima Extremo"]
+        categories: ["Animales", "Clima y naturaleza", "Clima Extremo"]
     },
     {
         id: "mind",
@@ -510,7 +543,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Psicología, emociones y zodiaco.",
         vibe: "Introspectivo, abstracto, dificultad alta.",
         icon: "Brain",
-        categories: ["Emociones y Sentimientos", "Emociones Complejas", "Filosofía", "Zodiaco"]
+        categories: ["Emociones y sentimientos", "Emociones Complejas", "Filosofía", "Zodiaco"]
     },
     {
         id: "sports",
@@ -518,7 +551,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Competición y actividades físicas.",
         vibe: "Energético, dinámico, léxico deportivo.",
         icon: "Trophy",
-        categories: ["Deportes", "Deportes de Raqueta", "Aficiones y Actividades"]
+        categories: ["Deportes", "Deportes de Raqueta", "Aficiones y actividades"]
     },
     {
         id: "daily",
@@ -526,6 +559,6 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
         description: "Hogar, rutina y objetos comunes.",
         vibe: "Familiar, cercano, para principiantes.",
         icon: "Home",
-        categories: ["Objetos Cotidianos", "Electrodomésticos Pequeños", "Papelería y Oficina", "Supermercados Locales"]
+        categories: ["Objetos cotidianos", "Electrodomésticos Pequeños", "Papelería y Oficina", "Supermercados Locales"]
     }
 ];

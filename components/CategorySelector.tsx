@@ -1,8 +1,10 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { ThemeConfig, CategoryPreset } from '../types';
 import { CATEGORIES_DATA } from '../categories';
 import { CURATED_COLLECTIONS } from '../constants';
-import { X, CheckCheck, Check, Library, List, Sparkles, Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home, Search, LayoutGrid, Grid3x3, Shuffle, Save, Eye } from 'lucide-react';
+import { X, CheckCheck, Check, Library, List, Sparkles, Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home, Search, LayoutGrid, Grid3x3, Shuffle, Save, Eye, Heart, Ban } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
@@ -13,6 +15,12 @@ interface Props {
     onToggleAll: () => void;
     theme: ThemeConfig;
     categoryUsageStats?: Record<string, number>;
+    
+    // ✨ NUEVO
+    favoriteCategories?: string[];
+    onToggleFavoriteCategory?: (cat: string) => void;
+    onBlockCategory?: (cat: string) => void;
+    temporaryBlacklist?: Record<string, number>;
 }
 
 // Mapeo de iconos dinámicos
@@ -21,7 +29,8 @@ const IconMap: Record<string, React.ComponentType<any>> = {
 };
 
 export const CategorySelector: React.FC<Props> = ({ 
-    isOpen, onClose, selectedCategories, onToggleCategory, onToggleCollection, onToggleAll, theme, categoryUsageStats 
+    isOpen, onClose, selectedCategories, onToggleCategory, onToggleCollection, onToggleAll, theme, categoryUsageStats,
+    favoriteCategories = [], onToggleFavoriteCategory, onBlockCategory, temporaryBlacklist = {}
 }) => {
     // STATES
     const [viewMode, setViewMode] = useState<'collections' | 'list'>('list');
@@ -394,21 +403,26 @@ export const CategorySelector: React.FC<Props> = ({
                             <div className={`grid gap-2 md:gap-3 ${isCompactMode ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'}`}>
                                 {filteredCategories.map(cat => {
                                     const isActive = selectedCategories.includes(cat);
+                                    const isFavorite = favoriteCategories.includes(cat);
+                                    const blacklistRounds = temporaryBlacklist[cat] || 0;
+                                    const isBlacklisted = blacklistRounds > 0;
                                     const count = getCategoryWordCount(cat);
                                     
                                     return (
                                         <button
                                             key={cat}
                                             onClick={() => onToggleCategory(cat)}
+                                            disabled={isBlacklisted}
                                             style={{ 
-                                                backgroundColor: isActive ? `${theme.accent}15` : 'transparent',
-                                                borderColor: isActive ? theme.accent : theme.border,
-                                                color: isActive ? theme.text : theme.sub,
+                                                backgroundColor: isBlacklisted ? 'rgba(0,0,0,0.5)' : (isActive ? `${theme.accent}15` : 'transparent'),
+                                                borderColor: isBlacklisted ? 'rgba(255,0,0,0.3)' : (isActive ? theme.accent : theme.border),
+                                                color: isBlacklisted ? '#666' : (isActive ? theme.text : theme.sub),
+                                                opacity: isBlacklisted ? 0.6 : 1
                                             }}
                                             className={`
                                                 group relative w-full rounded-xl border font-black text-center 
                                                 transition-all active:scale-95 flex flex-col items-center justify-center overflow-hidden
-                                                ${isCompactMode ? 'h-16 p-1 text-[8px]' : 'h-20 p-2 text-[9px]'}
+                                                ${isCompactMode ? 'h-16 p-1 text-[8px]' : 'h-24 p-2 text-[9px]'}
                                             `}
                                         >
                                             {/* Word Count Badge */}
@@ -419,16 +433,24 @@ export const CategorySelector: React.FC<Props> = ({
                                                 {count}
                                             </div>
 
-                                            {/* Usage Badges */}
-                                            {mostUsed.includes(cat) && (
-                                                <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="Popular" />
-                                            )}
-                                            {leastUsed.includes(cat) && (
-                                                <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" title="Explorar" />
-                                            )}
+                                            {/* Status Badges */}
+                                            <div className="absolute top-1 right-1 flex flex-col gap-1 items-end">
+                                                {isFavorite && (
+                                                    <Heart size={8} className="text-red-500 fill-red-500 animate-pulse" />
+                                                )}
+                                                {isBlacklisted && (
+                                                    <div className="flex items-center gap-0.5 bg-red-500/20 px-1 rounded">
+                                                        <Ban size={8} className="text-red-500" />
+                                                        <span className="text-[7px] text-red-500">{blacklistRounds}</span>
+                                                    </div>
+                                                )}
+                                                {!isBlacklisted && mostUsed.includes(cat) && (
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="Popular" />
+                                                )}
+                                            </div>
 
                                             {/* Active Indicator */}
-                                            {isActive && (
+                                            {isActive && !isBlacklisted && (
                                                 <div className="absolute inset-0 border-2 rounded-xl pointer-events-none" style={{ borderColor: theme.accent }} />
                                             )}
 
@@ -436,16 +458,45 @@ export const CategorySelector: React.FC<Props> = ({
                                                 {cat}
                                             </span>
 
-                                            {/* Preview Button (Overlay) */}
-                                            <div 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setPreviewCategory(cat);
-                                                }}
-                                                className="absolute bottom-0 right-0 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110"
-                                            >
-                                                <Eye size={12} style={{ color: theme.sub }} />
-                                            </div>
+                                            {/* Overlay Actions (Only in non-compact mode) */}
+                                            {!isCompactMode && !isBlacklisted && (
+                                                <div className="absolute bottom-0 inset-x-0 h-8 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent">
+                                                    <div 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPreviewCategory(cat);
+                                                        }}
+                                                        className="p-1 hover:scale-125 transition-transform"
+                                                    >
+                                                        <Eye size={12} style={{ color: theme.text }} />
+                                                    </div>
+                                                    
+                                                    {onToggleFavoriteCategory && (
+                                                        <div 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onToggleFavoriteCategory(cat);
+                                                            }}
+                                                            className="p-1 hover:scale-125 transition-transform"
+                                                        >
+                                                            <Heart size={12} className={isFavorite ? "text-red-500 fill-red-500" : "text-white"} />
+                                                        </div>
+                                                    )}
+
+                                                    {onBlockCategory && (
+                                                        <div 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // Block for 5 rounds
+                                                                onBlockCategory(cat);
+                                                            }}
+                                                            className="p-1 hover:scale-125 transition-transform"
+                                                        >
+                                                            <Ban size={12} className="text-red-400" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </button>
                                     );
                                 })}
