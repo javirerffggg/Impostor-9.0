@@ -1,5 +1,7 @@
 
 
+
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -33,6 +35,7 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
     impostorEffects: true, // Default to true
     revealMethod: 'hold',
     swipeSensitivity: 'medium',
+    holdRevealSpeed: 'medium', // Default smoothness
     hapticFeedback: true,
     soundEnabled: true,
     selectedCategories: [],

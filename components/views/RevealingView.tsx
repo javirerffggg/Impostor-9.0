@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
@@ -195,6 +197,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
                                 debugMode={gameState.debugState.isEnabled}
                                 onOracleConfirm={(hint) => { setHasSeenCurrentCard(true); onOracleConfirm(hint); }}
                                 impostorEffectsEnabled={gameState.settings.impostorEffects} // Prop pasada
+                                revealSpeed={gameState.settings.holdRevealSpeed} // ✨ NUEVO: Velocidad de revelación
                             />
                         )
                     )
@@ -253,18 +256,5 @@ export const RevealingView: React.FC<Props> = React.memo(({
                 }
             `}</style>
         </div>
-    );
-}, (prevProps, nextProps) => {
-    // Custom comparison for React.memo
-    // Only re-render if key state changes, ignore object reference changes for functions
-    return (
-        prevProps.gameState.currentPlayerIndex === nextProps.gameState.currentPlayerIndex &&
-        prevProps.gameState.phase === nextProps.gameState.phase &&
-        prevProps.isExiting === nextProps.isExiting &&
-        prevProps.transitionName === nextProps.transitionName &&
-        prevProps.gameState.renunciaData === nextProps.gameState.renunciaData &&
-        prevProps.gameState.currentDrinkingPrompt === nextProps.gameState.currentDrinkingPrompt &&
-        prevProps.theme.name === nextProps.theme.name &&
-        prevProps.gameState.settings.impostorEffects === nextProps.gameState.settings.impostorEffects // Check settings too
     );
 });

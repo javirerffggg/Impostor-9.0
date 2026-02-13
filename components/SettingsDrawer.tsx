@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import { ThemeConfig, ThemeName, GameState, MemoryDifficulty } from '../types';
 import { THEMES } from '../constants';
@@ -289,6 +291,28 @@ export const SettingsDrawer: React.FC<Props> = ({
                                     >
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${gameState.settings.hapticFeedback ? 'left-5' : 'left-1'}`} />
                                     </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {gameState.settings.revealMethod === 'hold' && (
+                            <div className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-4 animate-in fade-in zoom-in duration-300">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex flex-col">
+                                        <span style={{ color: theme.text }} className="text-xs font-bold">Fluidez de Animación</span>
+                                        <span style={{ color: theme.sub }} className="text-[8px] opacity-70">Velocidad de revelación</span>
+                                    </div>
+                                    <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                                        {(['low', 'medium', 'high'] as const).map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => onUpdateSettings({ holdRevealSpeed: s })}
+                                                className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase transition-all ${gameState.settings.holdRevealSpeed === s ? 'bg-white/10 text-white shadow-sm' : 'text-white/40'}`}
+                                            >
+                                                {s === 'low' ? 'Baja' : s === 'medium' ? 'Med' : 'Alta'}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}

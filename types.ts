@@ -254,6 +254,7 @@ export interface GameState {
         impostorEffects: boolean; // ✨ NUEVO: Control de FX Impostor
         revealMethod: 'hold' | 'swipe';
         swipeSensitivity: 'low' | 'medium' | 'high';
+        holdRevealSpeed: 'low' | 'medium' | 'high'; // ✨ NUEVO: Fluidez de la animación de mantener
         hapticFeedback: boolean;
         soundEnabled: boolean;
         selectedCategories: string[];
