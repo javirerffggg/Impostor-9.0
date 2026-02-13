@@ -51,54 +51,46 @@ const SortablePlayer: React.FC<{
         isDragging
     } = useSortable({ id: player.id });
 
+    const avatarColor = getPlayerColor(index);
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
-        backgroundColor: theme.border,
+        opacity: isDragging ? 0.8 : 1,
+        backgroundColor: avatarColor.bg, // Usamos el color del jugador como fondo
         zIndex: isDragging ? 50 : 'auto',
         position: 'relative' as 'relative',
+        boxShadow: isDragging ? `0 10px 20px -5px ${avatarColor.bg}` : `0 4px 10px -5px ${avatarColor.bg}80`,
+        border: 'none'
     };
-
-    const avatarColor = getPlayerColor(index);
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className="flex justify-between items-center p-3 rounded-lg animate-in slide-in-from-left duration-300 group touch-manipulation"
+            className="flex justify-between items-center p-3 rounded-lg animate-in slide-in-from-left duration-300 group touch-manipulation min-h-[3.5rem]"
         >
             {/* Drag Handle */}
             <div 
                 {...attributes} 
                 {...listeners}
-                className="cursor-grab active:cursor-grabbing mr-2 flex-shrink-0 opacity-50 hover:opacity-100"
-                style={{ color: theme.sub }}
+                className="cursor-grab active:cursor-grabbing mr-3 flex-shrink-0 opacity-60 hover:opacity-100"
+                style={{ color: 'white' }}
             >
                 <GripVertical size={16} />
             </div>
 
-            {/* Avatar */}
-            <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs mr-2 shrink-0 shadow-sm"
-                style={{
-                    backgroundColor: avatarColor.bg,
-                    color: avatarColor.text
-                }}
-            >
-                {getPlayerInitials(player.name)}
-            </div>
-            
-            <span style={{ color: theme.text }} className="font-bold truncate text-sm flex-1 mr-2">
+            {/* Name */}
+            <span style={{ color: 'white' }} className="font-bold text-base leading-snug flex-1 mr-2 line-clamp-2 drop-shadow-sm">
                 {player.name}
             </span>
             
             <button 
                 onClick={() => onRemove(player.id)} 
-                style={{ color: theme.sub }} 
-                className="hover:text-red-500 transition-colors shrink-0 p-1"
+                style={{ color: 'white' }} 
+                className="hover:opacity-100 opacity-60 transition-opacity shrink-0 p-1"
             >
-                <X size={14} />
+                <X size={16} strokeWidth={3} />
             </button>
 
             {/* Stats Tooltip */}
@@ -406,7 +398,7 @@ export const SetupView: React.FC<Props> = ({
                  <div className="fixed inset-0 pointer-events-none z-[60] border-4 border-amber-500/50 animate-pulse" />
              )}
 
-            <div className="flex-1 overflow-y-auto px-6 pb-48 space-y-6">
+            <div className="flex-1 overflow-y-auto px-2 pb-48 space-y-4">
                 <header className="pt-6 text-center space-y-2 mb-2">
                     <h1 
                         onClick={onTitleTap}
@@ -620,6 +612,27 @@ export const SetupView: React.FC<Props> = ({
                             </div>
                          </div>
                     )}
+
+                    {/* IMPOSTOR COUNTER (MOVED HERE) */}
+                    <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Ghost size={14} style={{ color: theme.sub }} />
+                            <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-widest">Impostores</p>
+                        </div>
+                        <div style={{ backgroundColor: theme.border }} className="flex items-center gap-3 rounded-lg p-1">
+                            <button 
+                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.max(1, prev.impostorCount - 1)}))}
+                                style={{ color: theme.text }}
+                                className="w-7 h-7 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
+                            >-</button>
+                            <span style={{ color: theme.text }} className="font-bold w-4 text-center">{gameState.impostorCount}</span>
+                            <button 
+                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.min(gameState.players.length - 1, prev.impostorCount + 1)}))}
+                                style={{ color: theme.text }}
+                                className="w-7 h-7 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
+                            >+</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div 
@@ -631,33 +644,12 @@ export const SetupView: React.FC<Props> = ({
                     }} 
                     className="p-5 border backdrop-blur-md premium-border"
                 >
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-widest">Impostores</p>
-                        </div>
-                        <div style={{ backgroundColor: theme.border }} className="flex items-center gap-4 rounded-lg p-1">
-                            <button 
-                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.max(1, prev.impostorCount - 1)}))}
-                                style={{ color: theme.text }}
-                                className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
-                            >-</button>
-                            <span style={{ color: theme.text }} className="font-bold w-4 text-center">{gameState.impostorCount}</span>
-                            <button 
-                                onClick={() => setGameState(prev => ({...prev, impostorCount: Math.min(gameState.players.length - 1, prev.impostorCount + 1)}))}
-                                style={{ color: theme.text }}
-                                className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-70 active:scale-75 transition-transform rounded"
-                            >+</button>
-                        </div>
-                    </div>
-
-                    {/* NEW TABBED MODE SELECTOR */}
-                    <div className="pt-4 border-t border-white/5">
-                        <GameModeWithTabs 
-                            modes={modes}
-                            theme={theme}
-                            onModeToggle={handleModeToggle}
-                        />
-                    </div>
+                    {/* NEW TABBED MODE SELECTOR (Only content in this card now) */}
+                    <GameModeWithTabs 
+                        modes={modes}
+                        theme={theme}
+                        onModeToggle={handleModeToggle}
+                    />
                 </div>
                 
                 <div className="flex w-full gap-3">
