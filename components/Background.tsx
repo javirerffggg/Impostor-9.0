@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { ThemeConfig } from '../types';
 
 interface BackgroundProps {
@@ -9,7 +9,7 @@ interface BackgroundProps {
     activeColor?: string;
 }
 
-export const Background: React.FC<BackgroundProps> = ({ theme, phase, isTroll, isParty, activeColor }) => {
+export const Background = memo(({ theme, phase, isTroll, isParty, activeColor }: BackgroundProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [mousePos, setMousePos] = useState({ x: 50, y: 50 }); // Percentage 0-100
 
@@ -396,4 +396,14 @@ export const Background: React.FC<BackgroundProps> = ({ theme, phase, isTroll, i
             style={{ filter: theme.blur ? `blur(${parseInt(theme.blur)/10}px)` : 'none' }}
         />
     );
-};
+}, (prevProps, nextProps) => {
+    // Optimization: Only re-render if visual themes or game state changes significantly
+    return (
+        prevProps.theme.name === nextProps.theme.name &&
+        prevProps.theme.particleType === nextProps.theme.particleType &&
+        prevProps.phase === nextProps.phase &&
+        prevProps.isTroll === nextProps.isTroll &&
+        prevProps.isParty === nextProps.isParty &&
+        prevProps.activeColor === nextProps.activeColor
+    );
+});

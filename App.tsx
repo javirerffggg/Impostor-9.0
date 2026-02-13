@@ -1,12 +1,4 @@
-
-
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Background } from './components/Background';
-import { PartyNotification } from './components/PartyNotification';
-import { ArchitectCuration } from './components/ArchitectCuration';
-import { CardShuffle } from './components/CardShuffle';
-import { DebugConsole } from './components/DebugConsole';
-import { MagistradoAnnouncement } from './components/MagistradoAnnouncement'; // ✨ IMPORT
+import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { THEMES, PLAYER_COLORS } from './constants';
 import { ThemeName } from './types';
 import { useGameState } from './hooks/useGameState';
@@ -14,18 +6,27 @@ import { useAudioSystem } from './hooks/useAudioSystem';
 import { usePartyPrompts } from './hooks/usePartyPrompts';
 // @ts-ignore
 import confetti from 'canvas-confetti';
+import { LoadingSpinner } from './components/LoadingSpinner';
 
-// --- NEW VIEW IMPORTS ---
-import { SetupView } from './components/views/SetupView';
-import { RevealingView } from './components/views/RevealingView';
-import { ResultsView } from './components/views/ResultsView';
-import { OracleSelectionView } from './components/views/OracleSelectionView';
-
-// --- LAZY IMPORTS ---
+// --- LAZY IMPORTS FOR AGGRESSIVE CODE SPLITTING ---
+const Background = lazy(() => import('./components/Background').then(m => ({ default: m.Background })));
+const PartyNotification = lazy(() => import('./components/PartyNotification').then(m => ({ default: m.PartyNotification })));
+const ArchitectCuration = lazy(() => import('./components/ArchitectCuration').then(m => ({ default: m.ArchitectCuration })));
+const CardShuffle = lazy(() => import('./components/CardShuffle').then(m => ({ default: m.CardShuffle })));
+const DebugConsole = lazy(() => import('./components/DebugConsole').then(m => ({ default: m.DebugConsole })));
+const MagistradoAnnouncement = lazy(() => import('./components/MagistradoAnnouncement').then(m => ({ default: m.MagistradoAnnouncement })));
 const SettingsDrawer = lazy(() => import('./components/SettingsDrawer').then(m => ({ default: m.SettingsDrawer })));
 const CategorySelector = lazy(() => import('./components/CategorySelector').then(m => ({ default: m.CategorySelector })));
-// Updated Manual Import
 const ManualView = lazy(() => import('./components/manual/ManualView').then(m => ({ default: m.ManualView })));
+
+// Views map for cleaner render logic
+const VIEW_COMPONENTS = {
+    setup: lazy(() => import('./components/views/SetupView').then(m => ({ default: m.SetupView }))),
+    revealing: lazy(() => import('./components/views/RevealingView').then(m => ({ default: m.RevealingView }))),
+    results: lazy(() => import('./components/views/ResultsView').then(m => ({ default: m.ResultsView }))),
+    architect: lazy(() => import('./components/ArchitectCuration').then(m => ({ default: m.ArchitectCuration }))), // Handled specifically but kept for consistency
+    oracle: lazy(() => import('./components/views/OracleSelectionView').then(m => ({ default: m.OracleSelectionView })))
+};
 
 function App() {
     // -- State from Custom Hook --
@@ -43,7 +44,14 @@ function App() {
             return 'luminous';
         }
     });
-    const theme = THEMES[themeName];
+
+    // Memoize heavy objects
+    const theme = useMemo(() => THEMES[themeName], [themeName]);
+    const currentPlayerColor = useMemo(
+        () => PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length],
+        [gameState.currentPlayerIndex]
+    );
+
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [categoriesOpen, setCategoriesOpen] = useState(false);
     const [howToPlayOpen, setHowToPlayOpen] = useState(false);
@@ -65,8 +73,6 @@ function App() {
     const [volume, setVolume] = useState(0.15); // Default Volume 15%
     useAudioSystem(gameState.settings.soundEnabled, volume, actions.updateSettings);
     const { triggerPartyMessage } = usePartyPrompts(gameState, setGameState, batteryLevel, setBatteryLevel);
-
-    const currentPlayerColor = PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length];
 
     // -- KONAMI CODE LISTENER --
     const [konamiSequence, setKonamiSequence] = useState<string[]>([]);
@@ -253,6 +259,9 @@ function App() {
         setGameState(prev => ({ ...prev, partyState: { ...prev.partyState, isHydrationLocked: false } }));
     };
 
+    // Determine current view component
+    const CurrentViewComponent = VIEW_COMPONENTS[gameState.phase as keyof typeof VIEW_COMPONENTS];
+
     return (
         <div 
             style={{ 
@@ -264,162 +273,174 @@ function App() {
             } as React.CSSProperties}
             className={`w-full h-full relative overflow-hidden transition-colors duration-700 ${(themeName === 'aura' || themeName === 'luminous') ? 'aura-mode' : ''}`}
         >
-            <Background 
-                theme={theme} 
-                phase={gameState.phase} 
-                isTroll={gameState.isTrollEvent} 
-                activeColor={currentPlayerColor} 
-                isParty={gameState.settings.partyMode}
-            />
+            <Suspense fallback={<LoadingSpinner theme={theme} />}>
+                <Background 
+                    theme={theme} 
+                    phase={gameState.phase} 
+                    isTroll={gameState.isTrollEvent} 
+                    activeColor={currentPlayerColor} 
+                    isParty={gameState.settings.partyMode}
+                />
+            </Suspense>
             
             {/* Shuffling Animation Transition */}
-            {isShuffling && (
-                <CardShuffle 
-                    players={gameState.players} 
-                    theme={theme} 
-                    onComplete={handleShuffleComplete} 
-                />
-            )}
+            <Suspense fallback={null}>
+                {isShuffling && (
+                    <CardShuffle 
+                        players={gameState.players} 
+                        theme={theme} 
+                        onComplete={handleShuffleComplete} 
+                    />
+                )}
+            </Suspense>
 
             {/* Global Overlays */}
             {gameState.settings.partyMode && gameState.currentDrinkingPrompt && (
                 <div className="absolute top-20 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
-                     <PartyNotification prompt={gameState.currentDrinkingPrompt} theme={theme} />
+                     <Suspense fallback={null}>
+                        <PartyNotification prompt={gameState.currentDrinkingPrompt} theme={theme} />
+                     </Suspense>
                 </div>
             )}
 
             {/* ✨ MAGISTRADO ANNOUNCEMENT */}
             {showMagistradoAnnouncement && gameState.magistradoData && (
-                <MagistradoAnnouncement
-                    alcaldeName={gameState.magistradoData.alcaldePlayerName}
-                    theme={theme}
-                    onContinue={() => {
-                        setShowMagistradoAnnouncement(false);
-                        setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
-                        if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
-                    }}
-                />
+                <Suspense fallback={null}>
+                    <MagistradoAnnouncement
+                        alcaldeName={gameState.magistradoData.alcaldePlayerName}
+                        theme={theme}
+                        onContinue={() => {
+                            setShowMagistradoAnnouncement(false);
+                            setGameState(prev => ({ ...prev, phase: 'results', currentDrinkingPrompt: "" }));
+                            if (gameState.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                        }}
+                    />
+                </Suspense>
             )}
 
             {gameState.debugState.isEnabled && (
-                <DebugConsole
-                    gameState={gameState}
-                    theme={theme}
-                    onClose={() => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, isEnabled: false } }))}
-                    onForceTroll={(scenario) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceTroll: scenario } }))}
-                    onForceArchitect={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceArchitect: force } }))}
-                    onForceRenuncia={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceRenuncia: force } }))}
-                    onExportState={() => {
-                        const state = JSON.stringify(gameState, null, 2);
-                        const blob = new Blob([state], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `impostor-state-${Date.now()}.json`;
-                        a.click();
-                    }}
-                    onImportState={(stateStr) => {
-                        try {
-                            const imported = JSON.parse(stateStr);
-                            setGameState(imported);
-                            alert('Estado importado correctamente');
-                        } catch (e) {
-                            alert('Error al importar estado');
-                        }
-                    }}
-                    onResetStats={() => {
-                        setGameState(prev => ({
-                            ...prev,
-                            history: {
-                                ...prev.history,
-                                playerStats: {},
-                                matchLogs: []
+                <Suspense fallback={null}>
+                    <DebugConsole
+                        gameState={gameState}
+                        theme={theme}
+                        onClose={() => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, isEnabled: false } }))}
+                        onForceTroll={(scenario) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceTroll: scenario } }))}
+                        onForceArchitect={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceArchitect: force } }))}
+                        onForceRenuncia={(force) => setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, forceRenuncia: force } }))}
+                        onExportState={() => {
+                            const state = JSON.stringify(gameState, null, 2);
+                            const blob = new Blob([state], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `impostor-state-${Date.now()}.json`;
+                            a.click();
+                        }}
+                        onImportState={(stateStr) => {
+                            try {
+                                const imported = JSON.parse(stateStr);
+                                setGameState(imported);
+                                alert('Estado importado correctamente');
+                            } catch (e) {
+                                alert('Error al importar estado');
                             }
-                        }));
-                    }}
-                    onSimulateRound={() => {
-                        setGameState(prev => ({
-                            ...prev,
-                            history: {
-                                ...prev.history,
-                                roundCounter: prev.history.roundCounter + 1
-                            }
-                        }));
-                    }}
-                />
+                        }}
+                        onResetStats={() => {
+                            setGameState(prev => ({
+                                ...prev,
+                                history: {
+                                    ...prev.history,
+                                    playerStats: {},
+                                    matchLogs: []
+                                }
+                            }));
+                        }}
+                        onSimulateRound={() => {
+                            setGameState(prev => ({
+                                ...prev,
+                                history: {
+                                    ...prev.history,
+                                    roundCounter: prev.history.roundCounter + 1
+                                }
+                            }));
+                        }}
+                    />
+                </Suspense>
             )}
 
-            {/* View Routing */}
-            {gameState.phase === 'setup' && (
-                <SetupView 
-                    gameState={gameState}
-                    setGameState={setGameState}
-                    savedPlayers={savedPlayers}
-                    onAddPlayer={actions.addPlayer}
-                    onRemovePlayer={actions.removePlayer}
-                    onSaveToBank={actions.saveToBank}
-                    onDeleteFromBank={actions.deleteFromBank}
-                    onToggleCategory={actions.toggleCategory}
-                    onToggleAllCategories={actions.toggleAllCategories}
-                    onUpdateSettings={actions.updateSettings}
-                    onStartGame={handleStartGame}
-                    onOpenSettings={() => setSettingsOpen(true)}
-                    onOpenCategories={() => setCategoriesOpen(true)}
-                    onTitleTap={() => {}} // Now handled internally by SetupView
-                    theme={theme}
-                    isPixelating={isPixelating}
-                    hydrationTimer={hydrationTimer}
-                    onHydrationUnlock={handleHydrationUnlock}
-                />
-            )}
-            
-            {gameState.phase === 'architect' && architectOptions && !isShuffling && (
-                <ArchitectCuration 
-                    architect={gameState.gameData[gameState.currentPlayerIndex]}
-                    currentOptions={architectOptions}
-                    onRegenerate={actions.handleArchitectRegenerate}
-                    onConfirm={actions.handleArchitectConfirm}
-                    regenCount={architectRegenCount}
-                    theme={theme}
-                />
-            )}
+            {/* Main View Area */}
+            <Suspense fallback={<LoadingSpinner theme={theme} />}>
+                {gameState.phase === 'setup' && (
+                    <VIEW_COMPONENTS.setup 
+                        gameState={gameState}
+                        setGameState={setGameState}
+                        savedPlayers={savedPlayers}
+                        onAddPlayer={actions.addPlayer}
+                        onRemovePlayer={actions.removePlayer}
+                        onSaveToBank={actions.saveToBank}
+                        onDeleteFromBank={actions.deleteFromBank}
+                        onToggleCategory={actions.toggleCategory}
+                        onToggleAllCategories={actions.toggleAllCategories}
+                        onUpdateSettings={actions.updateSettings}
+                        onStartGame={handleStartGame}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        onOpenCategories={() => setCategoriesOpen(true)}
+                        onTitleTap={() => {}}
+                        theme={theme}
+                        isPixelating={isPixelating}
+                        hydrationTimer={hydrationTimer}
+                        onHydrationUnlock={handleHydrationUnlock}
+                    />
+                )}
+                
+                {gameState.phase === 'architect' && architectOptions && !isShuffling && (
+                    <ArchitectCuration 
+                        architect={gameState.gameData[gameState.currentPlayerIndex]}
+                        currentOptions={architectOptions}
+                        onRegenerate={actions.handleArchitectRegenerate}
+                        onConfirm={actions.handleArchitectConfirm}
+                        regenCount={architectRegenCount}
+                        theme={theme}
+                    />
+                )}
 
-            {gameState.phase === 'oracle' && gameState.oracleSetup && !isShuffling && (
-                <OracleSelectionView 
-                    oraclePlayerId={gameState.oracleSetup.oraclePlayerId}
-                    players={gameState.gameData}
-                    availableHints={gameState.oracleSetup.availableHints}
-                    civilWord={gameState.oracleSetup.civilWord}
-                    theme={theme}
-                    onHintSelected={actions.handleOracleSelection}
-                />
-            )}
+                {gameState.phase === 'oracle' && gameState.oracleSetup && !isShuffling && (
+                    <VIEW_COMPONENTS.oracle 
+                        oraclePlayerId={gameState.oracleSetup.oraclePlayerId}
+                        players={gameState.gameData}
+                        availableHints={gameState.oracleSetup.availableHints}
+                        civilWord={gameState.oracleSetup.civilWord}
+                        theme={theme}
+                        onHintSelected={actions.handleOracleSelection}
+                    />
+                )}
 
-            {gameState.phase === 'revealing' && !isShuffling && (
-                <RevealingView 
-                    gameState={gameState}
-                    theme={theme}
-                    currentPlayerColor={currentPlayerColor}
-                    onNextPlayer={handleNextPlayer}
-                    onOracleConfirm={actions.handleOracleConfirm}
-                    onRenunciaDecision={actions.handleRenunciaDecision}
-                    onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
-                    isExiting={isExiting}
-                    transitionName={transitionName}
-                />
-            )}
+                {gameState.phase === 'revealing' && !isShuffling && (
+                    <VIEW_COMPONENTS.revealing 
+                        gameState={gameState}
+                        theme={theme}
+                        currentPlayerColor={currentPlayerColor}
+                        onNextPlayer={handleNextPlayer}
+                        onOracleConfirm={actions.handleOracleConfirm}
+                        onRenunciaDecision={actions.handleRenunciaDecision}
+                        onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
+                        isExiting={isExiting}
+                        transitionName={transitionName}
+                    />
+                )}
+                
+                {gameState.phase === 'results' && (
+                    <VIEW_COMPONENTS.results 
+                        gameState={gameState} 
+                        theme={theme} 
+                        onBack={handleBackToSetup} 
+                        onReplay={handleReplay} 
+                    />
+                )}
+            </Suspense>
             
-            {gameState.phase === 'results' && (
-                <ResultsView 
-                    gameState={gameState} 
-                    theme={theme} 
-                    onBack={handleBackToSetup} 
-                    onReplay={handleReplay} 
-                />
-            )}
-            
-            {/* Common UI Components Loaded Lazily */}
-            <Suspense fallback={<div className="fixed inset-0 pointer-events-none" />}>
+            {/* Drawers / Modals */}
+            <Suspense fallback={null}>
                 <SettingsDrawer 
                     isOpen={settingsOpen}
                     onClose={() => setSettingsOpen(false)}
