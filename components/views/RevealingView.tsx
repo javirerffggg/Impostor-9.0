@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 import React, { useState } from 'react';
 import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
@@ -205,28 +196,89 @@ export const RevealingView: React.FC<Props> = React.memo(({
             </div>
             
             {!transitionName && !isRenunciaPhase2 && (
-                <div className="mt-auto mb-4 text-center opacity-50 space-y-2 shrink-0">
-                    <p style={{ color: theme.sub }} className="text-[10px] uppercase tracking-widest">
-                        Jugador {gameState.currentPlayerIndex + 1} de {gameState.players.length}
-                    </p>
-                    <div className="flex gap-2 justify-center items-center h-4">
-                        {gameState.players.map((_, i) => {
-                            const isActive = i === gameState.currentPlayerIndex;
-                            const isPast = i < gameState.currentPlayerIndex;
-                            return (
+                <div className="mt-auto mb-6 flex flex-col items-center gap-2.5 shrink-0">
+                    {/* Solo texto superior */}
+                    <span 
+                    className="text-[9px] font-mono tracking-[0.3em] uppercase opacity-30"
+                    style={{ color: theme.sub }}
+                    >
+                    {gameState.currentPlayerIndex + 1}/{gameState.players.length}
+                    </span>
+                    
+                    {/* Dots sin container */}
+                    <div className="flex items-center gap-2">
+                    {gameState.players.map((_, i) => {
+                        const isActive = i === gameState.currentPlayerIndex;
+                        const isPast = i < gameState.currentPlayerIndex;
+                        const playerColor = PLAYER_COLORS[i % PLAYER_COLORS.length];
+                        
+                        return (
+                        <div key={i} className="relative flex items-center justify-center">
+                            {/* Triple ring glow para activo */}
+                            {isActive && (
+                            <>
+                                {/* Outer ring */}
                                 <div 
-                                    key={i} 
-                                    style={{ 
-                                        backgroundColor: isActive || isPast
-                                            ? PLAYER_COLORS[i % PLAYER_COLORS.length] 
-                                            : 'rgba(255,255,255,0.2)',
-                                        animation: isActive ? 'echo-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite' : 'none',
-                                        boxShadow: isActive ? `0 0 10px ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` : 'none'
-                                    }}
-                                    className={`rounded-full transition-all duration-500 ${isActive ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}
+                                className="absolute w-8 h-8 rounded-full blur-md opacity-40"
+                                style={{ 
+                                    backgroundColor: playerColor,
+                                    animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite'
+                                }}
                                 />
-                            );
-                        })}
+                                {/* Middle ring */}
+                                <div 
+                                className="absolute w-6 h-6 rounded-full blur-sm opacity-60 animate-pulse"
+                                style={{ backgroundColor: playerColor }}
+                                />
+                                {/* Inner ring */}
+                                <div 
+                                className="absolute w-5 h-5 rounded-full opacity-20 animate-pulse"
+                                style={{ 
+                                    backgroundColor: playerColor,
+                                    animationDelay: '0.5s'
+                                }}
+                                />
+                            </>
+                            )}
+                            
+                            {/* Main dot */}
+                            <div 
+                            className={`
+                                relative rounded-full
+                                transition-all duration-700 ease-out
+                                ${isActive ? 'w-3.5 h-3.5 scale-100' : 'w-2 h-2'}
+                            `}
+                            style={{
+                                backgroundColor: isActive || isPast 
+                                ? playerColor 
+                                : 'rgba(255, 255, 255, 0.1)',
+                                boxShadow: isActive 
+                                ? `
+                                    0 0 20px ${playerColor},
+                                    0 0 10px ${playerColor},
+                                    0 0 5px ${playerColor},
+                                    inset 0 0 5px rgba(255, 255, 255, 0.5)
+                                ` 
+                                : isPast
+                                    ? `0 0 8px ${playerColor}50`
+                                    : 'none',
+                                opacity: isActive || isPast ? 1 : 0.25
+                            }}
+                            >
+                            {/* Inner highlight para activo */}
+                            {isActive && (
+                                <div 
+                                className="absolute inset-0 rounded-full"
+                                style={{
+                                    background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6) 0%, transparent 60%)',
+                                    animation: 'pulse 2s ease-in-out infinite'
+                                }}
+                                />
+                            )}
+                            </div>
+                        </div>
+                        );
+                    })}
                     </div>
                 </div>
             )}
