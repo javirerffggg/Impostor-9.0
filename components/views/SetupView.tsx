@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, GripVertical, TrendingUp, Crown, Target, Shield, Bug, AlertTriangle, Gamepad2 } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, TrendingUp, Crown, Target, Shield, Bug, AlertTriangle, Gamepad2 } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
@@ -66,23 +66,25 @@ const PlayerCardPremium: React.FC<{
     <div
       ref={setNodeRef}
       style={style}
-      className="relative group animate-in slide-in-from-left fade-in duration-300"
+      className="relative group animate-in slide-in-from-left fade-in duration-300 touch-none"
       // style={{ animationDelay: `${index * 50}ms` }} // JSX style override issue if mixed with style variable
       onMouseEnter={() => setShowStats(true)}
       onMouseLeave={() => setShowStats(false)}
+      {...attributes}
+      {...listeners}
     >
       {/* Card principal */}
       <div 
         className={`
-          relative overflow-hidden rounded-2xl p-3
-          transition-all duration-300
+          relative overflow-hidden rounded-xl p-2.5
+          transition-all duration-300 cursor-grab active:cursor-grabbing
           ${isDragging ? 'scale-105 rotate-2' : 'scale-100 hover:scale-102'}
         `}
         style={{
           backgroundColor: avatarColor.bg,
           boxShadow: isDragging 
             ? `0 20px 40px -10px ${avatarColor.bg}, 0 0 0 2px ${avatarColor.bg}40`
-            : `0 8px 24px -10px ${avatarColor.bg}80`,
+            : `0 4px 12px -6px ${avatarColor.bg}80`,
           animationDelay: `${index * 50}ms`
         }}
       >
@@ -96,61 +98,24 @@ const PlayerCardPremium: React.FC<{
         
         {/* Pattern decorativo */}
         <div 
-          className="absolute -right-4 -top-4 w-24 h-24 opacity-5"
+          className="absolute -right-4 -top-4 w-20 h-20 opacity-5"
           style={{
             background: `radial-gradient(circle, white 2px, transparent 2px)`,
-            backgroundSize: '12px 12px'
+            backgroundSize: '10px 10px'
           }}
         />
         
-        <div className="relative z-10 flex items-center gap-3">
-          {/* Drag handle */}
-          <div 
-            {...attributes} 
-            {...listeners}
-            className="
-              cursor-grab active:cursor-grabbing
-              p-1.5 -ml-1 rounded-lg
-              opacity-40 hover:opacity-100
-              transition-all duration-200
-              hover:bg-white/10
-            "
-            style={{ color: 'white' }}
-          >
-            <GripVertical size={14} strokeWidth={2.5} />
-          </div>
-
-          {/* Avatar con iniciales */}
-          <div 
-            className="
-              relative w-10 h-10 rounded-xl flex items-center justify-center
-              font-black text-sm shrink-0
-              transition-transform duration-300
-              group-hover:scale-110
-            "
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              color: 'white',
-              backdropFilter: 'blur(10px)',
-              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            {getPlayerInitials(player.name)}
-            
-            {/* Indicador de stats disponibles */}
-            {stats && (
-              <div 
-                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white"
-                style={{ backgroundColor: '#10b981' }}
-              />
-            )}
-          </div>
+        <div className="relative z-10 flex items-center gap-2 pl-1">
+          {/* Indicador de stats (dot) si existe */}
+          {stats && (
+             <div className="w-1.5 h-1.5 rounded-full bg-white/50 shadow-sm shrink-0" />
+          )}
 
           {/* Nombre */}
           <span 
             className="
-              flex-1 font-bold text-sm leading-tight
-              drop-shadow-sm line-clamp-2
+              flex-1 font-bold text-xs leading-tight
+              drop-shadow-sm line-clamp-1
             "
             style={{ color: 'white' }}
           >
@@ -163,8 +128,9 @@ const PlayerCardPremium: React.FC<{
               e.stopPropagation();
               onRemove(player.id);
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="
-              w-8 h-8 rounded-lg flex items-center justify-center
+              w-6 h-6 rounded-md flex items-center justify-center
               opacity-60 hover:opacity-100
               transition-all duration-200
               hover:bg-white/20 active:scale-90
@@ -172,7 +138,7 @@ const PlayerCardPremium: React.FC<{
             "
             style={{ color: 'white' }}
           >
-            <X size={16} strokeWidth={3} />
+            <X size={14} strokeWidth={3} />
           </button>
         </div>
         
@@ -549,13 +515,17 @@ export const SetupView: React.FC<Props> = ({
     }
 
     return (
-        <div className={`flex flex-col h-full relative z-10 animate-in fade-in duration-500 pt-[env(safe-area-inset-top)] ${isPixelating ? 'animate-dissolve' : ''}`}>
+        <div className={`flex flex-col h-full relative z-10 animate-in fade-in duration-500 pt-[env(safe-area-inset-top)] overflow-x-hidden ${isPixelating ? 'animate-dissolve' : ''}`}>
              
              {gameState.debugState.isEnabled && (
                  <div className="fixed inset-0 pointer-events-none z-[60] border-4 border-amber-500/50 animate-pulse" />
              )}
 
-            <div className="flex-1 overflow-y-auto px-2 pb-48 space-y-4">
+            {/* Scroll Gradients - FIXED PERMANENT VISIBILITY */}
+            {/* Top gradient removed as requested */}
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/20 to-transparent z-20 pointer-events-none" />
+
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-48 space-y-4 no-scrollbar">
                 
                 {/* --- HEADER ULTRA PREMIUM --- */}
                 <header className="pt-8 pb-6 text-center space-y-4 mb-4 relative">
@@ -595,31 +565,13 @@ export const SetupView: React.FC<Props> = ({
                         `
                       }}
                     >
-                      <div 
-                        className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none"
-                      >
-                        <div 
-                          className="absolute inset-0 opacity-20"
-                          style={{
-                            background: `linear-gradient(
-                              to bottom,
-                              transparent 0%,
-                              ${theme.accent}40 50%,
-                              transparent 100%
-                            )`,
-                            height: '30%',
-                            animation: 'scan-vertical 3s ease-in-out infinite'
-                          }}
-                        />
-                      </div>
-                      
                       <h1 
                         onClick={handleLogoTap}
                         className="
                           text-5xl sm:text-6xl font-black italic tracking-tighter select-none 
                           cursor-pointer transition-all duration-300
                           hover:scale-105 active:scale-95
-                          relative z-10
+                          relative z-10 pr-2
                         "
                         style={{ 
                           color: theme.text,
@@ -1369,48 +1321,50 @@ export const SetupView: React.FC<Props> = ({
                     />
                   )}
                   
-                  {/* Contenido del botón */}
-                  <div className="relative z-10 h-full flex items-center justify-center gap-3 px-6">
-                    <span className="text-white font-black text-lg uppercase tracking-wider flex items-center gap-3">
-                      {isParty ? "COMENZAR EL BOTELLÓN" : "EMPEZAR PARTIDA"}
-                    </span>
+                  {/* Contenido del botón - Layout FLEX para evitar solapamiento */}
+                  <div className="relative z-10 h-full flex items-center justify-between px-6">
+                    <div className="flex items-center gap-3">
+                      <span className="text-white font-black text-lg uppercase tracking-wider flex items-center gap-2">
+                        {isParty ? "EL BOTELLÓN" : "EMPEZAR"}
+                      </span>
+                      <div 
+                        className={`
+                          transition-all duration-300
+                          ${isValidToStart ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}
+                        `}
+                      >
+                        <ChevronRight 
+                          strokeWidth={4} 
+                          size={20} 
+                          className="text-white"
+                        />
+                      </div>
+                    </div>
                     
-                    <div 
-                      className={`
-                        transition-all duration-300
-                        ${isValidToStart ? 'translate-x-0' : '-translate-x-2'}
-                      `}
-                    >
-                      <ChevronRight 
-                        strokeWidth={4} 
-                        size={24} 
-                        className="text-white"
-                      />
-                    </div>
+                    {/* Contador de jugadores en el botón */}
+                    {isValidToStart && (
+                      <div 
+                        className="
+                          px-3 py-1 rounded-full
+                          text-[9px] font-black uppercase
+                          backdrop-blur-xl shrink-0 ml-2
+                        "
+                        style={{
+                          backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                          color: 'white'
+                        }}
+                      >
+                        {playerCount} jugadores
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Contador de jugadores en el botón */}
-                  {isValidToStart && (
-                    <div 
-                      className="
-                        absolute top-2 right-4 
-                        px-2 py-0.5 rounded-full
-                        text-[9px] font-black uppercase
-                        backdrop-blur-xl
-                      "
-                      style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                        color: 'white'
-                      }}
-                    >
-                      {playerCount} jugadores
-                    </div>
-                  )}
                 </button>
               </div>
             </div>
             
             <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 @keyframes shake {
                     0%, 100% { transform: translateX(0); }
                     25% { transform: translateX(-5px); }

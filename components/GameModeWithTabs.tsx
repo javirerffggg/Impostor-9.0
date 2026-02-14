@@ -114,18 +114,6 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
                                     />
                                 )
                             )}
-                            
-                            {/* Active Shine Effect */}
-                            {isActive && (
-                                <div 
-                                    className="absolute inset-0 pointer-events-none opacity-20"
-                                    style={{
-                                        background: `linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.8) 50%, transparent 60%)`,
-                                        backgroundSize: '200% 100%',
-                                        animation: 'shimmer-tab 3s infinite'
-                                    }}
-                                />
-                            )}
                         </button>
                     );
                 })}
@@ -151,10 +139,6 @@ export const GameModeWithTabs: React.FC<Props> = ({ modes, theme, onModeToggle }
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                @keyframes shimmer-tab {
-                    0% { background-position: 150% 0; }
-                    100% { background-position: -50% 0; }
-                }
             `}</style>
         </div>
     );

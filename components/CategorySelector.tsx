@@ -1,10 +1,9 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeConfig, CategoryPreset } from '../types';
 import { CATEGORIES_DATA } from '../categories';
 import { CURATED_COLLECTIONS } from '../constants';
-import { X, CheckCheck, Check, Library, List, Sparkles, Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home, Search, LayoutGrid, Grid3x3, Shuffle, Save, Eye, Heart, Ban } from 'lucide-react';
+import { X, CheckCheck, Library, List, Sparkles, Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home, Search, LayoutGrid, Grid3x3, Shuffle, Save, Eye, Heart, Ban, ArrowUp } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
@@ -45,11 +44,37 @@ export const CategorySelector: React.FC<Props> = ({
     });
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
     const [previewCategory, setPreviewCategory] = useState<string | null>(null);
+    
+    // UI State for dynamic header/footer
+    const [isScrolled, setIsScrolled] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // Detectar si el tema tiene fondo degradado
+    const isGradientBg = theme.bg.toLowerCase().includes('gradient');
 
     // Save presets to local storage
     useEffect(() => {
         localStorage.setItem('impostor_category_presets', JSON.stringify(presets));
     }, [presets]);
+
+    const handleScroll = () => {
+        if (scrollContainerRef.current) {
+            const scrollTop = scrollContainerRef.current.scrollTop;
+            setIsScrolled(scrollTop > 80);
+        }
+    };
+
+    const scrollToTopAndSearch = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            // Pequeño delay para enfocar después del scroll si es necesario, 
+            // o enfocar directamente.
+            setTimeout(() => {
+                searchInputRef.current?.focus();
+            }, 300);
+        }
+    };
 
     const allCats = Object.keys(CATEGORIES_DATA);
     const totalSelectedCount = selectedCategories.length;
@@ -116,23 +141,30 @@ export const CategorySelector: React.FC<Props> = ({
             .map(([cat]) => cat);
     };
 
-    const getLeastUsedCategories = () => {
-        if (!categoryUsageStats) return [];
-        const allUsed = Object.keys(categoryUsageStats);
-        return allCats.filter(cat => !allUsed.includes(cat)).slice(0, 5); // Just grab 5 random unused
-    };
-
-    const mostUsed = getMostUsedCategories();
-    const leastUsed = getLeastUsedCategories();
-
     return (
         <div className={`fixed inset-0 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
             <div style={{ backgroundColor: theme.bg }} className="absolute inset-0 flex flex-col overflow-hidden">
                 
-                {/* Header Section */}
-                <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] border-b border-white/10 shrink-0 bg-inherit z-10">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex flex-col">
+                {/* Fixed Close Button (Floating) */}
+                <div className="absolute top-0 right-0 z-50 p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pointer-events-none">
+                    <button 
+                        style={{ color: theme.text, backgroundColor: `${theme.bg}80` }} 
+                        onClick={onClose} 
+                        className="p-2 hover:bg-white/10 rounded-full transition-transform active:scale-90 pointer-events-auto backdrop-blur-md border border-white/10 shadow-lg"
+                    >
+                        <X />
+                    </button>
+                </div>
+
+                {/* SCROLLABLE CONTAINER (Header + Content) */}
+                <div 
+                    ref={scrollContainerRef}
+                    onScroll={handleScroll}
+                    className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-36" // Aumentado a pb-36
+                >
+                    {/* --- HEADER CONTENT (Scrolls away) --- */}
+                    <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+                        <div className="flex flex-col mb-4">
                             <h2 style={{ color: theme.text }} className="text-2xl font-black italic tracking-tighter">
                                 Categorías
                             </h2>
@@ -158,121 +190,173 @@ export const CategorySelector: React.FC<Props> = ({
                                 </p>
                             </div>
                         </div>
-                        <button style={{ color: theme.text }} onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-transform active:scale-90">
-                            <X />
-                        </button>
-                    </div>
 
-                    {/* Progress Bar */}
-                    <div className="mb-6 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
-                        <div 
-                            className="h-full transition-all duration-500 rounded-full"
-                            style={{ 
-                                width: `${(totalSelectedCount / allCats.length) * 100}%`,
-                                backgroundColor: theme.accent
-                            }}
-                        />
-                    </div>
+                        {/* Progress Bar */}
+                        <div className="mb-6 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
+                            <div 
+                                className="h-full transition-all duration-500 rounded-full"
+                                style={{ 
+                                    width: `${(totalSelectedCount / allCats.length) * 100}%`,
+                                    backgroundColor: theme.accent
+                                }}
+                            />
+                        </div>
 
-                    {/* Presets List */}
-                    {presets.length > 0 && (
-                        <div className="mb-4">
-                            <p className="text-[9px] font-black uppercase tracking-widest mb-2 px-1" style={{ color: theme.sub }}>
-                                Tus Presets
-                            </p>
-                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                {presets.map(preset => (
-                                    <button
-                                        key={preset.id}
-                                        onClick={() => {
-                                            // 1. Activate preset categories
-                                            preset.categories.forEach(cat => {
-                                                if (!selectedCategories.includes(cat)) onToggleCategory(cat);
-                                            });
-                                            // 2. Deactivate others (optional, makes it a true preset switch)
-                                            selectedCategories.forEach(cat => {
-                                                if (!preset.categories.includes(cat)) onToggleCategory(cat);
-                                            });
-                                        }}
-                                        className="shrink-0 px-4 py-2 rounded-xl border flex items-center gap-3 relative group active:scale-95 transition-transform"
-                                        style={{ backgroundColor: theme.cardBg, borderColor: theme.border }}
-                                    >
-                                        <span className="text-lg">{preset.emoji}</span>
-                                        <div className="flex flex-col items-start">
-                                            <span className="text-xs font-bold" style={{ color: theme.text }}>{preset.name}</span>
-                                            <span className="text-[8px] opacity-60" style={{ color: theme.sub }}>{preset.categories.length} temas</span>
-                                        </div>
+                        {/* Presets List */}
+                        {presets.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-[9px] font-black uppercase tracking-widest mb-2 px-1" style={{ color: theme.sub }}>
+                                    Tus Presets
+                                </p>
+                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                    {presets.map(preset => (
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (confirm('¿Borrar preset?')) {
-                                                    setPresets(prev => prev.filter(p => p.id !== preset.id));
-                                                }
+                                            key={preset.id}
+                                            onClick={() => {
+                                                preset.categories.forEach(cat => {
+                                                    if (!selectedCategories.includes(cat)) onToggleCategory(cat);
+                                                });
+                                                selectedCategories.forEach(cat => {
+                                                    if (!preset.categories.includes(cat)) onToggleCategory(cat);
+                                                });
                                             }}
-                                            className="w-5 h-5 rounded-full flex items-center justify-center absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white shadow-sm"
+                                            className="shrink-0 px-4 py-2 rounded-xl border flex items-center gap-3 relative group active:scale-95 transition-transform"
+                                            style={{ backgroundColor: theme.cardBg, borderColor: theme.border }}
                                         >
-                                            <X size={10} strokeWidth={3} />
+                                            <span className="text-lg">{preset.emoji}</span>
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-xs font-bold" style={{ color: theme.text }}>{preset.name}</span>
+                                                <span className="text-[8px] opacity-60" style={{ color: theme.sub }}>{preset.categories.length} temas</span>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm('¿Borrar preset?')) {
+                                                        setPresets(prev => prev.filter(p => p.id !== preset.id));
+                                                    }
+                                                }}
+                                                className="w-5 h-5 rounded-full flex items-center justify-center absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white shadow-sm"
+                                            >
+                                                <X size={10} strokeWidth={3} />
+                                            </button>
                                         </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Navigation Tabs & Controls */}
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="flex-1 flex bg-black/20 p-1 rounded-2xl border border-white/5 gap-1">
+                                <button 
+                                    onClick={() => setViewMode('list')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
+                                >
+                                    <List size={14} /> Lista
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('collections')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'collections' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
+                                >
+                                    <Library size={14} /> Packs
+                                </button>
+                            </div>
+                            
+                            <button
+                                onClick={() => setShowSavePresetModal(true)}
+                                disabled={totalSelectedCount === 0}
+                                className="p-3 rounded-xl border transition-all active:scale-95 disabled:opacity-30"
+                                style={{ backgroundColor: theme.accent, borderColor: theme.accent, color: 'white' }}
+                                title="Guardar selección como Preset"
+                            >
+                                <Save size={18} />
+                            </button>
+
+                            <button
+                                onClick={() => setIsCompactMode(!isCompactMode)}
+                                className="p-3 rounded-xl border transition-all active:scale-95"
+                                style={{ 
+                                    backgroundColor: isCompactMode ? theme.accent : theme.border, 
+                                    borderColor: isCompactMode ? theme.accent : theme.border, 
+                                    color: isCompactMode ? 'white' : theme.text 
+                                }}
+                                title={isCompactMode ? "Vista expandida" : "Vista compacta"}
+                            >
+                                {isCompactMode ? <Grid3x3 size={18} /> : <LayoutGrid size={18} />}
+                            </button>
+                        </div>
+
+                        {/* Search Bar (Now scrolls away) */}
+                        {viewMode === 'list' && (
+                            <div className="relative group mb-6">
+                                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-white" style={{ color: theme.sub }} />
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Buscar entre 50+ categorías..."
+                                    className="w-full pl-11 pr-10 py-3.5 rounded-2xl outline-none text-sm font-bold transition-all border"
+                                    style={{ 
+                                        backgroundColor: theme.cardBg, 
+                                        color: theme.text,
+                                        borderColor: searchQuery ? theme.accent : theme.border,
+                                        boxShadow: searchQuery ? `0 0 20px -5px ${theme.accent}30` : 'none'
+                                    }}
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                                        style={{ backgroundColor: theme.accent }}
+                                    >
+                                        <X size={12} color="white" strokeWidth={3} />
                                     </button>
-                                ))}
+                                )}
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Navigation Tabs & Controls */}
-                    <div className="flex items-center gap-2">
-                        <div className="flex-1 flex bg-black/20 p-1 rounded-2xl border border-white/5 gap-1">
-                            <button 
-                                onClick={() => setViewMode('list')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
-                            >
-                                <List size={14} /> Lista
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('collections')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'collections' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
-                            >
-                                <Library size={14} /> Packs
-                            </button>
-                        </div>
+                        {/* Standard Action Buttons (Scroll away) */}
+                        {viewMode === 'list' && (
+                            <div className="flex gap-2 mb-2">
+                                <button 
+                                    onClick={onToggleAll}
+                                    style={{ 
+                                        borderColor: theme.accent, 
+                                        color: theme.accent,
+                                        backgroundColor: theme.cardBg 
+                                    }}
+                                    className="flex-1 py-4 border rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 backdrop-blur-md transition-all active:scale-95 shadow-sm hover:brightness-110"
+                                >
+                                    <CheckCheck size={16} />
+                                    {selectedCategories.length === allCats.length ? 'DESACTIVAR TODO' : 'ACTIVAR TODO'}
+                                </button>
+                                
+                                <button 
+                                    onClick={() => handleRandomSelection(15)}
+                                    style={{ 
+                                        backgroundColor: theme.accent,
+                                        color: 'white'
+                                    }}
+                                    className="flex-1 py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg hover:brightness-110"
+                                >
+                                    <Shuffle size={16} />
+                                    SORPRÉNDEME
+                                </button>
+                            </div>
+                        )}
                         
-                        <button
-                            onClick={() => setShowSavePresetModal(true)}
-                            disabled={totalSelectedCount === 0}
-                            className="p-3 rounded-xl border transition-all active:scale-95 disabled:opacity-30"
-                            style={{ backgroundColor: theme.accent, borderColor: theme.accent, color: 'white' }}
-                            title="Guardar selección como Preset"
-                        >
-                            <Save size={18} />
-                        </button>
-
-                        <button
-                            onClick={() => setIsCompactMode(!isCompactMode)}
-                            className="p-3 rounded-xl border transition-all active:scale-95"
-                            style={{ 
-                                backgroundColor: isCompactMode ? theme.accent : theme.border, 
-                                borderColor: isCompactMode ? theme.accent : theme.border,
-                                color: isCompactMode ? 'white' : theme.text 
-                            }}
-                            title={isCompactMode ? "Vista expandida" : "Vista compacta"}
-                        >
-                            {isCompactMode ? <Grid3x3 size={18} /> : <LayoutGrid size={18} />}
-                        </button>
+                        {searchQuery && (
+                            <p className="text-[10px] font-bold px-1 mt-2" style={{ color: theme.sub }}>
+                                {filteredCategories.length} RESULTADO{filteredCategories.length !== 1 ? 'S' : ''}
+                            </p>
+                        )}
                     </div>
-                </div>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 pb-40">
-                    
-                    {viewMode === 'collections' ? (
-                        /* INTERFAZ DE COLECCIONES */
-                        <div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
-                            <div className="flex items-center gap-2 mb-2 px-1">
-                                <Sparkles size={14} style={{ color: theme.accent }} className="animate-pulse" />
-                                <h3 style={{ color: theme.text }} className="text-[11px] font-black uppercase tracking-[0.2em]">Curator Mastery</h3>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
+                    {/* --- MAIN GRID CONTENT --- */}
+                    <div className="px-6 pb-48">
+                        {viewMode === 'collections' ? (
+                            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-right duration-300">
                                 {CURATED_COLLECTIONS.map(col => {
                                     const active = isCollectionActive(col.id);
                                     const IconComponent = IconMap[col.icon] || Sparkles;
@@ -301,7 +385,7 @@ export const CategorySelector: React.FC<Props> = ({
                                                         <IconComponent size={18} />
                                                     </div>
                                                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${active ? 'bg-white border-white' : 'border-white/20'}`}>
-                                                        {active && <Check size={12} className="text-black font-black" strokeWidth={4} />}
+                                                        {active && <CheckCheck size={12} className="text-black font-black" strokeWidth={4} />}
                                                     </div>
                                                 </div>
 
@@ -330,83 +414,15 @@ export const CategorySelector: React.FC<Props> = ({
                                     );
                                 })}
                             </div>
-                        </div>
-                    ) : (
-                        /* LISTA COMPLETA - SEARCH + GRID */
-                        <div className="animate-in fade-in slide-in-from-left duration-300">
-                            
-                            {/* Sticky Search Bar */}
-                            <div className="sticky top-[-1.5rem] pt-2 pb-4 z-20" style={{ backgroundColor: theme.bg }}>
-                                <div className="relative group">
-                                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-white" style={{ color: theme.sub }} />
-                                    <input
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Buscar entre 50+ categorías..."
-                                        className="w-full pl-11 pr-10 py-3.5 rounded-2xl outline-none text-sm font-bold transition-all border"
-                                        style={{ 
-                                            backgroundColor: theme.cardBg, 
-                                            color: theme.text,
-                                            borderColor: searchQuery ? theme.accent : theme.border,
-                                            boxShadow: searchQuery ? `0 0 20px -5px ${theme.accent}30` : 'none'
-                                        }}
-                                    />
-                                    {searchQuery && (
-                                        <button
-                                            onClick={() => setSearchQuery('')}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                                            style={{ backgroundColor: theme.accent }}
-                                        >
-                                            <X size={12} color="white" strokeWidth={3} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-2 mb-6">
-                                <button 
-                                    onClick={onToggleAll}
-                                    style={{ 
-                                        borderColor: theme.accent, 
-                                        color: theme.accent,
-                                        backgroundColor: theme.cardBg 
-                                    }}
-                                    className="flex-1 py-4 border rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 backdrop-blur-md transition-all active:scale-95 shadow-sm hover:brightness-110"
-                                >
-                                    <CheckCheck size={16} />
-                                    {selectedCategories.length === allCats.length ? 'DESACTIVAR TODO' : 'ACTIVAR TODO'}
-                                </button>
-                                
-                                <button 
-                                    onClick={() => handleRandomSelection(15)}
-                                    style={{ 
-                                        backgroundColor: theme.accent,
-                                        color: 'white'
-                                    }}
-                                    className="flex-1 py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg hover:brightness-110"
-                                >
-                                    <Shuffle size={16} />
-                                    SORPRÉNDEME
-                                </button>
-                            </div>
-
-                            {/* Results Info */}
-                            {searchQuery && (
-                                <p className="text-[10px] font-bold mb-4 px-1" style={{ color: theme.sub }}>
-                                    {filteredCategories.length} RESULTADO{filteredCategories.length !== 1 ? 'S' : ''}
-                                </p>
-                            )}
-
-                            {/* Categories Grid */}
-                            <div className={`grid gap-2 md:gap-3 ${isCompactMode ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'}`}>
+                        ) : (
+                            <div className={`${isCompactMode ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'} grid gap-2 md:gap-3 animate-in fade-in slide-in-from-left duration-300`}>
                                 {filteredCategories.map(cat => {
                                     const isActive = selectedCategories.includes(cat);
                                     const isFavorite = favoriteCategories.includes(cat);
                                     const blacklistRounds = temporaryBlacklist[cat] || 0;
                                     const isBlacklisted = blacklistRounds > 0;
                                     const count = getCategoryWordCount(cat);
+                                    const mostUsed = getMostUsedCategories();
                                     
                                     return (
                                         <button
@@ -501,26 +517,75 @@ export const CategorySelector: React.FC<Props> = ({
                                     );
                                 })}
                             </div>
-
-                            {/* No Results */}
-                            {searchQuery && filteredCategories.length === 0 && (
-                                <div className="text-center py-12 opacity-50">
-                                    <p className="text-xs font-bold" style={{ color: theme.text }}>Sin resultados</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        )}
+                        
+                        {/* No Results */}
+                        {searchQuery && filteredCategories.length === 0 && (
+                            <div className="text-center py-12 opacity-50">
+                                <p className="text-xs font-bold" style={{ color: theme.text }}>Sin resultados</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Footer Controls */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black to-transparent pointer-events-none">
-                    <button 
-                        onClick={onClose}
-                        style={{ backgroundColor: theme.accent, color: '#fff' }}
-                        className="w-full py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl active:scale-95 transition-all pointer-events-auto hover:brightness-110"
-                    >
-                        Confirmar Selección
-                    </button>
+                {/* DYNAMIC FOOTER CONTROLS */}
+                <div 
+                    className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pointer-events-none transition-all duration-300"
+                    style={!isGradientBg ? {
+                        background: `linear-gradient(to top, ${theme.bg} 40%, ${theme.bg}CC 80%, transparent 100%)`
+                    } : undefined}
+                >
+                    {/* Gradient Theme Backdrop */}
+                    {isGradientBg && (
+                        <div 
+                            className="absolute inset-0 w-full h-full"
+                            style={{
+                                backgroundColor: theme.cardBg,
+                                backdropFilter: 'blur(20px)',
+                                WebkitBackdropFilter: 'blur(20px)',
+                                maskImage: 'linear-gradient(to bottom, transparent, black 30%)',
+                                WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 30%)',
+                                zIndex: -1
+                            }}
+                        />
+                    )}
+
+                    <div className="flex gap-2 items-end pointer-events-auto">
+                        
+                        {/* Confirm Button (Shrinks) */}
+                        <button 
+                            onClick={onClose}
+                            style={{ backgroundColor: theme.accent, color: '#fff' }}
+                            className={`
+                                py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl 
+                                active:scale-95 transition-all hover:brightness-110 flex items-center justify-center gap-2
+                                ${isScrolled ? 'flex-1' : 'w-full'}
+                            `}
+                        >
+                            CONFIRMAR SELECCIÓN
+                        </button>
+
+                        {/* Extra Actions (Appear on Scroll) */}
+                        <div className={`flex gap-2 transition-all duration-500 ease-out overflow-hidden ${isScrolled ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+                            <button
+                                onClick={onToggleAll}
+                                className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/10 active:scale-90 transition-transform"
+                                style={{ color: theme.text }}
+                                title="Activar/Desactivar todo"
+                            >
+                                <CheckCheck size={18} />
+                            </button>
+                            
+                            <button
+                                onClick={scrollToTopAndSearch}
+                                className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/10 active:scale-90 transition-transform"
+                                style={{ color: theme.text }}
+                                title="Buscar"
+                            >
+                                <Search size={18} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

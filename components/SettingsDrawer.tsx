@@ -304,7 +304,7 @@ export const SettingsDrawer: React.FC<Props> = ({
                     <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-black/10 to-transparent z-10 pointer-events-none" />
                     <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/20 to-transparent z-10 pointer-events-none" />
 
-                    <div className="h-full overflow-y-auto overflow-x-hidden p-6 space-y-8 relative z-0 pb-32 scroll-smooth">
+                    <div className="h-full overflow-y-auto overflow-x-hidden p-6 space-y-8 relative z-0 pb-32 scroll-smooth no-scrollbar">
                         
                         {/* 1. MOTOR VISUAL */}
                         <SectionContainer>
@@ -923,7 +923,7 @@ export const SettingsDrawer: React.FC<Props> = ({
                           }}
                         >
                           <div 
-                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                            className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
                             style={{
                               background: `linear-gradient(135deg, ${theme.accent}15 0%, transparent 100%)`,
                             }}
@@ -970,6 +970,11 @@ export const SettingsDrawer: React.FC<Props> = ({
                     </div>
                 </div>
             </div>
+            
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 };
