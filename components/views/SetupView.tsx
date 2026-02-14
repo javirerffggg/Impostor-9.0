@@ -515,7 +515,7 @@ export const SetupView: React.FC<Props> = ({
     }
 
     return (
-        <div className={`flex flex-col h-full relative z-10 animate-in fade-in duration-500 pt-[env(safe-area-inset-top)] overflow-x-hidden ${isPixelating ? 'animate-dissolve' : ''}`}>
+        <div className={`flex flex-col h-full relative z-10 animate-in fade-in duration-500 overflow-x-hidden ${isPixelating ? 'animate-dissolve' : ''}`}>
              
              {gameState.debugState.isEnabled && (
                  <div className="fixed inset-0 pointer-events-none z-[60] border-4 border-amber-500/50 animate-pulse" />
@@ -528,7 +528,7 @@ export const SetupView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-48 space-y-4 no-scrollbar">
                 
                 {/* --- HEADER ULTRA PREMIUM --- */}
-                <header className="pt-8 pb-6 text-center space-y-4 mb-4 relative">
+                <header className="pt-[calc(2rem+env(safe-area-inset-top))] pb-6 text-center space-y-4 mb-4 relative">
                   <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {[...Array(20)].map((_, i) => (
                       <div
