@@ -2,6 +2,8 @@
 
 
 
+
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -10,7 +12,7 @@ import {
     CategoryData, 
     RenunciaDecision 
 } from '../types';
-import { DEFAULT_PLAYERS, CURATED_COLLECTIONS, GAME_LIMITS } from '../constants';
+import { DEFAULT_PLAYERS, CURATED_COLLECTIONS, GAME_LIMITS, PLAYER_COLORS } from '../constants';
 import { generateGameData } from '../utils/gameLogic';
 import { 
     generateArchitectOptions,
@@ -189,9 +191,10 @@ const getInitialSession = (): { players: Player[], impostorCount: number } => {
     
     // Usar Date.now() también para defaults para asegurar IDs únicos
     return {
-        players: DEFAULT_PLAYERS.map((name) => ({ 
+        players: DEFAULT_PLAYERS.map((name, index) => ({ 
             id: `default_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
-            name 
+            name,
+            avatarIdx: index // Initial assignment
         })),
         impostorCount: 1
     };
@@ -272,16 +275,36 @@ export const useGameState = () => {
             return;
         }
 
-        setGameState(prev => ({
-            ...prev,
-            players: [...prev.players, { id: Date.now().toString(), name: name.trim() }]
-        }));
+        setGameState(prev => {
+            const nextAvatarIdx = (prev.players.length) % 12; // Cycle through 12 colors
+            return {
+                ...prev,
+                players: [...prev.players, { 
+                    id: Date.now().toString(), 
+                    name: name.trim(),
+                    avatarIdx: nextAvatarIdx
+                }]
+            };
+        });
     }, [gameState.players.length]);
 
     const removePlayer = useCallback((id: string) => {
         setGameState(prev => ({
             ...prev,
             players: prev.players.filter(p => p.id !== id)
+        }));
+    }, []);
+
+    const cyclePlayerColor = useCallback((id: string) => {
+        setGameState(prev => ({
+            ...prev,
+            players: prev.players.map(p => {
+                if (p.id === id) {
+                    const currentIdx = p.avatarIdx ?? 0;
+                    return { ...p, avatarIdx: (currentIdx + 1) % 12 };
+                }
+                return p;
+            })
         }));
     }, []);
 
@@ -635,6 +658,7 @@ export const useGameState = () => {
             updateSettings,
             addPlayer,
             removePlayer,
+            cyclePlayerColor, // Exported new action
             saveToBank,
             deleteFromBank,
             toggleCategory,

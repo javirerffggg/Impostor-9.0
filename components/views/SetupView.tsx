@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, Player } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, TrendingUp, Crown, Target, Shield, Bug, AlertTriangle, Gamepad2 } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, TrendingUp, Crown, Shield, Bug, AlertTriangle, Gamepad2, ChevronUp, ChevronDown, Pencil, Palette } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
@@ -9,11 +9,9 @@ import { getVault } from '../../utils/core/vault';
 import { GAME_LIMITS } from '../../constants';
 // @ts-ignore
 import confetti from 'canvas-confetti';
+import { PlayerBank } from '../PlayerBank';
 
-// DnD Kit Imports
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+// DnD Imports REMOVED
 
 interface Props {
     gameState: GameState;
@@ -34,57 +32,45 @@ interface Props {
     isPixelating: boolean;
     hydrationTimer: number;
     onHydrationUnlock: () => void;
+    onCyclePlayerColor: (id: string) => void; // New prop
 }
 
-// Sub-component for Sortable Player Item (Premium Version)
+// Sub-component for Player Item (Manual Ordering Version)
 const PlayerCardPremium: React.FC<{
   player: Player;
   index: number;
+  total: number;
   theme: ThemeConfig;
   onRemove: (id: string) => void;
+  onMove: (index: number, direction: -1 | 1) => void;
+  isEditing: boolean;
+  className?: string;
   stats?: { games: number; wins: number; civilStreak: number } | null;
-}> = ({ player, index, theme, onRemove, stats }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: player.id });
-
+  onCycleColor: (id: string) => void;
+}> = ({ player, index, total, theme, onRemove, onMove, isEditing, className, stats, onCycleColor }) => {
   const [showStats, setShowStats] = useState(false);
-  const avatarColor = getPlayerColor(index);
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition || 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-    zIndex: isDragging ? 50 : 'auto',
-  };
+  
+  // Use stored avatarIdx if available, fallback to index
+  const colorIndex = player.avatarIdx !== undefined ? player.avatarIdx : index;
+  const avatarColor = getPlayerColor(colorIndex);
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className="relative group animate-in slide-in-from-left fade-in duration-300 touch-none"
-      // style={{ animationDelay: `${index * 50}ms` }} // JSX style override issue if mixed with style variable
+      className={`relative group animate-in slide-in-from-left fade-in duration-300 ${className || ''}`}
       onMouseEnter={() => setShowStats(true)}
       onMouseLeave={() => setShowStats(false)}
-      {...attributes}
-      {...listeners}
     >
       {/* Card principal */}
       <div 
         className={`
           relative overflow-hidden rounded-xl p-2.5
-          transition-all duration-300 cursor-grab active:cursor-grabbing
-          ${isDragging ? 'scale-105 rotate-2' : 'scale-100 hover:scale-102'}
+          transition-all duration-300
+          ${isEditing ? 'pr-1' : ''}
+          hover:scale-[1.02]
         `}
         style={{
           backgroundColor: avatarColor.bg,
-          boxShadow: isDragging 
-            ? `0 20px 40px -10px ${avatarColor.bg}, 0 0 0 2px ${avatarColor.bg}40`
-            : `0 4px 12px -6px ${avatarColor.bg}80`,
+          boxShadow: `0 4px 12px -6px ${avatarColor.bg}80`,
           animationDelay: `${index * 50}ms`
         }}
       >
@@ -106,8 +92,8 @@ const PlayerCardPremium: React.FC<{
         />
         
         <div className="relative z-10 flex items-center gap-2 pl-1">
-          {/* Indicador de stats (dot) si existe */}
-          {stats && (
+          {/* Indicador de stats (dot) si existe y NO estamos editando */}
+          {stats && !isEditing && (
              <div className="w-1.5 h-1.5 rounded-full bg-white/50 shadow-sm shrink-0" />
           )}
 
@@ -122,28 +108,73 @@ const PlayerCardPremium: React.FC<{
             {player.name}
           </span>
           
-          {/* Botón eliminar */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(player.id);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="
-              w-6 h-6 rounded-md flex items-center justify-center
-              opacity-60 hover:opacity-100
-              transition-all duration-200
-              hover:bg-white/20 active:scale-90
-              shrink-0
-            "
-            style={{ color: 'white' }}
-          >
-            <X size={14} strokeWidth={3} />
-          </button>
+          {/* Controles de Edición o Borrado */}
+          {isEditing ? (
+            <div className="flex items-center gap-1">
+                {/* BOTÓN CAMBIO COLOR */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onCycleColor(player.id); }}
+                    className="p-1.5 rounded bg-white/10 hover:bg-white/20 text-white transition-colors mr-1"
+                    title="Cambiar Color"
+                >
+                    <Palette size={14} strokeWidth={2.5} />
+                </button>
+
+                <div className="flex items-center gap-1 mr-2">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onMove(index, -1); }}
+                        disabled={index === 0}
+                        className="p-1.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white transition-colors"
+                    >
+                        <ChevronUp size={16} strokeWidth={3} />
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onMove(index, 1); }}
+                        disabled={index === total - 1}
+                        className="p-1.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white transition-colors"
+                    >
+                        <ChevronDown size={16} strokeWidth={3} />
+                    </button>
+                </div>
+                <div className="w-px h-6 bg-white/20 mx-1" />
+                <button 
+                    onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(player.id);
+                    }}
+                    className="
+                    w-8 h-8 rounded-lg flex items-center justify-center
+                    bg-white/10 hover:bg-red-500/80
+                    transition-all duration-200
+                    shrink-0
+                    "
+                    style={{ color: 'white' }}
+                >
+                    <X size={16} strokeWidth={3} />
+                </button>
+            </div>
+          ) : (
+            <button 
+                onClick={(e) => {
+                e.stopPropagation();
+                onRemove(player.id);
+                }}
+                className="
+                w-6 h-6 rounded-md flex items-center justify-center
+                opacity-60 hover:opacity-100
+                transition-all duration-200
+                hover:bg-white/20 active:scale-90
+                shrink-0
+                "
+                style={{ color: 'white' }}
+            >
+                <X size={14} strokeWidth={3} />
+            </button>
+          )}
         </div>
         
-        {/* Stats tooltip (hover) */}
-        {showStats && stats && (
+        {/* Stats tooltip (hover) - Disabled during editing */}
+        {showStats && stats && !isEditing && (
           <div 
             className="
               absolute top-full left-0 right-0 mt-2 p-3 rounded-xl
@@ -221,12 +252,14 @@ const PlayerCardPremium: React.FC<{
 export const SetupView: React.FC<Props> = ({ 
     gameState, setGameState, savedPlayers, onAddPlayer, onRemovePlayer, onSaveToBank, onDeleteFromBank,
     onUpdateSettings, onStartGame, onOpenSettings, onOpenCategories, onTitleTap,
-    theme, isPixelating, hydrationTimer, onHydrationUnlock
+    theme, isPixelating, hydrationTimer, onHydrationUnlock, onCyclePlayerColor
 }) => {
     const [newPlayerName, setNewPlayerName] = useState("");
     const [showAutocomplete, setShowAutocomplete] = useState(false);
     const [autocompleteResults, setAutocompleteResults] = useState<string[]>([]);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [showBank, setShowBank] = useState(false);
+    const [isEditingPlayers, setIsEditingPlayers] = useState(false);
     
     const autocompleteTimeoutRef = useRef<number | null>(null);
 
@@ -303,14 +336,6 @@ export const SetupView: React.FC<Props> = ({
     const isOverMax = playerCount > MAX_PLAYERS;
     const isRecommended = playerCount >= RECOMMENDED_PLAYERS.min && playerCount <= RECOMMENDED_PLAYERS.max;
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        })
-    );
-
     const validatePlayerName = (name: string): { valid: boolean; error?: string } => {
         const trimmed = name.trim();
         
@@ -359,20 +384,22 @@ export const SetupView: React.FC<Props> = ({
         setShowAutocomplete(false);
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
+    const handleMovePlayer = (index: number, direction: -1 | 1) => {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= gameState.players.length) return;
+
+        setGameState(prev => {
+            const newPlayers = [...prev.players];
+            const temp = newPlayers[index];
+            newPlayers[index] = newPlayers[newIndex];
+            newPlayers[newIndex] = temp;
+            return {
+                ...prev,
+                players: newPlayers
+            };
+        });
         
-        if (over && active.id !== over.id) {
-            setGameState(prev => {
-                const oldIndex = prev.players.findIndex(p => p.id === active.id);
-                const newIndex = prev.players.findIndex(p => p.id === over.id);
-                
-                return {
-                    ...prev,
-                    players: arrayMove(prev.players, oldIndex, newIndex)
-                };
-            });
-        }
+        if (navigator.vibrate) navigator.vibrate(10);
     };
 
     const handleModeToggle = (id: string) => {
@@ -714,14 +741,35 @@ export const SetupView: React.FC<Props> = ({
                   
                   <div className="flex justify-between items-start mb-5 relative z-10">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users size={16} style={{ color: theme.accent }} />
-                        <h3 
-                          className="text-xs font-black uppercase tracking-[0.25em]"
-                          style={{ color: theme.sub }}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Users size={16} style={{ color: theme.accent }} />
+                            <h3 
+                            className="text-xs font-black uppercase tracking-[0.25em]"
+                            style={{ color: theme.sub }}
+                            >
+                            Sala de Jugadores
+                            </h3>
+                        </div>
+                        
+                        {/* BOTÓN EDITAR ORDEN */}
+                        <button
+                            onClick={() => setIsEditingPlayers(!isEditingPlayers)}
+                            className={`
+                                p-1.5 rounded-lg transition-all duration-300
+                                ${isEditingPlayers 
+                                    ? `text-white shadow-[0_0_15px_currentColor]` 
+                                    : 'hover:bg-white/10 text-white/50 hover:text-white border border-transparent hover:border-white/10'
+                                }
+                            `}
+                            style={{ 
+                                backgroundColor: isEditingPlayers ? theme.accent : 'transparent',
+                                borderColor: isEditingPlayers ? theme.accent : undefined
+                            }}
+                            title={isEditingPlayers ? "Terminar edición" : "Editar orden"}
                         >
-                          Sala de Jugadores
-                        </h3>
+                            {isEditingPlayers ? <Check size={14} strokeWidth={3} /> : <Pencil size={14} />}
+                        </button>
                       </div>
                       
                       <div className="relative h-2 rounded-full overflow-hidden bg-black/20 backdrop-blur-sm">
@@ -805,73 +853,71 @@ export const SetupView: React.FC<Props> = ({
                     </div>
                   </div>
                   
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={gameState.players.map(p => p.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="grid grid-cols-2 gap-3 mb-5 relative z-10">
-                        {gameState.players.map((p, idx) => {
-                          const key = p.name.trim().toLowerCase();
-                          const vault = getVault(key, gameState.history.playerStats);
-                          const stats = vault.metrics.totalSessions > 0 ? {
-                            games: vault.metrics.totalSessions,
-                            wins: vault.metrics.totalImpostorWins,
-                            civilStreak: vault.metrics.civilStreak,
-                            impostorRatio: vault.metrics.impostorRatio
-                          } : null;
+                  {/* PLAYERS LIST (MANUAL SORT) - FLEXBOX IMPLEMENTATION */}
+                  <div className="flex flex-wrap gap-3 mb-5 relative z-10">
+                    {gameState.players.map((p, idx) => {
+                        const key = p.name.trim().toLowerCase();
+                        const vault = getVault(key, gameState.history.playerStats);
+                        const stats = vault.metrics.totalSessions > 0 ? {
+                        games: vault.metrics.totalSessions,
+                        wins: vault.metrics.totalImpostorWins,
+                        civilStreak: vault.metrics.civilStreak,
+                        impostorRatio: vault.metrics.impostorRatio
+                        } : null;
 
-                          return (
-                            <PlayerCardPremium
-                              key={p.id}
-                              player={p}
-                              index={idx}
-                              theme={theme}
-                              onRemove={onRemovePlayer}
-                              stats={stats}
+                        return (
+                        <PlayerCardPremium
+                            key={p.id}
+                            player={p}
+                            index={idx}
+                            total={gameState.players.length}
+                            theme={theme}
+                            onRemove={onRemovePlayer}
+                            onMove={handleMovePlayer}
+                            isEditing={isEditingPlayers}
+                            stats={stats}
+                            onCycleColor={onCyclePlayerColor}
+                            className={`
+                                transition-all duration-500 ease-in-out
+                                ${isEditingPlayers ? 'w-full' : 'w-[calc(50%-0.375rem)]'}
+                            `}
+                        />
+                        );
+                    })}
+                    
+                    {gameState.players.length === 0 && (
+                        <div 
+                        className="w-full py-12 text-center space-y-4 rounded-2xl border-2 border-dashed"
+                        style={{ borderColor: `${theme.border}40` }}
+                        >
+                        <div className="relative inline-block">
+                            <div 
+                            className="absolute inset-0 blur-xl opacity-20"
+                            style={{ backgroundColor: theme.accent }}
                             />
-                          );
-                        })}
-                        
-                        {gameState.players.length === 0 && (
-                          <div 
-                            className="col-span-2 py-12 text-center space-y-4 rounded-2xl border-2 border-dashed"
-                            style={{ borderColor: `${theme.border}40` }}
-                          >
-                            <div className="relative inline-block">
-                              <div 
-                                className="absolute inset-0 blur-xl opacity-20"
-                                style={{ backgroundColor: theme.accent }}
-                              />
-                              <Users 
-                                size={48} 
-                                style={{ color: theme.sub }}
-                                className="opacity-40 relative z-10"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <p 
-                                className="text-sm font-bold"
-                                style={{ color: theme.text }}
-                              >
-                                Ningún jugador aún
-                              </p>
-                              <p 
-                                className="text-xs opacity-60"
-                                style={{ color: theme.sub }}
-                              >
-                                Añade al menos {MIN_PLAYERS} para empezar
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+                            <Users 
+                            size={48} 
+                            style={{ color: theme.sub }}
+                            className="opacity-40 relative z-10"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <p 
+                            className="text-sm font-bold"
+                            style={{ color: theme.text }}
+                            >
+                            Ningún jugador aún
+                            </p>
+                            <p 
+                            className="text-xs opacity-60"
+                            style={{ color: theme.sub }}
+                            >
+                            Añade al menos {MIN_PLAYERS} para empezar
+                            </p>
+                        </div>
+                        </div>
+                    )}
+                  </div>
                   
                   <div className="relative z-10">
                     <div 
@@ -885,6 +931,24 @@ export const SetupView: React.FC<Props> = ({
                       }}
                     >
                       <div className="flex gap-2 p-2">
+                        {/* BOTÓN DEL BANCO */}
+                        <button
+                            onClick={() => setShowBank(true)}
+                            className="
+                                w-11 h-11 rounded-xl flex items-center justify-center shrink-0
+                                transition-all duration-200
+                                hover:scale-105 active:scale-95
+                                border border-white/5
+                            "
+                            style={{ 
+                                backgroundColor: `${theme.accent}15`,
+                                color: theme.accent
+                            }}
+                            title="Abrir Banco de Jugadores"
+                        >
+                            <Database size={18} />
+                        </button>
+
                         <input 
                           id="player-name-input"
                           value={newPlayerName}
@@ -918,7 +982,7 @@ export const SetupView: React.FC<Props> = ({
                             }
                           }}
                           className="
-                            w-11 h-11 rounded-xl flex items-center justify-center
+                            w-11 h-11 rounded-xl flex items-center justify-center shrink-0
                             transition-all duration-200
                             hover:scale-105 active:scale-95
                             disabled:opacity-50 disabled:cursor-not-allowed
@@ -927,7 +991,7 @@ export const SetupView: React.FC<Props> = ({
                             backgroundColor: `${theme.border}CC`,
                             color: theme.sub 
                           }}
-                          title="Guardar en banco"
+                          title="Guardar nombre en banco"
                           disabled={!newPlayerName.trim()}
                         >
                           <Save size={18} />
@@ -937,7 +1001,7 @@ export const SetupView: React.FC<Props> = ({
                           onClick={handleAddPlayer}
                           disabled={playerCount >= MAX_PLAYERS || !!validationError}
                           className="
-                            w-11 h-11 rounded-xl flex items-center justify-center
+                            w-11 h-11 rounded-xl flex items-center justify-center shrink-0
                             transition-all duration-200
                             hover:scale-105 active:scale-95
                             disabled:opacity-50 disabled:cursor-not-allowed
@@ -1186,7 +1250,7 @@ export const SetupView: React.FC<Props> = ({
                     
                     <div className="flex items-center gap-2 mb-4 relative z-10">
                        <Gamepad2 size={16} style={{ color: theme.accent }} />
-                       <h3 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: theme.sub }}>
+                       <h3 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: theme.sub }}>
                           Protocolos de Misión
                        </h3>
                     </div>
@@ -1362,6 +1426,17 @@ export const SetupView: React.FC<Props> = ({
               </div>
             </div>
             
+            {/* PLAYER BANK MODAL */}
+            <PlayerBank
+                isOpen={showBank}
+                onClose={() => setShowBank(false)}
+                savedPlayers={savedPlayers}
+                currentPlayers={gameState.players}
+                onAddPlayer={onAddPlayer}
+                onRemoveFromBank={onDeleteFromBank}
+                theme={theme}
+            />
+
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

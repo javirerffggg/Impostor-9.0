@@ -1,5 +1,6 @@
 
 
+
 export interface SelectionTelemetry {
     playerId: string;
     playerName: string;
@@ -45,6 +46,7 @@ export interface CuratedCollection {
 export interface Player {
     id: string;
     name: string;
+    avatarIdx?: number; // Visual color index persistence
 }
 
 export type SocialRole = 'civil' | 'bartender' | 'vip' | 'alguacil' | 'bufon';

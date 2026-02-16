@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, lazy, Suspense, useMemo, useCallback } from 'react';
 import { THEMES, PLAYER_COLORS, getTheme } from './constants';
 import { ThemeName } from './types';
@@ -48,10 +50,15 @@ function App() {
 
     // Memoize heavy objects using helper
     const theme = useMemo(() => getTheme(themeName), [themeName]);
-    const currentPlayerColor = useMemo(
-        () => PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length],
-        [gameState.currentPlayerIndex]
-    );
+    
+    // Updated color logic to use stored avatarIdx if present
+    const currentPlayerColor = useMemo(() => {
+        const player = gameState.gameData[gameState.currentPlayerIndex] || gameState.players[gameState.currentPlayerIndex];
+        if (player && player.avatarIdx !== undefined) {
+            return PLAYER_COLORS[player.avatarIdx % PLAYER_COLORS.length];
+        }
+        return PLAYER_COLORS[gameState.currentPlayerIndex % PLAYER_COLORS.length];
+    }, [gameState.currentPlayerIndex, gameState.gameData, gameState.players]);
 
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -415,6 +422,7 @@ function App() {
                         isPixelating={isPixelating}
                         hydrationTimer={hydrationTimer}
                         onHydrationUnlock={handleHydrationUnlock}
+                        onCyclePlayerColor={actions.cyclePlayerColor}
                     />
                 )}
                 
