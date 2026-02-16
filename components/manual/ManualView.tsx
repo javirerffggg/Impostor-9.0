@@ -57,11 +57,12 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
       style={{ backgroundColor: theme.bg, color: theme.text }}>
       
       {/* HEADER */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b pt-[calc(1rem+env(safe-area-inset-top))] relative"
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 pt-[calc(1rem+env(safe-area-inset-top))] relative"
         style={{ 
-          borderColor: theme.border,
-          backgroundColor: theme.cardBg,
-          backdropFilter: 'blur(20px)'
+          borderBottom: `1px solid ${theme.border}`,
+          backgroundColor: `${theme.cardBg}F5`,
+          backdropFilter: 'blur(20px)',
+          boxShadow: `0 4px 20px -5px rgba(0,0,0,0.1)`
         }}>
         
         {/* Scroll Progress Bar */}
@@ -108,8 +109,12 @@ export const ManualView: React.FC<Props> = ({ theme, onClose, isOpen }) => {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="p-2 rounded-full transition-all active:scale-95 hover:bg-white/10 border border-white/5"
-          style={{ color: theme.text }}>
+          className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 hover:bg-white/10 border"
+          style={{ 
+              color: theme.text,
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderColor: 'rgba(255,255,255,0.1)'
+          }}>
           <X size={20} />
         </button>
       </div>

@@ -41,13 +41,8 @@ const SectionHeader: React.FC<{
 }> = ({ icon, title, subtitle, badge, theme }) => (
   <div 
     className="
-      flex items-center justify-between px-4 py-3 rounded-2xl
-      backdrop-blur-xl border
+      flex items-center justify-between px-2 py-2 mb-2
     "
-    style={{
-      backgroundColor: `${theme.accent}08`,
-      borderColor: `${theme.accent}30`
-    }}
   >
     <div className="flex items-center gap-3">
       <div 
@@ -97,18 +92,27 @@ const ContentCard: React.FC<{
   variant?: 'default' | 'glass' | 'solid';
 }> = ({ children, theme, variant = 'default' }) => (
   <div 
-    className="p-5 rounded-2xl border backdrop-blur-xl"
+    className="p-5 rounded-[24px] border backdrop-blur-2xl relative overflow-hidden group"
     style={{
       backgroundColor: variant === 'glass' 
         ? `${theme.cardBg}40`
-        : variant === 'solid'
-          ? theme.cardBg
-          : `${theme.bg}80`,
-      borderColor: `${theme.border}80`,
-      boxShadow: '0 8px 32px -12px rgba(0, 0, 0, 0.3)'
+        : `${theme.cardBg}F5`,
+      borderColor: theme.border,
+      boxShadow: `
+        0 20px 60px -15px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05)
+      `
     }}
   >
-    {children}
+    <div 
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        style={{
+            background: `radial-gradient(circle at 50% 50%, ${theme.accent}, transparent 70%)`
+        }}
+    />
+    <div className="relative z-10">
+        {children}
+    </div>
   </div>
 );
 
@@ -273,7 +277,7 @@ export const SettingsDrawer: React.FC<Props> = ({
 
     return (
         <div className="fixed inset-0 z-[100] animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity duration-500" onClick={onClose} />
             <div 
                 style={{ backgroundColor: isPremiumActive ? `${theme.bg}F5` : theme.bg }}
                 className="absolute inset-0 flex flex-col overflow-hidden"
@@ -283,21 +287,20 @@ export const SettingsDrawer: React.FC<Props> = ({
                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)\'/%3E%3C/svg%3E")` }} 
                 />
                 
-                <header className="relative z-10 px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 flex items-center justify-between border-b border-white/5 bg-gradient-to-b from-black/10 to-transparent shadow-sm">
-                    <div className="flex flex-col">
-                        <h2 style={{ color: theme.text }} className="text-3xl font-black italic tracking-tighter drop-shadow-sm">SISTEMA</h2>
-                        <span style={{ color: theme.sub }} className="text-[10px] font-mono uppercase tracking-widest opacity-70">
-                            Configuración v2.5 • Ultra
-                        </span>
-                    </div>
+                {/* Fixed Floating Close Button */}
+                <div className="absolute top-0 right-0 z-50 p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pointer-events-none">
                     <button 
                         onClick={onClose}
-                        className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
-                        style={{ color: theme.text }}
+                        className="w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 pointer-events-auto backdrop-blur-md border shadow-lg hover:bg-white/10"
+                        style={{ 
+                            backgroundColor: `${theme.bg}80`, 
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            color: theme.text 
+                        }}
                     >
-                        <X size={20} />
+                        <X size={20} strokeWidth={2.5} />
                     </button>
-                </header>
+                </div>
 
                 <div className="relative flex-1 overflow-hidden">
                     {/* Blur Gradients for Scroll */}
@@ -306,6 +309,17 @@ export const SettingsDrawer: React.FC<Props> = ({
 
                     <div className="h-full overflow-y-auto overflow-x-hidden p-6 space-y-8 relative z-0 pb-32 scroll-smooth no-scrollbar">
                         
+                        {/* HEADER IN CONTENT */}
+                        <div className="pt-[calc(1.5rem+env(safe-area-inset-top))]">
+                            <h2 style={{ color: theme.text }} className="text-3xl font-black italic tracking-tighter drop-shadow-sm mb-2">SISTEMA</h2>
+                            <div className="flex items-center gap-2">
+                                <span style={{ color: theme.sub }} className="text-[10px] font-mono uppercase tracking-widest opacity-70">
+                                    Configuración v2.5 • Ultra
+                                </span>
+                                <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent" />
+                            </div>
+                        </div>
+
                         {/* 1. MOTOR VISUAL */}
                         <SectionContainer>
                           <SectionHeader
@@ -321,7 +335,7 @@ export const SettingsDrawer: React.FC<Props> = ({
                             className="
                               sticky top-0 z-20 
                               p-1.5 rounded-2xl border backdrop-blur-2xl
-                              shadow-lg
+                              shadow-lg mb-4
                             "
                             style={{
                               backgroundColor: `${theme.bg}F0`,

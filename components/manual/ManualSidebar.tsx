@@ -74,7 +74,7 @@ export const ManualSidebar: React.FC<Props> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
         style={{ 
-          backgroundColor: theme.cardBg, // Dynamic Background
+          backgroundColor: `${theme.cardBg}F5`, // Matched opacity
           borderColor: theme.border,
           backdropFilter: 'blur(20px)'
         }}>

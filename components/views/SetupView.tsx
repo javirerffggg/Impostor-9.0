@@ -32,10 +32,10 @@ interface Props {
     isPixelating: boolean;
     hydrationTimer: number;
     onHydrationUnlock: () => void;
-    onCyclePlayerColor: (id: string) => void; // New prop
+    onCyclePlayerColor: (id: string) => void; 
 }
 
-// Sub-component for Player Item (Manual Ordering Version)
+// Sub-component for Player Item
 const PlayerCardPremium: React.FC<{
   player: Player;
   index: number;
@@ -50,7 +50,7 @@ const PlayerCardPremium: React.FC<{
 }> = ({ player, index, total, theme, onRemove, onMove, isEditing, className, stats, onCycleColor }) => {
   const [showStats, setShowStats] = useState(false);
   
-  // Use stored avatarIdx if available, fallback to index
+  // USA EL ÍNDICE DE AVATAR GUARDADO PARA MANTENER EL COLOR AL MOVER
   const colorIndex = player.avatarIdx !== undefined ? player.avatarIdx : index;
   const avatarColor = getPlayerColor(colorIndex);
 
@@ -110,40 +110,42 @@ const PlayerCardPremium: React.FC<{
           
           {/* Controles de Edición o Borrado */}
           {isEditing ? (
-            <div className="flex items-center gap-1">
-                {/* BOTÓN CAMBIO COLOR */}
+            <div className="flex items-center gap-1.5">
+                {/* BOTÓN CAMBIO COLOR - Mantiene el color al moverse */}
                 <button
                     onClick={(e) => { e.stopPropagation(); onCycleColor(player.id); }}
-                    className="p-1.5 rounded bg-white/10 hover:bg-white/20 text-white transition-colors mr-1"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-black/20 hover:bg-black/40 text-white transition-all active:scale-95"
                     title="Cambiar Color"
                 >
                     <Palette size={14} strokeWidth={2.5} />
                 </button>
 
-                <div className="flex items-center gap-1 mr-2">
+                <div className="w-px h-6 bg-white/20" />
+
+                <div className="flex items-center gap-0.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); onMove(index, -1); }}
                         disabled={index === 0}
-                        className="p-1.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white transition-colors"
+                        className="p-1 rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-white transition-colors"
                     >
                         <ChevronUp size={16} strokeWidth={3} />
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onMove(index, 1); }}
                         disabled={index === total - 1}
-                        className="p-1.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white transition-colors"
+                        className="p-1 rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-white transition-colors"
                     >
                         <ChevronDown size={16} strokeWidth={3} />
                     </button>
                 </div>
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                
                 <button 
                     onClick={(e) => {
                     e.stopPropagation();
                     onRemove(player.id);
                     }}
                     className="
-                    w-8 h-8 rounded-lg flex items-center justify-center
+                    w-7 h-7 rounded-lg flex items-center justify-center
                     bg-white/10 hover:bg-red-500/80
                     transition-all duration-200
                     shrink-0
@@ -756,19 +758,18 @@ export const SetupView: React.FC<Props> = ({
                         <button
                             onClick={() => setIsEditingPlayers(!isEditingPlayers)}
                             className={`
-                                p-1.5 rounded-lg transition-all duration-300
-                                ${isEditingPlayers 
-                                    ? `text-white shadow-[0_0_15px_currentColor]` 
-                                    : 'hover:bg-white/10 text-white/50 hover:text-white border border-transparent hover:border-white/10'
-                                }
+                                p-2 rounded-xl transition-all duration-300
+                                flex items-center justify-center
+                                ${isEditingPlayers ? 'shadow-lg scale-105' : 'hover:scale-105'}
                             `}
-                            style={{ 
-                                backgroundColor: isEditingPlayers ? theme.accent : 'transparent',
-                                borderColor: isEditingPlayers ? theme.accent : undefined
+                            style={{
+                                backgroundColor: isEditingPlayers ? theme.accent : `${theme.accent}20`,
+                                color: isEditingPlayers ? '#ffffff' : theme.accent,
+                                border: `1px solid ${isEditingPlayers ? theme.accent : `${theme.accent}40`}`
                             }}
-                            title={isEditingPlayers ? "Terminar edición" : "Editar orden"}
+                            title={isEditingPlayers ? "Terminar edición" : "Editar orden y colores"}
                         >
-                            {isEditingPlayers ? <Check size={14} strokeWidth={3} /> : <Pencil size={14} />}
+                            {isEditingPlayers ? <Check size={16} strokeWidth={3} /> : <Pencil size={16} />}
                         </button>
                       </div>
                       
@@ -1250,7 +1251,7 @@ export const SetupView: React.FC<Props> = ({
                     
                     <div className="flex items-center gap-2 mb-4 relative z-10">
                        <Gamepad2 size={16} style={{ color: theme.accent }} />
-                       <h3 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: theme.sub }}>
+                       <h3 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: theme.sub }}>
                           Protocolos de Misión
                        </h3>
                     </div>

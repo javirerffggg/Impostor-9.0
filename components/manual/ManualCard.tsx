@@ -83,17 +83,18 @@ export const ManualCard: React.FC<Props> = ({ card, theme }) => {
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="mb-6 p-4 sm:p-5 rounded-xl border backdrop-blur-xl group transition-transform duration-200 ease-out transform-gpu perspective-1000"
+      className="mb-6 p-5 rounded-[20px] backdrop-blur-xl group transition-transform duration-200 ease-out transform-gpu perspective-1000 border"
       style={{
         backgroundColor: style.bg,
         borderColor: style.border,
+        boxShadow: '0 10px 30px -10px rgba(0,0,0,0.2)',
         transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(1, 1, 1)`,
         transition: 'transform 0.1s ease-out'
       }}>
       
       {/* Light Glare Effect */}
       <div 
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300 rounded-xl"
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300 rounded-[20px]"
         style={{
             background: `linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)`,
             opacity: opacity,
