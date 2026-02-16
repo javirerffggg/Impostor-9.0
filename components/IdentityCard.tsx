@@ -1,10 +1,6 @@
-
-
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { GamePlayer, ThemeConfig, PartyIntensity } from '../types';
-import { Fingerprint, Lock, Play, ArrowRight, Eye, Beer, MousePointerClick } from 'lucide-react';
+import { Fingerprint, Lock, Play, ArrowRight, Eye, MousePointerClick } from 'lucide-react';
 import { CATEGORIES_DATA } from '../categories';
 import { RoleContent } from './RoleContent';
 import { revealImpostorEffect } from '../utils/effects';
@@ -24,7 +20,7 @@ interface Props {
     onOracleConfirm?: (hint: string) => void;
     isRenunciaPending?: boolean;
     impostorEffectsEnabled?: boolean;
-    revealSpeed?: 'low' | 'medium' | 'high'; // ✨ NUEVO
+    revealSpeed?: 'low' | 'medium' | 'high';
 }
 
 export const IdentityCard: React.FC<Props> = ({ 
@@ -62,6 +58,19 @@ export const IdentityCard: React.FC<Props> = ({
 
     const isHighIntensity = partyIntensity === 'after_hours' || partyIntensity === 'resaca';
     const isPremium = theme.particleType === 'aura' || ['silk', 'stardust', 'foliage', 'aurora', 'goldleaf', 'plankton', 'ember'].includes(theme.particleType);
+
+    // --- DETERMINAR COLOR DEL ROL ---
+    const getRoleColor = () => {
+        if (player.isImp) return '#ef4444'; // Rojo Impostor
+        if (player.isOracle) return '#8b5cf6'; // Violeta Oráculo
+        if (player.isAlcalde) return '#FFD700'; // Dorado Alcalde
+        return '#10b981'; // Verde Civil
+    };
+
+    const roleColor = getRoleColor();
+    
+    // El color activo cambia: Color Jugador (Idle) -> Color Rol (Holding)
+    const activeColor = isHolding ? roleColor : color;
 
     useEffect(() => {
         setHasInteracted(false);
@@ -153,21 +162,37 @@ export const IdentityCard: React.FC<Props> = ({
     const rotationOverride = isHolding && isParty && isHighIntensity ? Math.sin(Date.now() / 200) * 3 : 0;
     const isOracleLockedOpen = player.isOracle && !oracleSelectionMade && isHolding;
 
-    const shadowStyle = theme.shadow || (isHolding 
-            ? `0 0 50px ${color}40, inset 0 0 40px ${color}10` 
-            : `0 15px 40px -10px rgba(0,0,0,0.5), 0 0 20px -10px ${color}20`);
+    // --- ESTILOS DINÁMICOS PARA AURA Y BORDE ---
+    
+    // Aura de reposo (Color Jugador)
+    const idleShadow = `0 0 25px ${color}40, 0 0 50px ${color}20, inset 0 0 30px ${color}10`;
+    
+    // Aura de revelación (Color Rol - Más intensa)
+    const revealShadow = `0 0 40px ${roleColor}, 0 0 80px ${roleColor}60, inset 0 0 40px ${roleColor}30`;
 
+    // Selección de sombra
+    const shadowStyle = isHolding ? revealShadow : idleShadow;
+
+    // Borde base
+    const restBorder = theme.border.includes('px') ? theme.border : '1.5px solid transparent';
+
+    // Construcción de estilos según Premium/Standard
     const premiumStyle: React.CSSProperties = isPremium ? {
-        background: `linear-gradient(135deg, ${theme.cardBg}, ${color}10) padding-box, linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.05) 40%, transparent) border-box`,
-        border: theme.border.includes('px') ? theme.border : '1.5px solid transparent',
+        // En premium usamos background-clip para el borde degradado.
+        background: `
+            linear-gradient(135deg, ${theme.cardBg}, ${activeColor}10) padding-box, 
+            linear-gradient(135deg, ${activeColor}, ${activeColor}40 40%, transparent) border-box
+        `,
+        border: '2px solid transparent',
         backgroundClip: 'padding-box, border-box',
         WebkitBackgroundClip: 'padding-box, border-box',
         boxShadow: shadowStyle,
     } : {
-        background: `linear-gradient(135deg, ${theme.cardBg} 0%, ${color}20 100%)`,
-        borderWidth: isHolding ? '1px' : '0px',
-        borderColor: color,
-        boxShadow: isHolding ? `0 0 50px ${color}50` : '0 10px 40px rgba(0,0,0,0.4)',
+        // En standard es un borde sólido normal
+        background: `linear-gradient(135deg, ${theme.cardBg} 0%, ${activeColor}15 100%)`,
+        border: `2px solid ${activeColor}`,
+        borderColor: activeColor, 
+        boxShadow: shadowStyle,
     };
 
     // Calculate transition duration based on setting
@@ -183,12 +208,12 @@ export const IdentityCard: React.FC<Props> = ({
         <div className="flex flex-col items-center gap-8 w-full max-w-sm z-10 relative">
             <div className={`text-center space-y-1 transition-all duration-300 ease-out origin-center ${isHolding ? 'scale-90 opacity-80 -translate-y-2' : 'scale-100 opacity-100 translate-y-0'}`}>
                 <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-[0.3em]">Identidad</p>
-                <h2 style={{ color: color, fontFamily: theme.font }} className="text-4xl font-bold">{player.name}</h2>
+                <h2 style={{ color: activeColor, fontFamily: theme.font }} className="text-4xl font-bold transition-colors duration-500">{player.name}</h2>
             </div>
 
             <div className="w-full aspect-[3/4] relative" style={{ animation: (!isHolding && !hasInteracted && !isDragging) ? 'breathe 4s ease-in-out infinite' : 'none', transition: 'transform 0.3s ease-out' }}>
-                <div className="absolute rounded-full pointer-events-none" style={{ width: '140%', height: '140%', top: '-20%', left: '-20%', filter: 'blur(60px)', background: `radial-gradient(circle, ${color}50 0%, transparent 60%)`, zIndex: -1, transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.05}deg)`, transition: isDragging ? 'none' : `transform ${transitionDuration} cubic-bezier(0.175, 0.885, 0.32, 1.275)`, opacity: 0.6, willChange: 'transform' }} />
-                <div ref={cardRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()} style={{ ...premiumStyle, borderRadius: theme.radius, backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', transition: isDragging ? 'none' : `transform ${transitionDuration} cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-width 0.1s ease`, transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.03 + rotationOverride}deg)`, animation: (isHolding && !player.isImp) ? 'reveal-pulse 2s infinite' : 'none', touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab', willChange: 'transform, box-shadow' } as React.CSSProperties} className={`w-full h-full relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp && impostorEffectsEnabled ? 'animate-impostor-shake' : ''}`}>
+                <div className="absolute rounded-full pointer-events-none" style={{ width: '140%', height: '140%', top: '-20%', left: '-20%', filter: 'blur(60px)', background: `radial-gradient(circle, ${activeColor}50 0%, transparent 60%)`, zIndex: -1, transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.05}deg)`, transition: isDragging ? 'none' : `transform ${transitionDuration} cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.5s ease`, opacity: 0.6, willChange: 'transform' }} />
+                <div ref={cardRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()} style={{ ...premiumStyle, borderRadius: theme.radius, backdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', WebkitBackdropFilter: theme.blur ? `blur(${theme.blur})` : 'blur(24px)', transition: isDragging ? 'none' : `transform ${transitionDuration} cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease`, transform: `translate3d(${dragPosition.x}px, ${dragPosition.y + (isHolding ? -40 : 0)}px, 0) rotate(${dragPosition.x * 0.03 + rotationOverride}deg)`, animation: (isHolding && !player.isImp) ? 'reveal-pulse 2s infinite' : 'none', touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab', willChange: 'transform, box-shadow' } as React.CSSProperties} className={`w-full h-full relative overflow-hidden select-none touch-none group premium-border ${isHolding && player.isImp && impostorEffectsEnabled ? 'animate-impostor-shake' : ''}`}>
                     {isHolding && player.isImp && (
                         <>
                             <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-repeat animate-static-noise" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} />
@@ -235,7 +260,7 @@ export const IdentityCard: React.FC<Props> = ({
                             <RoleContent 
                                 player={player} 
                                 theme={theme} 
-                                color={color} 
+                                color={roleColor} 
                                 isParty={isParty} 
                                 isHighIntensity={isHighIntensity} 
                                 isOracleSelectionMade={oracleSelectionMade} 
