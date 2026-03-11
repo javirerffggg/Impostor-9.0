@@ -23,6 +23,12 @@ const RevealingView = lazy(() => import('./components/views/RevealingView').then
 const ResultsView = lazy(() => import('./components/views/ResultsView').then(m => ({ default: m.ResultsView })));
 const OracleSelectionView = lazy(() => import('./components/views/OracleSelectionView').then(m => ({ default: m.OracleSelectionView })));
 
+// Precarga explícita del chunk de ResultsView — se llama en cuanto
+// entramos en 'revealing' para que el módulo esté listo cuando la
+// fase cambie a 'results' y no haya flash negro por Suspense.
+const preloadResultsView = () =>
+    import('./components/views/ResultsView').catch(() => {/* silencioso */});
+
 // Konami code as a module-level constant (never changes, no need to be inside component)
 const KONAMI_CODE = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
 
@@ -70,6 +76,14 @@ function App() {
 
     const [konamiSequence, setKonamiSequence] = useState<string[]>([]);
     const [konamiActivated, setKonamiActivated] = useState(false);
+
+    // Precarga ResultsView en cuanto entramos en 'revealing' para que el
+    // chunk esté disponible antes de que la fase cambie a 'results'.
+    useEffect(() => {
+        if (gameState.phase === 'revealing') {
+            preloadResultsView();
+        }
+    }, [gameState.phase]);
 
     // -- KONAMI CODE LISTENER --
     useEffect(() => {
@@ -130,7 +144,6 @@ function App() {
 
     const handleShuffleComplete = () => {
         setIsShuffling(false);
-        // Guard: only apply if there's a valid pending result
         if (pendingGameResult && pendingGameResult.hydrationTimer > 0) {
             setHydrationTimer(pendingGameResult.hydrationTimer);
         }
@@ -145,6 +158,7 @@ function App() {
         if (isExiting) return;
         setIsExiting(true);
 
+        // Paso 1: guardar viewTime del jugador actual
         setGameState(prev => {
             const newData = [...prev.gameData];
             if (newData[prev.currentPlayerIndex]) newData[prev.currentPlayerIndex].viewTime = viewTime;
@@ -156,25 +170,26 @@ function App() {
         });
 
         setTimeout(() => {
+            // Paso 2: avanzar fase — FUERA del updater para que setIsExiting
+            // se procese en el mismo batch de React sin race condition.
             setGameState(prev => {
                 const nextIndex = prev.currentPlayerIndex + 1;
                 const isLast = nextIndex >= prev.players.length;
 
                 if (isLast) {
                     if (prev.magistradoData) {
+                        // MagistradoAnnouncement se encarga de ir a 'results'
                         setShowMagistradoAnnouncement(true);
-                        setIsExiting(false);
+                        // isExiting se resetea en el setTimeout(0) de abajo
                         return prev;
-                    } else {
-                        setIsExiting(false);
-                        if (prev.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
-                        return { ...prev, phase: 'results', currentDrinkingPrompt: '' };
                     }
+                    if (prev.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
+                    // Cambiamos fase AQUÍ; setIsExiting(false) va en el setTimeout(0)
+                    return { ...prev, phase: 'results', currentDrinkingPrompt: '' };
                 }
 
                 if (prev.settings.passPhoneMode) {
                     setTransitionName(prev.players[nextIndex].name);
-                    setIsExiting(false);
                     setTimeout(() => {
                         setIsExiting(true);
                         setTimeout(() => {
@@ -183,13 +198,18 @@ function App() {
                             setIsExiting(false);
                         }, 300);
                     }, 2000);
+                    // isExiting se resetea en el setTimeout(0) de abajo
                     return prev;
                 }
 
                 setTransitionName(null);
-                setIsExiting(false);
                 return { ...prev, currentPlayerIndex: nextIndex };
             });
+
+            // Resetear isExiting SIEMPRE fuera del updater, en el siguiente
+            // microtask, para que React lo procese en un render independiente
+            // y no bloquee la transición a 'results'.
+            setTimeout(() => setIsExiting(false), 0);
         }, 300);
     }, [isExiting, triggerPartyMessage]);
 
@@ -206,10 +226,9 @@ function App() {
         setIsPixelating(true);
         if (navigator.vibrate) navigator.vibrate(10);
         setTimeout(() => {
-            // Read fresh state inside timeout to avoid stale closure
             setGameState(prev => {
                 if (prev.players.length < 3) return prev;
-                return prev; // runGameGeneration called below with the hook
+                return prev;
             });
             handleStartGame();
         }, 400);
