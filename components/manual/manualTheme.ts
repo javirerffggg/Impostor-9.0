@@ -1,50 +1,24 @@
-
+// Fix 11: colores de iconos del manual con mayor contraste
+// Usamos colores saturados que funcionan tanto en temas oscuros como claros.
+// En luminous (fondo claro) estos colores tienen suficiente contraste por ser saturados.
+// Si en el futuro se necesita adaptación dinámica, pasar ThemeConfig aquí.
 export const manualTheme = {
-  // Backgrounds
-  bg: {
-    primary: 'rgba(5, 5, 10, 0.98)',      // Fondo principal más oscuro
-    secondary: 'rgba(15, 15, 25, 0.95)',    // Sidebar
-    card: 'rgba(30, 30, 45, 0.6)',          // Cards
-    accent: 'rgba(139, 92, 246, 0.1)',      // Highlights
-  },
-  
-  // Text
-  text: {
-    primary: '#E5E7EB',      // Blanco suave
-    secondary: '#9CA3AF',    // Gris
-    accent: '#A78BFA',       // Púrpura
-    success: '#10B981',      // Verde
-    warning: '#F59E0B',      // Amarillo
-    danger: '#EF4444',       // Rojo
-  },
-  
-  // Borders
-  border: {
-    subtle: 'rgba(255, 255, 255, 0.1)',
-    strong: 'rgba(139, 92, 246, 0.4)',
-    glow: '0 0 20px rgba(139, 92, 246, 0.3)',
-  },
-  
-  // Icons - Expanded Palette
   icon: {
-    intro: '#60A5FA',        // Blue
-    rules: '#FB923C',        // Orange
-    roles: '#A78BFA',        // Violet
-    infinitum: '#E879F9',    // Fuchsia
-    modes: '#34D399',        // Emerald
-    protocols: '#F97316',    // Orange (Legacy fallback)
-    categories: '#F472B6',   // Pink
-    config: '#94A3B8',       // Slate
-    strategies: '#FBBF24',   // Amber
-    faq: '#22D3EE',          // Cyan
-    glossary: '#818CF8',     // Indigo
-    
-    // New Sections
-    examples: '#FCD34D',     // Amber Light
-    achievements: '#F43F5E', // Rose
-    troubleshoot: '#EF4444', // Red
-    changelog: '#38BDF8',    // Sky
-    dev: '#64748B',          // Slate Dark
-    secrets: '#8B5CF6',      // Violet Dark
+    intro:        '#6366f1', // indigo
+    rules:        '#f59e0b', // amber
+    examples:     '#10b981', // emerald
+    roles:        '#3b82f6', // blue
+    infinitum:    '#8b5cf6', // violet
+    modes:        '#ec4899', // pink
+    achievements: '#f97316', // orange
+    categories:   '#14b8a6', // teal
+    config:       '#64748b', // slate
+    strategies:   '#eab308', // yellow
+    troubleshoot: '#ef4444', // red
+    faq:          '#06b6d4', // cyan
+    changelog:    '#a78bfa', // purple
+    dev:          '#84cc16', // lime
+    secrets:      '#f43f5e', // rose
+    glossary:     '#0ea5e9', // sky
   }
 };
