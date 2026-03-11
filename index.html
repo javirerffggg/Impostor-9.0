@@ -35,11 +35,11 @@
         /* Global disable text selection and context menu on long press */
         * {
             -webkit-tap-highlight-color: transparent;
-            -webkit-touch-callout: none; /* Disables context menu on iOS */
-            -webkit-user-select: none;   /* Chrome/Safari/Opera */
-            -moz-user-select: none;      /* Firefox */
-            -ms-user-select: none;       /* Internet Explorer/Edge */
-            user-select: none;           /* Non-prefixed version */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         /* Allow selection in inputs so users can type */
@@ -49,6 +49,81 @@
             -ms-user-select: text;
             user-select: text;
             -webkit-touch-callout: default;
+        }
+
+        /* ============================================
+           GLOBAL KEYFRAMES — single source of truth
+           (previously duplicated across App.tsx and SetupView.tsx inline <style>)
+           ============================================ */
+
+        /* Scrollbar hide utility */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Aura / premium effects */
+        .aura-mode .premium-border { transition: all 0.5s ease; }
+        .gold-glow {
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255,215,0,0.5), 0 0 20px rgba(255,215,0,0.3);
+        }
+
+        @keyframes particle-flow {
+            0%   { background-position: 0 0; }
+            100% { background-position: 20px 20px; }
+        }
+        @keyframes echo-pulse {
+            0%   { box-shadow: 0 0 0 0px currentColor; opacity: 1; transform: scale(1.2); }
+            70%  { box-shadow: 0 0 0 10px transparent; opacity: 1; transform: scale(1); }
+            100% { box-shadow: 0 0 0 0 transparent; opacity: 1; transform: scale(1); }
+        }
+        @keyframes dissolve {
+            0%   { filter: blur(0px) brightness(1);   opacity: 1; transform: scale(1);    }
+            50%  { filter: blur(4px) brightness(1.5); opacity: 0.8; transform: scale(1.02); }
+            100% { filter: blur(20px) brightness(5);  opacity: 0; transform: scale(1.1);  }
+        }
+        .animate-dissolve { animation: dissolve 0.4s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
+
+        @keyframes aura-spin  { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
+        @keyframes aura-pulse { 0%, 100% { transform: scale(0.95); opacity: 0.5; } 50% { transform: scale(1.05); opacity: 0.8; } }
+        @keyframes shimmer    { 100% { transform: translateX(100%); } }
+        @keyframes scan       { 0% { top: -100%; } 100% { top: 200%; } }
+        @keyframes spin-slow  { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
+        @keyframes equalizer  { 0% { height: 10%; } 100% { height: 90%; } }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25%       { transform: translateX(-5px); }
+            75%       { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+
+        @keyframes scan-vertical {
+            0%, 100% { transform: translateY(-100%); }
+            50%       { transform: translateY(300%);  }
+        }
+        @keyframes gradient-rotate {
+            0%   { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; transform: scale(0.95); }
+            50%       { opacity: 0.5; transform: scale(1.05); }
+        }
+        @keyframes gradient-slide {
+            0%, 100% { background-position: 0% 50%; }
+            50%       { background-position: 100% 50%; }
+        }
+        @keyframes shimmer-progress {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50%       { transform: translateY(-8px); }
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.02; }
+            50%       { opacity: 0.06; }
         }
     </style>
 <script type="importmap">
