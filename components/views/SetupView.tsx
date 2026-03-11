@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GameState, ThemeConfig } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, AlertTriangle, Gamepad2, Pencil } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, ChevronDown, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, AlertTriangle, Gamepad2, Pencil } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
@@ -41,17 +41,17 @@ export const SetupView: React.FC<Props> = ({
     const [validationError, setValidationError] = useState<string | null>(null);
     const [showBank, setShowBank] = useState(false);
     const [isEditingPlayers, setIsEditingPlayers] = useState(false);
+    // Mejora 4: mostrar botón Save expandido dentro del área de Database
+    const [showSaveInBank, setShowSaveInBank] = useState(false);
 
     const autocompleteTimeoutRef = useRef<number | null>(null);
 
-    // --- ACTIVATION LOGIC (VISUAL FEEDBACK) ---
     const [tapCount, setTapCount] = useState(0);
     const [lastTapTime, setLastTapTime] = useState(0);
     const [showActivationProgress, setShowActivationProgress] = useState(false);
     const tapTimeoutRef = useRef<number | null>(null);
 
-    // Memoized particle positions — stable across re-renders caused by input changes
-    const particles = useMemo(() => 
+    const particles = useMemo(() =>
         Array.from({ length: 20 }, (_, i) => ({
             id: i,
             left: `${Math.random() * 100}%`,
@@ -66,19 +66,15 @@ export const SetupView: React.FC<Props> = ({
         if (gameState.debugState.isEnabled) return;
         const now = Date.now();
         const nextCount = now - lastTapTime > 2000 ? 1 : tapCount + 1;
-
         setTapCount(nextCount);
         setLastTapTime(now);
         setShowActivationProgress(true);
-
         if (navigator.vibrate) navigator.vibrate(nextCount < 4 ? 30 : [50, 50, 100]);
-
         if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
         tapTimeoutRef.current = window.setTimeout(() => {
             setShowActivationProgress(false);
             setTapCount(0);
         }, 2000);
-
         if (nextCount >= 5) {
             setGameState(prev => ({ ...prev, debugState: { ...prev.debugState, isEnabled: true } }));
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.3 }, colors: [theme.accent, '#00ff00', '#ffffff'] });
@@ -115,7 +111,6 @@ export const SetupView: React.FC<Props> = ({
         return { valid: true };
     }, [gameState.players]);
 
-    // Memoize vault lookups for the current player list to avoid re-computing on every keystroke
     const playerVaults = useMemo(() =>
         Object.fromEntries(
             gameState.players.map(p => {
@@ -151,6 +146,7 @@ export const SetupView: React.FC<Props> = ({
         onAddPlayer(newPlayerName);
         setNewPlayerName('');
         setShowAutocomplete(false);
+        setShowSaveInBank(false);
     };
 
     const handleAddFromAutocomplete = (name: string) => {
@@ -195,17 +191,20 @@ export const SetupView: React.FC<Props> = ({
     };
 
     const modes: GameModeItem[] = [
-        { id: 'hint',       name: 'Pistas',     description: 'Impostores reciben pistas.',    icon: <ScanEye size={20} />,   isActive: gameState.settings.hintMode },
-        { id: 'troll',      name: 'Troll',      description: 'Eventos de caos (5%).',         icon: <Ghost size={20} />,     isActive: gameState.settings.trollMode },
-        { id: 'party',      name: 'Fiesta',     description: 'Castigos y bebida.',            icon: <Beer size={20} />,      isActive: gameState.settings.partyMode },
-        { id: 'memory',     name: 'Memoria',    description: 'Palabras fugaces.',             icon: <Brain size={20} />,     isActive: gameState.settings.memoryModeConfig.enabled },
+        { id: 'hint',       name: 'Pistas',     description: 'Impostores reciben pistas.',    icon: <ScanEye size={20} />,     isActive: gameState.settings.hintMode },
+        { id: 'troll',      name: 'Troll',      description: 'Eventos de caos (5%).',         icon: <Ghost size={20} />,       isActive: gameState.settings.trollMode },
+        { id: 'party',      name: 'Fiesta',     description: 'Castigos y bebida.',            icon: <Beer size={20} />,        isActive: gameState.settings.partyMode },
+        { id: 'memory',     name: 'Memoria',    description: 'Palabras fugaces.',             icon: <Brain size={20} />,       isActive: gameState.settings.memoryModeConfig.enabled },
         { id: 'architect',  name: 'Arquitecto', description: 'Civil elige la palabra.',       icon: <ShieldCheck size={20} />, isActive: gameState.settings.architectMode },
-        { id: 'magistrado', name: 'Magistrado', description: 'Alcalde con voto doble.',       icon: <Gavel size={20} />,     isActive: gameState.settings.protocolMagistrado, isDisabled: gameState.players.length < 6 },
-        { id: 'renuncia',   name: 'Renuncia',   description: 'Rechazar rol impostor.',        icon: <UserMinus size={20} />, isActive: gameState.settings.renunciaMode, isDisabled: gameState.impostorCount < 2 },
-        { id: 'nexus',      name: 'Nexus',      description: 'Impostores aliados.',           icon: <Network size={20} />,   isActive: gameState.settings.nexusMode },
-        { id: 'oracle',     name: 'Oráculo',    description: 'Pista pública inicial.',        icon: <Eye size={20} />,       isActive: gameState.settings.oracleMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
-        { id: 'vanguardia', name: 'Vanguardia', description: 'Ventaja al inicio.',            icon: <Zap size={20} />,       isActive: gameState.settings.vanguardiaMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
+        { id: 'magistrado', name: 'Magistrado', description: 'Alcalde con voto doble.',       icon: <Gavel size={20} />,       isActive: gameState.settings.protocolMagistrado, isDisabled: gameState.players.length < 6 },
+        { id: 'renuncia',   name: 'Renuncia',   description: 'Rechazar rol impostor.',        icon: <UserMinus size={20} />,   isActive: gameState.settings.renunciaMode, isDisabled: gameState.impostorCount < 2 },
+        { id: 'nexus',      name: 'Nexus',      description: 'Impostores aliados.',           icon: <Network size={20} />,     isActive: gameState.settings.nexusMode },
+        { id: 'oracle',     name: 'Oráculo',    description: 'Pista pública inicial.',        icon: <Eye size={20} />,         isActive: gameState.settings.oracleMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
+        { id: 'vanguardia', name: 'Vanguardia', description: 'Ventaja al inicio.',            icon: <Zap size={20} />,         isActive: gameState.settings.vanguardiaMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
     ];
+
+    // Mejora 5: etiqueta del contador de impostores con clave para transición
+    const impostorLabel = gameState.impostorCount === 1 ? 'Clásico' : 'Caos múltiple';
 
     if (gameState.partyState.isHydrationLocked) {
         return (
@@ -240,13 +239,14 @@ export const SetupView: React.FC<Props> = ({
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-48 space-y-4 no-scrollbar">
 
-                {/* --- HEADER --- */}
-                <header className="pt-[calc(2rem+env(safe-area-inset-top))] pb-6 text-center space-y-4 mb-4 relative">
+                {/* ─── HEADER ─────────────────────────────────────────── */}
+                {/* Mejora 1: sin caja intermedia, glow directo sobre h1 */}
+                <header className="pt-[calc(2rem+env(safe-area-inset-top))] pb-6 text-center space-y-3 mb-4 relative">
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         {particles.map(p => (
                             <div
                                 key={p.id}
-                                className="absolute w-1 h-1 rounded-full opacity-30"
+                                className="absolute w-1 h-1 rounded-full opacity-20"
                                 style={{
                                     left: p.left,
                                     top: p.top,
@@ -259,41 +259,36 @@ export const SetupView: React.FC<Props> = ({
                     </div>
 
                     <div className="relative inline-block group">
+                        {/* Glow directo bajo el h1, sin caja envolvente */}
                         <div
-                            className="absolute inset-0 blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"
-                            style={{ background: `radial-gradient(circle, ${theme.accent}80 0%, transparent 70%)`, transform: 'scale(1.5)' }}
+                            className="absolute inset-0 blur-3xl opacity-20 group-hover:opacity-35 transition-opacity duration-700 pointer-events-none"
+                            style={{ background: `radial-gradient(ellipse 120% 80%, ${theme.accent}60 0%, transparent 70%)` }}
                         />
-                        <div
-                            className="relative px-8 py-4 rounded-3xl backdrop-blur-xl"
+
+                        <h1
+                            onClick={handleLogoTap}
+                            className="relative text-5xl sm:text-6xl font-black italic tracking-tighter select-none cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 px-6 py-3"
                             style={{
-                                backgroundColor: `${theme.cardBg}40`,
-                                border: `1px solid ${theme.border}`,
-                                boxShadow: `0 20px 60px -15px ${theme.accent}20, inset 0 1px 0 rgba(255,255,255,0.1)`
+                                fontFamily: theme.font,
+                                background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.accent} 100%)`,
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                filter: `drop-shadow(0 0 18px ${theme.accent}50)`
                             }}
                         >
-                            <h1
-                                onClick={handleLogoTap}
-                                className="text-5xl sm:text-6xl font-black italic tracking-tighter select-none cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 relative z-10 pr-2"
-                                style={{
-                                    color: theme.text,
-                                    fontFamily: theme.font,
-                                    textShadow: `0 0 30px ${theme.accent}40, 0 2px 10px rgba(0,0,0,0.3)`,
-                                    background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.accent} 100%)`,
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    backgroundClip: 'text'
-                                }}
-                            >
-                                IMPOSTOR
-                            </h1>
-                            <div
-                                className="absolute -bottom-2 right-4 px-2 py-0.5 rounded-full border text-[8px] font-mono"
-                                style={{ backgroundColor: theme.bg, borderColor: theme.border, color: theme.sub, opacity: 0.4 }}
-                            >
-                                v12.5
-                            </div>
+                            IMPOSTOR
+                        </h1>
+
+                        {/* Badge versión */}
+                        <div
+                            className="absolute -bottom-1 right-3 px-2 py-0.5 rounded-full border text-[8px] font-mono"
+                            style={{ backgroundColor: theme.bg, borderColor: theme.border, color: theme.sub, opacity: 0.35 }}
+                        >
+                            v12.5
                         </div>
 
+                        {/* Konami progress dots */}
                         {showActivationProgress && (
                             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
                                 {[...Array(5)].map((_, i) => (
@@ -319,6 +314,7 @@ export const SetupView: React.FC<Props> = ({
                             </div>
                         )}
 
+                        {/* Debug badge */}
                         {gameState.debugState.isEnabled && (
                             <div className="absolute -top-3 -right-3 animate-in zoom-in duration-300">
                                 <div
@@ -337,10 +333,17 @@ export const SetupView: React.FC<Props> = ({
                         )}
                     </div>
 
+                    {/* Mejora 9: Party badge — glow usa theme.accent en lugar de #ec4899 hardcoded */}
                     {isParty && (
                         <div className="relative inline-block animate-in zoom-in duration-500 delay-200">
-                            <div className="absolute inset-0 blur-xl opacity-50" style={{ backgroundColor: '#ec4899' }} />
-                            <div className="relative px-4 py-1.5 rounded-full border backdrop-blur-xl" style={{ backgroundColor: 'rgba(236,72,153,0.1)', borderColor: 'rgba(236,72,153,0.3)' }}>
+                            <div
+                                className="absolute inset-0 blur-xl opacity-40"
+                                style={{ backgroundColor: theme.accent }}
+                            />
+                            <div
+                                className="relative px-4 py-1.5 rounded-full border backdrop-blur-xl"
+                                style={{ backgroundColor: 'rgba(236,72,153,0.1)', borderColor: 'rgba(236,72,153,0.3)' }}
+                            >
                                 <div className="flex items-center gap-2">
                                     <Beer size={12} className="text-pink-400 animate-bounce" />
                                     <span className="text-xs font-black uppercase tracking-[0.3em] text-pink-400">DRINKING EDITION</span>
@@ -351,107 +354,197 @@ export const SetupView: React.FC<Props> = ({
                     )}
                 </header>
 
-                {/* --- JUGADORES --- */}
+                {/* ─── JUGADORES ───────────────────────────────────────── */}
                 <div
-                    className="p-5 border backdrop-blur-2xl relative overflow-hidden group"
+                    className="p-5 border backdrop-blur-2xl relative overflow-hidden"
                     style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, borderRadius: '24px', boxShadow: '0 20px 60px -15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}
                 >
                     <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ background: `radial-gradient(circle at 50% 50%, ${theme.accent}, transparent 70%)`, animation: 'pulse-slow 4s ease-in-out infinite' }} />
 
-                    <div className="flex justify-between items-start mb-5 relative z-10">
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Users size={16} style={{ color: theme.accent }} />
-                                    <h3 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: theme.sub }}>Sala de Jugadores</h3>
-                                </div>
-                                <button
-                                    onClick={() => setIsEditingPlayers(!isEditingPlayers)}
-                                    className={`p-2 rounded-xl transition-all duration-300 flex items-center justify-center ${isEditingPlayers ? 'shadow-lg scale-105' : 'hover:scale-105'}`}
-                                    style={{ backgroundColor: isEditingPlayers ? theme.accent : `${theme.accent}20`, color: isEditingPlayers ? '#ffffff' : theme.accent, border: `1px solid ${isEditingPlayers ? theme.accent : `${theme.accent}40`}` }}
-                                    title={isEditingPlayers ? 'Terminar edición' : 'Editar orden y colores'}
-                                >
-                                    {isEditingPlayers ? <Check size={16} strokeWidth={3} /> : <Pencil size={16} />}
-                                </button>
-                            </div>
+                    {/* Header de sección */}
+                    <div className="flex items-center justify-between mb-3 relative z-10">
+                        <div className="flex items-center gap-2">
+                            <Users size={16} style={{ color: theme.accent }} />
+                            <h3 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: theme.sub }}>Sala de Jugadores</h3>
+                        </div>
+                        {/* Mejora 8: label texto junto al icono lápiz */}
+                        <button
+                            onClick={() => setIsEditingPlayers(!isEditingPlayers)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all duration-300 ${
+                                isEditingPlayers ? 'shadow-lg scale-105' : 'hover:scale-105'
+                            }`}
+                            style={{
+                                backgroundColor: isEditingPlayers ? theme.accent : `${theme.accent}20`,
+                                color: isEditingPlayers ? '#ffffff' : theme.accent,
+                                border: `1px solid ${isEditingPlayers ? theme.accent : `${theme.accent}40`}`
+                            }}
+                        >
+                            {isEditingPlayers
+                                ? <><Check size={13} strokeWidth={3} /><span className="text-[10px] font-black uppercase tracking-wider">Listo</span></>
+                                : <><Pencil size={13} /><span className="text-[10px] font-black uppercase tracking-wider">Editar</span></>
+                            }
+                        </button>
+                    </div>
 
-                            <div className="relative h-2 rounded-full overflow-hidden bg-black/20 backdrop-blur-sm">
+                    {/* Progress bar — Mejora 10: milestones más visibles + labels */}
+                    <div className="mb-4 relative z-10">
+                        <div className="relative h-2 rounded-full overflow-hidden bg-black/20 backdrop-blur-sm">
+                            <div
+                                className="absolute inset-y-0 left-0 transition-all duration-500 ease-out"
+                                style={{
+                                    width: `${Math.min((playerCount / MAX_PLAYERS) * 100, 100)}%`,
+                                    background: isUnderMin
+                                        ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                                        : isRecommended
+                                            ? `linear-gradient(90deg, ${theme.accent}, ${theme.accent}CC)`
+                                            : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                                    boxShadow: isRecommended ? `0 0 10px ${theme.accent}40` : 'none'
+                                }}
+                            />
+                            {[MIN_PLAYERS, RECOMMENDED_PLAYERS.min, RECOMMENDED_PLAYERS.max, MAX_PLAYERS].map((milestone, i) => (
                                 <div
-                                    className="absolute inset-y-0 left-0 transition-all duration-500 ease-out"
-                                    style={{
-                                        width: `${Math.min((playerCount / MAX_PLAYERS) * 100, 100)}%`,
-                                        background: isUnderMin
-                                            ? 'linear-gradient(90deg, #ef4444, #dc2626)'
-                                            : isRecommended
-                                                ? `linear-gradient(90deg, ${theme.accent}, ${theme.accent}CC)`
-                                                : 'linear-gradient(90deg, #f59e0b, #d97706)',
-                                        boxShadow: isRecommended ? `0 0 10px ${theme.accent}40` : 'none'
-                                    }}
+                                    key={i}
+                                    className="absolute top-0 bottom-0 w-px bg-white/40"
+                                    style={{ left: `${(milestone / MAX_PLAYERS) * 100}%` }}
                                 />
-                                {[MIN_PLAYERS, RECOMMENDED_PLAYERS.min, RECOMMENDED_PLAYERS.max, MAX_PLAYERS].map((milestone, i) => (
-                                    <div key={i} className="absolute top-0 bottom-0 w-px bg-white/20" style={{ left: `${(milestone / MAX_PLAYERS) * 100}%` }} />
-                                ))}
-                            </div>
-
-                            <div className="flex items-center justify-between mt-2">
-                                <p className="text-[10px] font-bold flex items-center gap-1.5" style={{ color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.sub }}>
-                                    {isUnderMin && <AlertTriangle size={10} />}
-                                    {isRecommended && <Check size={10} />}
-                                    <span>
-                                        {isUnderMin ? `Faltan ${MIN_PLAYERS - playerCount} jugadores` : isRecommended ? 'Cantidad ideal' : isOverMax ? 'Límite alcanzado' : 'Puedes añadir más'}
-                                    </span>
-                                </p>
-                                <span className="text-xs font-black tabular-nums px-2 py-0.5 rounded-full" style={{ backgroundColor: isRecommended ? `${theme.accent}20` : 'rgba(0,0,0,0.2)', color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.text }}>
-                                    {playerCount}/{MAX_PLAYERS}
+                            ))}
+                        </div>
+                        {/* Labels de milestones */}
+                        <div className="relative h-4 mt-0.5">
+                            {[MIN_PLAYERS, RECOMMENDED_PLAYERS.min, RECOMMENDED_PLAYERS.max, MAX_PLAYERS].map((milestone, i) => (
+                                <span
+                                    key={i}
+                                    className="absolute text-[8px] font-mono -translate-x-1/2"
+                                    style={{ left: `${(milestone / MAX_PLAYERS) * 100}%`, color: `${theme.sub}80` }}
+                                >
+                                    {milestone}
                                 </span>
-                            </div>
+                            ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold flex items-center gap-1.5" style={{ color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.sub }}>
+                                {isUnderMin && <AlertTriangle size={10} />}
+                                {isRecommended && <Check size={10} />}
+                                <span>
+                                    {isUnderMin
+                                        ? `Faltan ${MIN_PLAYERS - playerCount} jugadores`
+                                        : isRecommended
+                                            ? 'Cantidad ideal'
+                                            : isOverMax
+                                                ? 'Límite alcanzado'
+                                                : 'Puedes añadir más'}
+                                </span>
+                            </p>
+                            <span
+                                className="text-xs font-black tabular-nums px-2 py-0.5 rounded-full"
+                                style={{
+                                    backgroundColor: isRecommended ? `${theme.accent}20` : 'rgba(0,0,0,0.2)',
+                                    color: isUnderMin ? '#ef4444' : isRecommended ? theme.accent : theme.text
+                                }}
+                            >
+                                {playerCount}/{MAX_PLAYERS}
+                            </span>
                         </div>
                     </div>
 
-                    {/* PLAYERS LIST */}
-                    <div className="flex flex-wrap gap-3 mb-5 relative z-10">
-                        {gameState.players.map((p, idx) => (
-                            <PlayerCardPremium
-                                key={p.id}
-                                player={p}
-                                index={idx}
-                                total={gameState.players.length}
-                                theme={theme}
-                                onRemove={onRemovePlayer}
-                                onMove={handleMovePlayer}
-                                isEditing={isEditingPlayers}
-                                stats={playerVaults[p.id]}
-                                onCycleColor={onCyclePlayerColor}
-                                className={`transition-all duration-500 ease-in-out ${isEditingPlayers ? 'w-full' : 'w-[calc(50%-0.375rem)]'}`}
-                            />
-                        ))}
+                    {/* Mejora 2: grid real con col-span-2 cuando el total es impar */}
+                    <div className="grid grid-cols-2 gap-3 mb-5 relative z-10">
+                        {gameState.players.map((p, idx) => {
+                            const isLastOdd = gameState.players.length % 2 !== 0 && idx === gameState.players.length - 1;
+                            return (
+                                <PlayerCardPremium
+                                    key={p.id}
+                                    player={p}
+                                    index={idx}
+                                    total={gameState.players.length}
+                                    theme={theme}
+                                    onRemove={onRemovePlayer}
+                                    onMove={handleMovePlayer}
+                                    isEditing={isEditingPlayers}
+                                    stats={playerVaults[p.id]}
+                                    onCycleColor={onCyclePlayerColor}
+                                    className={`transition-all duration-500 ease-in-out ${
+                                        isEditingPlayers || isLastOdd ? 'col-span-2' : ''
+                                    }`}
+                                />
+                            );
+                        })}
 
+                        {/* Mejora 3: empty state más compacto y cálido */}
                         {gameState.players.length === 0 && (
-                            <div className="w-full py-12 text-center space-y-4 rounded-2xl border-2 border-dashed" style={{ borderColor: `${theme.border}40` }}>
-                                <Users size={48} style={{ color: theme.sub }} className="opacity-40 mx-auto" />
-                                <div className="space-y-1">
-                                    <p className="text-sm font-bold" style={{ color: theme.text }}>Ningún jugador aún</p>
-                                    <p className="text-xs opacity-60" style={{ color: theme.sub }}>Añade al menos {MIN_PLAYERS} para empezar</p>
+                            <div
+                                className="col-span-2 py-8 text-center space-y-3 rounded-2xl border-2 border-dashed animate-in fade-in duration-300"
+                                style={{ borderColor: `${theme.border}40` }}
+                            >
+                                <div className="flex flex-col items-center gap-2">
+                                    <Users size={36} style={{ color: theme.accent }} className="opacity-30" />
+                                    <p className="text-sm font-bold" style={{ color: theme.text }}>¿Quién juega hoy?</p>
+                                    <p className="text-xs opacity-50" style={{ color: theme.sub }}>Añade al menos {MIN_PLAYERS} jugadores para empezar</p>
+                                    <ChevronDown
+                                        size={18}
+                                        style={{ color: theme.accent }}
+                                        className="opacity-60 animate-bounce mt-1"
+                                    />
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* INPUT */}
+                    {/* Mejora 4: INPUT rediseñado — Save colapsado, más espacio para escribir */}
                     <div className="relative z-10">
                         <div
-                            className="relative rounded-2xl overflow-hidden backdrop-blur-xl mb-3"
-                            style={{ backgroundColor: `${theme.border}80`, border: `2px solid ${validationError ? '#ef4444' : 'transparent'}`, boxShadow: validationError ? '0 0 0 4px rgba(239,68,68,0.1)' : 'inset 0 2px 4px rgba(0,0,0,0.1)' }}
+                            className="relative rounded-2xl overflow-visible backdrop-blur-xl mb-3"
+                            style={{
+                                backgroundColor: `${theme.border}80`,
+                                border: `2px solid ${validationError ? '#ef4444' : 'transparent'}`,
+                                boxShadow: validationError ? '0 0 0 4px rgba(239,68,68,0.1)' : 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                            }}
                         >
                             <div className="flex gap-2 p-2">
-                                <button
-                                    onClick={() => setShowBank(true)}
-                                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 border border-white/5"
-                                    style={{ backgroundColor: `${theme.accent}15`, color: theme.accent }}
-                                    title="Abrir Banco de Jugadores"
-                                >
-                                    <Database size={18} />
-                                </button>
+                                {/* Botón Database — al pulsar muestra inline el Save */}
+                                <div className="relative shrink-0">
+                                    <button
+                                        onClick={() => setShowSaveInBank(s => !s)}
+                                        className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border border-white/5"
+                                        style={{
+                                            backgroundColor: showSaveInBank ? theme.accent : `${theme.accent}15`,
+                                            color: showSaveInBank ? '#fff' : theme.accent
+                                        }}
+                                        title="Banco de jugadores"
+                                    >
+                                        <Database size={18} />
+                                    </button>
+                                    {/* Panel expandido */}
+                                    {showSaveInBank && (
+                                        <div
+                                            className="absolute top-full left-0 mt-2 rounded-xl border shadow-xl z-50 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200"
+                                            style={{ backgroundColor: `${theme.cardBg}F8`, borderColor: theme.accent, minWidth: '160px' }}
+                                        >
+                                            <button
+                                                onClick={() => { setShowBank(true); setShowSaveInBank(false); }}
+                                                className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-white/10 transition-colors"
+                                            >
+                                                <Database size={13} style={{ color: theme.accent }} />
+                                                <span className="text-xs font-bold" style={{ color: theme.text }}>Ver banco</span>
+                                            </button>
+                                            <div className="h-px" style={{ backgroundColor: `${theme.border}50` }} />
+                                            <button
+                                                onClick={() => {
+                                                    if (newPlayerName.trim()) {
+                                                        onSaveToBank(newPlayerName);
+                                                        setNewPlayerName('');
+                                                    }
+                                                    setShowSaveInBank(false);
+                                                }}
+                                                disabled={!newPlayerName.trim()}
+                                                className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <Save size={13} style={{ color: theme.accent }} />
+                                                <span className="text-xs font-bold" style={{ color: theme.text }}>Guardar en banco</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <input
                                     id="player-name-input"
@@ -461,46 +554,45 @@ export const SetupView: React.FC<Props> = ({
                                     onFocus={() => {
                                         if (autocompleteTimeoutRef.current) clearTimeout(autocompleteTimeoutRef.current);
                                         if (newPlayerName.length >= 1) setShowAutocomplete(true);
+                                        setShowSaveInBank(false);
                                     }}
                                     onBlur={() => {
                                         autocompleteTimeoutRef.current = window.setTimeout(() => setShowAutocomplete(false), 200);
                                     }}
-                                    placeholder="Nuevo Jugador..."
+                                    placeholder="Nombre del jugador..."
                                     disabled={playerCount >= MAX_PLAYERS}
-                                    className="flex-1 min-w-0 bg-transparent px-4 py-3 outline-none text-sm font-bold placeholder:opacity-40 disabled:opacity-50"
+                                    className="flex-1 min-w-0 bg-transparent px-4 py-3 outline-none text-sm font-bold placeholder:opacity-30 disabled:opacity-50"
                                     style={{ color: theme.text }}
                                     autoComplete="off"
                                 />
 
-                                <button
-                                    onClick={() => { if (newPlayerName.trim()) { onSaveToBank(newPlayerName); setNewPlayerName(''); } }}
-                                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={{ backgroundColor: `${theme.border}CC`, color: theme.sub }}
-                                    title="Guardar nombre en banco"
-                                    disabled={!newPlayerName.trim()}
-                                >
-                                    <Save size={18} />
-                                </button>
+                                {newPlayerName.length > 0 && (
+                                    <span className="self-center text-[9px] font-mono opacity-30 shrink-0" style={{ color: theme.sub }}>
+                                        {newPlayerName.length}/20
+                                    </span>
+                                )}
 
                                 <button
                                     onClick={handleAddPlayer}
-                                    disabled={playerCount >= MAX_PLAYERS || !!validationError}
-                                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                                    style={{ backgroundColor: playerCount >= MAX_PLAYERS || validationError ? theme.border : theme.accent, color: '#ffffff' }}
+                                    disabled={playerCount >= MAX_PLAYERS || !!validationError || !newPlayerName.trim()}
+                                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+                                    style={{
+                                        backgroundColor: playerCount >= MAX_PLAYERS || validationError || !newPlayerName.trim()
+                                            ? theme.border
+                                            : theme.accent,
+                                        color: '#ffffff'
+                                    }}
                                 >
                                     <Check size={20} strokeWidth={3} />
                                 </button>
                             </div>
-
-                            {newPlayerName.length > 0 && (
-                                <div className="absolute bottom-1 right-14 text-[9px] font-mono opacity-40" style={{ color: theme.sub }}>
-                                    {newPlayerName.length}/20
-                                </div>
-                            )}
                         </div>
 
                         {validationError && (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 animate-in slide-in-from-top-2 fade-in duration-200" style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                            <div
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 animate-in slide-in-from-top-2 fade-in duration-200"
+                                style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+                            >
                                 <AlertTriangle size={12} className="text-red-400 shrink-0" />
                                 <p className="text-[10px] font-bold text-red-400 flex-1">{validationError}</p>
                             </div>
@@ -544,7 +636,7 @@ export const SetupView: React.FC<Props> = ({
                         )}
                     </div>
 
-                    {/* IMPOSTORES COUNTER */}
+                    {/* Mejora 5: Contador impostores con transición suave en subtítulo */}
                     <div className="mt-5 pt-5 border-t relative" style={{ borderColor: `${theme.border}50` }}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -553,16 +645,28 @@ export const SetupView: React.FC<Props> = ({
                                 </div>
                                 <div>
                                     <p className="text-xs font-black uppercase tracking-wider" style={{ color: theme.text }}>Impostores</p>
-                                    <p className="text-[9px] font-bold opacity-60" style={{ color: theme.sub }}>{gameState.impostorCount === 1 ? 'Clásico' : 'Caos múltiple'}</p>
+                                    <p
+                                        key={impostorLabel}
+                                        className="text-[9px] font-bold opacity-60 animate-in fade-in duration-300"
+                                        style={{ color: theme.sub }}
+                                    >
+                                        {impostorLabel}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 p-1 rounded-xl backdrop-blur-xl" style={{ backgroundColor: `${theme.border}80`, border: `1px solid ${theme.border}` }}>
+                            <div
+                                className="flex items-center gap-1 p-1 rounded-xl backdrop-blur-xl"
+                                style={{ backgroundColor: `${theme.border}80`, border: `1px solid ${theme.border}` }}
+                            >
                                 <button
                                     onClick={() => setGameState(prev => ({ ...prev, impostorCount: Math.max(1, prev.impostorCount - 1) }))}
                                     className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-lg transition-all duration-200 hover:bg-white/10 active:scale-90"
                                     style={{ color: theme.text }}
                                 >−</button>
-                                <div className="w-12 h-9 rounded-lg flex items-center justify-center font-black text-lg" style={{ backgroundColor: `${theme.accent}20`, color: theme.accent }}>
+                                <div
+                                    className="w-12 h-9 rounded-lg flex items-center justify-center font-black text-lg transition-all duration-200"
+                                    style={{ backgroundColor: `${theme.accent}20`, color: theme.accent }}
+                                >
                                     {gameState.impostorCount}
                                 </div>
                                 <button
@@ -575,9 +679,9 @@ export const SetupView: React.FC<Props> = ({
                     </div>
                 </div>
 
-                {/* --- MODOS --- */}
+                {/* ─── MODOS ───────────────────────────────────────────── */}
                 <div
-                    className="p-5 border backdrop-blur-2xl relative overflow-hidden group"
+                    className="p-5 border backdrop-blur-2xl relative overflow-hidden"
                     style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, borderRadius: '24px', boxShadow: '0 20px 60px -15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}
                 >
                     <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ background: `radial-gradient(circle at 50% 50%, ${theme.accent}, transparent 70%)`, animation: 'pulse-slow 4s ease-in-out infinite' }} />
@@ -590,16 +694,16 @@ export const SetupView: React.FC<Props> = ({
                     </div>
                 </div>
 
-                {/* --- ACCIONES --- */}
+                {/* ─── ACCIONES (Mejora 6: h fijo para simetría) ──────── */}
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         onClick={onOpenCategories}
                         className="relative p-4 rounded-[24px] border overflow-hidden group text-left transition-all duration-300 active:scale-95 hover:scale-[1.02]"
-                        style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)' }}
+                        style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', height: '88px' }}
                     >
-                        <div className="relative z-10 flex flex-col justify-between h-full min-h-[80px]">
-                            <div className="p-2 rounded-xl w-fit mb-2" style={{ backgroundColor: `${theme.accent}15` }}>
-                                <LayoutGrid size={20} style={{ color: theme.accent }} />
+                        <div className="relative z-10 flex flex-col justify-between h-full">
+                            <div className="p-2 rounded-xl w-fit" style={{ backgroundColor: `${theme.accent}15` }}>
+                                <LayoutGrid size={18} style={{ color: theme.accent }} />
                             </div>
                             <div>
                                 <span className="text-xs font-black uppercase tracking-wider block" style={{ color: theme.text }}>Categorías</span>
@@ -611,11 +715,11 @@ export const SetupView: React.FC<Props> = ({
                     <button
                         onClick={onOpenSettings}
                         className="relative p-4 rounded-[24px] border overflow-hidden group text-left transition-all duration-300 active:scale-95 hover:scale-[1.02]"
-                        style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)' }}
+                        style={{ backgroundColor: `${theme.cardBg}F5`, borderColor: theme.border, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', height: '88px' }}
                     >
-                        <div className="relative z-10 flex flex-col justify-between h-full min-h-[80px]">
-                            <div className="p-2 rounded-xl w-fit mb-2" style={{ backgroundColor: theme.border }}>
-                                <Settings size={20} style={{ color: theme.sub }} />
+                        <div className="relative z-10 flex flex-col justify-between h-full">
+                            <div className="p-2 rounded-xl w-fit" style={{ backgroundColor: theme.border }}>
+                                <Settings size={18} style={{ color: theme.sub }} />
                             </div>
                             <div>
                                 <span className="text-xs font-black uppercase tracking-wider block" style={{ color: theme.text }}>Ajustes</span>
@@ -626,11 +730,14 @@ export const SetupView: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* --- START BUTTON --- */}
+            {/* ─── BOTÓN START (Mejora 7) ──────────────────────────────── */}
             <div className="fixed bottom-0 left-0 w-full p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-30 pointer-events-none">
                 <div className="max-w-md mx-auto relative group">
                     {isValidToStart && (
-                        <div className="absolute inset-0 blur-3xl opacity-30" style={{ backgroundColor: theme.accent, animation: 'pulse-glow 3s ease-in-out infinite' }} />
+                        <div
+                            className="absolute inset-0 blur-3xl opacity-30"
+                            style={{ backgroundColor: theme.accent, animation: 'pulse-glow 3s ease-in-out infinite' }}
+                        />
                     )}
                     <button
                         onClick={onStartGame}
@@ -638,7 +745,9 @@ export const SetupView: React.FC<Props> = ({
                         className="relative w-full h-16 pointer-events-auto rounded-full overflow-hidden transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 group"
                         style={{
                             backgroundColor: !isValidToStart ? '#334155' : theme.accent,
-                            boxShadow: isValidToStart ? `0 20px 60px -15px ${theme.accent}, 0 0 0 1px rgba(255,255,255,0.1) inset` : '0 10px 30px -10px rgba(0,0,0,0.5)'
+                            boxShadow: isValidToStart
+                                ? `0 20px 60px -15px ${theme.accent}, 0 0 0 1px rgba(255,255,255,0.1) inset`
+                                : '0 10px 30px -10px rgba(0,0,0,0.5)'
                         }}
                     >
                         {isValidToStart && (
@@ -648,14 +757,27 @@ export const SetupView: React.FC<Props> = ({
                             />
                         )}
                         <div className="relative z-10 h-full flex items-center justify-between px-6">
-                            <div className="flex items-center gap-3">
+                            {/* Texto + chevron: chevron no reserva espacio cuando invisible */}
+                            <div className="flex items-center gap-2 flex-1">
                                 <span className="text-white font-black text-lg uppercase tracking-wider">
                                     {isParty ? 'EL BOTELLÓN' : 'EMPEZAR'}
                                 </span>
-                                <ChevronRight strokeWidth={4} size={20} className={`text-white transition-all duration-300 ${isValidToStart ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`} />
+                                <span
+                                    className="transition-all duration-300 overflow-hidden"
+                                    style={{
+                                        width: isValidToStart ? '20px' : '0px',
+                                        opacity: isValidToStart ? 1 : 0
+                                    }}
+                                >
+                                    <ChevronRight strokeWidth={4} size={20} className="text-white" />
+                                </span>
                             </div>
+                            {/* Badge — oculto en pantallas muy pequeñas */}
                             {isValidToStart && (
-                                <div className="px-3 py-1 rounded-full text-[9px] font-black uppercase backdrop-blur-xl shrink-0 ml-2" style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'white' }}>
+                                <div
+                                    className="hidden xs:block px-3 py-1 rounded-full text-[9px] font-black uppercase backdrop-blur-xl shrink-0"
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'white' }}
+                                >
                                     {playerCount} jugadores
                                 </div>
                             )}
