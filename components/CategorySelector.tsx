@@ -1,9 +1,15 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ThemeConfig, CategoryPreset } from '../types';
 import { CATEGORIES_DATA } from '../categories';
 import { CURATED_COLLECTIONS } from '../constants';
-import { X, CheckCheck, Library, List, Sparkles, Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home, Search, LayoutGrid, Grid3x3, Shuffle, Save, Eye, Heart, Ban, ArrowUp } from 'lucide-react';
+import {
+    X, CheckCheck, Library, List, Shuffle, Save,
+    Search, LayoutGrid, Grid3x3, ArrowUp
+} from 'lucide-react';
+import { CategoryGrid } from './categorySelector/CategoryGrid';
+import { CollectionGrid } from './categorySelector/CollectionGrid';
+import { PreviewModal } from './categorySelector/PreviewModal';
+import { SavePresetModal } from './categorySelector/SavePresetModal';
 
 interface Props {
     isOpen: boolean;
@@ -14,24 +20,34 @@ interface Props {
     onToggleAll: () => void;
     theme: ThemeConfig;
     categoryUsageStats?: Record<string, number>;
-    
-    // ✨ NUEVO
     favoriteCategories?: string[];
     onToggleFavoriteCategory?: (cat: string) => void;
     onBlockCategory?: (cat: string) => void;
     temporaryBlacklist?: Record<string, number>;
+    // Exposes a direct setter to avoid buggy multi-toggle logic
+    onSetCategories?: (cats: string[]) => void;
 }
 
-// Mapeo de iconos dinámicos
-const IconMap: Record<string, React.ComponentType<any>> = {
-    Utensils, Zap, Clapperboard, Compass, Gamepad2, Diamond, Book, Leaf, Brain, Trophy, Home
+const fuzzyMatch = (text: string, query: string): boolean => {
+    const t = text.toLowerCase();
+    const q = query.toLowerCase();
+    if (t.includes(q)) return true;
+    let idx = 0;
+    for (const ch of q) {
+        idx = t.indexOf(ch, idx);
+        if (idx === -1) return false;
+        idx++;
+    }
+    return true;
 };
 
-export const CategorySelector: React.FC<Props> = ({ 
-    isOpen, onClose, selectedCategories, onToggleCategory, onToggleCollection, onToggleAll, theme, categoryUsageStats,
-    favoriteCategories = [], onToggleFavoriteCategory, onBlockCategory, temporaryBlacklist = {}
+export const CategorySelector: React.FC<Props> = ({
+    isOpen, onClose, selectedCategories, onToggleCategory, onToggleCollection,
+    onToggleAll, theme, categoryUsageStats,
+    favoriteCategories = [], onToggleFavoriteCategory, onBlockCategory,
+    temporaryBlacklist = {},
+    onSetCategories
 }) => {
-    // STATES
     const [viewMode, setViewMode] = useState<'collections' | 'list'>('list');
     const [searchQuery, setSearchQuery] = useState('');
     const [isCompactMode, setIsCompactMode] = useState(false);
@@ -44,165 +60,131 @@ export const CategorySelector: React.FC<Props> = ({
     });
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
     const [previewCategory, setPreviewCategory] = useState<string | null>(null);
-    
-    // UI State for dynamic header/footer
     const [isScrolled, setIsScrolled] = useState(false);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Detectar si el tema tiene fondo degradado
     const isGradientBg = theme.bg.toLowerCase().includes('gradient');
+    const allCats = useMemo(() => Object.keys(CATEGORIES_DATA), []);
+    const totalSelectedCount = selectedCategories.length;
 
-    // Save presets to local storage
+    // Persist presets
     useEffect(() => {
         localStorage.setItem('impostor_category_presets', JSON.stringify(presets));
     }, [presets]);
 
-    const handleScroll = () => {
+    const handleScroll = useCallback(() => {
         if (scrollContainerRef.current) {
-            const scrollTop = scrollContainerRef.current.scrollTop;
-            setIsScrolled(scrollTop > 80);
+            setIsScrolled(scrollContainerRef.current.scrollTop > 80);
         }
-    };
+    }, []);
 
-    const scrollToTopAndSearch = () => {
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-            // Pequeño delay para enfocar después del scroll si es necesario, 
-            // o enfocar directamente.
-            setTimeout(() => {
-                searchInputRef.current?.focus();
-            }, 300);
-        }
-    };
+    const scrollToTopAndSearch = useCallback(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => searchInputRef.current?.focus(), 300);
+    }, []);
 
-    const allCats = Object.keys(CATEGORIES_DATA);
-    const totalSelectedCount = selectedCategories.length;
+    const filteredCategories = useMemo(
+        () => searchQuery.trim() ? allCats.filter(cat => fuzzyMatch(cat, searchQuery)) : allCats,
+        [allCats, searchQuery]
+    );
 
-    // --- HELPERS ---
-
-    const fuzzyMatch = (text: string, query: string): boolean => {
-        const textLower = text.toLowerCase();
-        const queryLower = query.toLowerCase();
-        if (textLower.includes(queryLower)) return true;
-        // Simple fuzzy: query chars must appear in text in order
-        let textIndex = 0;
-        for (let i = 0; i < queryLower.length; i++) {
-            textIndex = textLower.indexOf(queryLower[i], textIndex);
-            if (textIndex === -1) return false;
-            textIndex++;
-        }
-        return true;
-    };
-
-    const getCategoryWordCount = (categoryName: string): number => {
-        const category = CATEGORIES_DATA[categoryName];
-        if (!category) return 0;
-        return category.length;
-    };
-
-    const getPreviewWords = (categoryName: string, count: number = 10): string[] => {
-        const category = CATEGORIES_DATA[categoryName];
-        if (!category) return [];
-        
-        // Flatten category pairs to just words
-        const allWords = category.map(item => item.civ);
-        const shuffled = [...allWords].sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, count);
-    };
-
-    const handleRandomSelection = (count: number = 15) => {
-        // Desactivar todas primero
-        selectedCategories.forEach(cat => onToggleCategory(cat));
-        
-        // Seleccionar N aleatorias
+    // Fix: use onSetCategories if available, otherwise fall back to toggling
+    const handleRandomSelection = useCallback((count = 15) => {
         const shuffled = [...allCats].sort(() => Math.random() - 0.5);
         const randomCats = shuffled.slice(0, count);
-        
-        randomCats.forEach(cat => onToggleCategory(cat));
-    };
+        if (onSetCategories) {
+            onSetCategories(randomCats);
+        } else {
+            // Fallback: compute symmetric diff and toggle accordingly
+            const toDeactivate = selectedCategories.filter(c => !randomCats.includes(c));
+            const toActivate = randomCats.filter(c => !selectedCategories.includes(c));
+            toDeactivate.forEach(c => onToggleCategory(c));
+            toActivate.forEach(c => onToggleCategory(c));
+        }
+    }, [allCats, selectedCategories, onSetCategories, onToggleCategory]);
 
-    const isCollectionActive = (colId: string) => {
-        const collection = CURATED_COLLECTIONS.find(c => c.id === colId);
-        if (!collection) return false;
-        return collection.categories.every(cat => selectedCategories.includes(cat));
-    };
+    const handleApplyPreset = useCallback((preset: CategoryPreset) => {
+        if (onSetCategories) {
+            onSetCategories(preset.categories);
+        } else {
+            const toDeactivate = selectedCategories.filter(c => !preset.categories.includes(c));
+            const toActivate = preset.categories.filter(c => !selectedCategories.includes(c));
+            toDeactivate.forEach(c => onToggleCategory(c));
+            toActivate.forEach(c => onToggleCategory(c));
+        }
+    }, [selectedCategories, onSetCategories, onToggleCategory]);
 
-    const filteredCategories = searchQuery.trim()
-        ? allCats.filter(cat => fuzzyMatch(cat, searchQuery))
-        : allCats;
+    const handleDeletePreset = useCallback((id: string) => {
+        setPresets(prev => prev.filter(p => p.id !== id));
+        setDeleteConfirmId(null);
+    }, []);
 
-    // Usage Stats Calculation
-    const getMostUsedCategories = () => {
-        if (!categoryUsageStats) return [];
-        return Object.entries(categoryUsageStats)
-            .sort((a, b) => (b[1] as number) - (a[1] as number))
-            .slice(0, 5)
-            .map(([cat]) => cat);
-    };
+    const handleSelectFromPreview = useCallback((cat: string) => {
+        if (!selectedCategories.includes(cat)) onToggleCategory(cat);
+    }, [selectedCategories, onToggleCategory]);
 
     return (
-        <div className={`fixed inset-0 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className={`fixed inset-0 z-50 transform transition-transform duration-300 ${
+            isOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}>
             <div style={{ backgroundColor: theme.bg }} className="absolute inset-0 flex flex-col overflow-hidden">
-                
-                {/* Fixed Close Button (Floating) */}
+
+                {/* Floating close button */}
                 <div className="absolute top-0 right-0 z-50 p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pointer-events-none">
-                    <button 
-                        style={{ color: theme.text, backgroundColor: `${theme.bg}80` }} 
-                        onClick={onClose} 
+                    <button
+                        style={{ color: theme.text, backgroundColor: `${theme.bg}80` }}
+                        onClick={onClose}
                         className="p-2 hover:bg-white/10 rounded-full transition-transform active:scale-90 pointer-events-auto backdrop-blur-md border border-white/10 shadow-lg"
                     >
                         <X />
                     </button>
                 </div>
 
-                {/* SCROLLABLE CONTAINER (Header + Content) */}
-                <div 
+                {/* Scrollable area */}
+                <div
                     ref={scrollContainerRef}
                     onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-36" // Aumentado a pb-36
+                    className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-36"
                 >
-                    {/* --- HEADER CONTENT (Scrolls away) --- */}
+                    {/* Header */}
                     <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
                         <div className="flex flex-col mb-4">
                             <h2 style={{ color: theme.text }} className="text-2xl font-black italic tracking-tighter">
                                 Categorías
                             </h2>
-                            
-                            {/* Visual Counter */}
                             <div className="flex items-center gap-3 mt-2">
-                                <div 
+                                <div
                                     className="px-3 py-1.5 rounded-full font-black text-xs transition-colors"
-                                    style={{ 
-                                        backgroundColor: `${theme.accent}20`,
-                                        color: theme.accent
-                                    }}
+                                    style={{ backgroundColor: `${theme.accent}20`, color: theme.accent }}
                                 >
                                     {totalSelectedCount} / {allCats.length}
                                 </div>
                                 <p style={{ color: theme.sub }} className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                                    {totalSelectedCount === 0 
-                                        ? 'Ninguna seleccionada' 
-                                        : totalSelectedCount === allCats.length 
-                                            ? '¡Todas activas!' 
+                                    {totalSelectedCount === 0
+                                        ? 'Ninguna seleccionada'
+                                        : totalSelectedCount === allCats.length
+                                            ? '¡Todas activas!'
                                             : 'Activas'
                                     }
                                 </p>
                             </div>
                         </div>
 
-                        {/* Progress Bar */}
+                        {/* Progress bar */}
                         <div className="mb-6 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
-                            <div 
+                            <div
                                 className="h-full transition-all duration-500 rounded-full"
-                                style={{ 
+                                style={{
                                     width: `${(totalSelectedCount / allCats.length) * 100}%`,
                                     backgroundColor: theme.accent
                                 }}
                             />
                         </div>
 
-                        {/* Presets List */}
+                        {/* Presets row */}
                         {presets.length > 0 && (
                             <div className="mb-4">
                                 <p className="text-[9px] font-black uppercase tracking-widest mb-2 px-1" style={{ color: theme.sub }}>
@@ -212,14 +194,7 @@ export const CategorySelector: React.FC<Props> = ({
                                     {presets.map(preset => (
                                         <button
                                             key={preset.id}
-                                            onClick={() => {
-                                                preset.categories.forEach(cat => {
-                                                    if (!selectedCategories.includes(cat)) onToggleCategory(cat);
-                                                });
-                                                selectedCategories.forEach(cat => {
-                                                    if (!preset.categories.includes(cat)) onToggleCategory(cat);
-                                                });
-                                            }}
+                                            onClick={() => handleApplyPreset(preset)}
                                             className="shrink-0 px-4 py-2 rounded-xl border flex items-center gap-3 relative group active:scale-95 transition-transform"
                                             style={{ backgroundColor: theme.cardBg, borderColor: theme.border }}
                                         >
@@ -228,40 +203,49 @@ export const CategorySelector: React.FC<Props> = ({
                                                 <span className="text-xs font-bold" style={{ color: theme.text }}>{preset.name}</span>
                                                 <span className="text-[8px] opacity-60" style={{ color: theme.sub }}>{preset.categories.length} temas</span>
                                             </div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (confirm('¿Borrar preset?')) {
-                                                        setPresets(prev => prev.filter(p => p.id !== preset.id));
-                                                    }
-                                                }}
-                                                className="w-5 h-5 rounded-full flex items-center justify-center absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white shadow-sm"
-                                            >
-                                                <X size={10} strokeWidth={3} />
-                                            </button>
+                                            {/* Delete — requires confirmation tap */}
+                                            {deleteConfirmId === preset.id ? (
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); handleDeletePreset(preset.id); }}
+                                                    className="w-5 h-5 rounded-full flex items-center justify-center absolute -top-1 -right-1 bg-red-500 text-white shadow-sm animate-pulse"
+                                                >
+                                                    <X size={10} strokeWidth={3} />
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); setDeleteConfirmId(preset.id); setTimeout(() => setDeleteConfirmId(null), 2500); }}
+                                                    className="w-5 h-5 rounded-full flex items-center justify-center absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/70 text-white shadow-sm"
+                                                >
+                                                    <X size={10} strokeWidth={3} />
+                                                </button>
+                                            )}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Navigation Tabs & Controls */}
+                        {/* View mode tabs + action buttons */}
                         <div className="flex items-center gap-2 mb-6">
                             <div className="flex-1 flex bg-black/20 p-1 rounded-2xl border border-white/5 gap-1">
-                                <button 
+                                <button
                                     onClick={() => setViewMode('list')}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        viewMode === 'list' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'
+                                    }`}
                                 >
                                     <List size={14} /> Lista
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setViewMode('collections')}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'collections' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'}`}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        viewMode === 'collections' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 opacity-70'
+                                    }`}
                                 >
                                     <Library size={14} /> Packs
                                 </button>
                             </div>
-                            
+
                             <button
                                 onClick={() => setShowSavePresetModal(true)}
                                 disabled={totalSelectedCount === 0}
@@ -275,30 +259,34 @@ export const CategorySelector: React.FC<Props> = ({
                             <button
                                 onClick={() => setIsCompactMode(!isCompactMode)}
                                 className="p-3 rounded-xl border transition-all active:scale-95"
-                                style={{ 
-                                    backgroundColor: isCompactMode ? theme.accent : theme.border, 
-                                    borderColor: isCompactMode ? theme.accent : theme.border, 
-                                    color: isCompactMode ? 'white' : theme.text 
+                                style={{
+                                    backgroundColor: isCompactMode ? theme.accent : theme.border,
+                                    borderColor: isCompactMode ? theme.accent : theme.border,
+                                    color: isCompactMode ? 'white' : theme.text
                                 }}
-                                title={isCompactMode ? "Vista expandida" : "Vista compacta"}
+                                title={isCompactMode ? 'Vista expandida' : 'Vista compacta'}
                             >
                                 {isCompactMode ? <Grid3x3 size={18} /> : <LayoutGrid size={18} />}
                             </button>
                         </div>
 
-                        {/* Search Bar (Now scrolls away) */}
+                        {/* Search bar — list mode only */}
                         {viewMode === 'list' && (
                             <div className="relative group mb-6">
-                                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-white" style={{ color: theme.sub }} />
+                                <Search
+                                    size={16}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                                    style={{ color: theme.sub }}
+                                />
                                 <input
                                     ref={searchInputRef}
                                     type="text"
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Buscar entre 50+ categorías..."
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    placeholder={`Buscar entre ${allCats.length} categorías...`}
                                     className="w-full pl-11 pr-10 py-3.5 rounded-2xl outline-none text-sm font-bold transition-all border"
-                                    style={{ 
-                                        backgroundColor: theme.cardBg, 
+                                    style={{
+                                        backgroundColor: theme.cardBg,
                                         color: theme.text,
                                         borderColor: searchQuery ? theme.accent : theme.border,
                                         boxShadow: searchQuery ? `0 0 20px -5px ${theme.accent}30` : 'none'
@@ -306,7 +294,7 @@ export const CategorySelector: React.FC<Props> = ({
                                 />
                                 {searchQuery && (
                                     <button
-                                        onClick={() => setSearchQuery('')}
+                                        onClick={() => { setSearchQuery(''); scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110"
                                         style={{ backgroundColor: theme.accent }}
                                     >
@@ -316,36 +304,29 @@ export const CategorySelector: React.FC<Props> = ({
                             </div>
                         )}
 
-                        {/* Standard Action Buttons (Scroll away) */}
+                        {/* Action buttons — list mode only */}
                         {viewMode === 'list' && (
                             <div className="flex gap-2 mb-2">
-                                <button 
+                                <button
                                     onClick={onToggleAll}
-                                    style={{ 
-                                        borderColor: theme.accent, 
-                                        color: theme.accent,
-                                        backgroundColor: theme.cardBg 
-                                    }}
+                                    style={{ borderColor: theme.accent, color: theme.accent, backgroundColor: theme.cardBg }}
                                     className="flex-1 py-4 border rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 backdrop-blur-md transition-all active:scale-95 shadow-sm hover:brightness-110"
                                 >
                                     <CheckCheck size={16} />
                                     {selectedCategories.length === allCats.length ? 'DESACTIVAR TODO' : 'ACTIVAR TODO'}
                                 </button>
-                                
-                                <button 
+
+                                <button
                                     onClick={() => handleRandomSelection(15)}
-                                    style={{ 
-                                        backgroundColor: theme.accent,
-                                        color: 'white'
-                                    }}
+                                    style={{ backgroundColor: theme.accent, color: 'white' }}
                                     className="flex-1 py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg hover:brightness-110"
                                 >
                                     <Shuffle size={16} />
-                                    SORPRÉNDEME
+                                    SORPRÉNDEME ×15
                                 </button>
                             </div>
                         )}
-                        
+
                         {searchQuery && (
                             <p className="text-[10px] font-bold px-1 mt-2" style={{ color: theme.sub }}>
                                 {filteredCategories.length} RESULTADO{filteredCategories.length !== 1 ? 'S' : ''}
@@ -353,191 +334,47 @@ export const CategorySelector: React.FC<Props> = ({
                         )}
                     </div>
 
-                    {/* --- MAIN GRID CONTENT --- */}
+                    {/* Main content */}
                     <div className="px-6 pb-48">
                         {viewMode === 'collections' ? (
-                            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-right duration-300">
-                                {CURATED_COLLECTIONS.map(col => {
-                                    const active = isCollectionActive(col.id);
-                                    const IconComponent = IconMap[col.icon] || Sparkles;
-                                    const wordCount = col.categories.reduce((sum, cat) => sum + getCategoryWordCount(cat), 0);
-
-                                    return (
-                                        <button 
-                                            key={col.id}
-                                            onClick={() => onToggleCollection(col.id)}
-                                            className="group relative w-full p-4 rounded-2xl border text-left transition-all duration-300 active:scale-[0.98] overflow-hidden flex flex-col h-full"
-                                            style={{ 
-                                                backgroundColor: active ? `${theme.accent}15` : theme.cardBg,
-                                                borderColor: active ? theme.accent : theme.border,
-                                                backdropFilter: 'blur(12px)'
-                                            }}
-                                        >
-                                            <div className="relative z-10 flex flex-col h-full">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div 
-                                                        className={`p-2 rounded-xl border transition-colors ${active ? 'bg-white/10' : 'bg-black/20'}`}
-                                                        style={{ 
-                                                            color: active ? theme.accent : theme.text,
-                                                            borderColor: active ? `${theme.accent}40` : 'transparent'
-                                                        }}
-                                                    >
-                                                        <IconComponent size={18} />
-                                                    </div>
-                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${active ? 'bg-white border-white' : 'border-white/20'}`}>
-                                                        {active && <CheckCheck size={12} className="text-black font-black" strokeWidth={4} />}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex-1 space-y-1.5">
-                                                    <span className="text-sm font-black tracking-tight leading-tight block" style={{ color: theme.text }}>
-                                                        {col.name}
-                                                    </span>
-                                                    <p style={{ color: theme.sub }} className="text-[10px] leading-snug opacity-70 line-clamp-2">
-                                                        {col.description}
-                                                    </p>
-                                                </div>
-
-                                                <div className="mt-4 pt-3 border-t border-white/5 flex flex-col gap-1">
-                                                    <p style={{ color: theme.accent }} className="text-[8px] font-black uppercase tracking-widest opacity-60 italic truncate">
-                                                        {col.vibe}
-                                                    </p>
-                                                    <span style={{ color: theme.sub }} className="text-[8px] font-mono opacity-50 uppercase">
-                                                        {col.categories.length} temas · {wordCount} palabras
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {active && (
-                                                <div className="absolute inset-0 z-0 opacity-20 pointer-events-none" style={{ background: `radial-gradient(circle at top right, ${theme.accent}40 0%, transparent 70%)` }} />
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <CollectionGrid
+                                selectedCategories={selectedCategories}
+                                theme={theme}
+                                onToggleCollection={onToggleCollection}
+                            />
                         ) : (
-                            <div className={`${isCompactMode ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'} grid gap-2 md:gap-3 animate-in fade-in slide-in-from-left duration-300`}>
-                                {filteredCategories.map(cat => {
-                                    const isActive = selectedCategories.includes(cat);
-                                    const isFavorite = favoriteCategories.includes(cat);
-                                    const blacklistRounds = temporaryBlacklist[cat] || 0;
-                                    const isBlacklisted = blacklistRounds > 0;
-                                    const count = getCategoryWordCount(cat);
-                                    const mostUsed = getMostUsedCategories();
-                                    
-                                    return (
-                                        <button
-                                            key={cat}
-                                            onClick={() => onToggleCategory(cat)}
-                                            disabled={isBlacklisted}
-                                            style={{ 
-                                                backgroundColor: isBlacklisted ? 'rgba(0,0,0,0.5)' : (isActive ? `${theme.accent}15` : 'transparent'),
-                                                borderColor: isBlacklisted ? 'rgba(255,0,0,0.3)' : (isActive ? theme.accent : theme.border),
-                                                color: isBlacklisted ? '#666' : (isActive ? theme.text : theme.sub),
-                                                opacity: isBlacklisted ? 0.6 : 1
-                                            }}
-                                            className={`
-                                                group relative w-full rounded-xl border font-black text-center 
-                                                transition-all active:scale-95 flex flex-col items-center justify-center overflow-hidden
-                                                ${isCompactMode ? 'h-16 p-1 text-[8px]' : 'h-24 p-2 text-[9px]'}
-                                            `}
-                                        >
-                                            {/* Word Count Badge */}
-                                            <div 
-                                                className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full text-[7px] font-bold"
-                                                style={{ backgroundColor: theme.border, color: theme.sub }}
-                                            >
-                                                {count}
-                                            </div>
-
-                                            {/* Status Badges */}
-                                            <div className="absolute top-1 right-1 flex flex-col gap-1 items-end">
-                                                {isFavorite && (
-                                                    <Heart size={8} className="text-red-500 fill-red-500 animate-pulse" />
-                                                )}
-                                                {isBlacklisted && (
-                                                    <div className="flex items-center gap-0.5 bg-red-500/20 px-1 rounded">
-                                                        <Ban size={8} className="text-red-500" />
-                                                        <span className="text-[7px] text-red-500">{blacklistRounds}</span>
-                                                    </div>
-                                                )}
-                                                {!isBlacklisted && mostUsed.includes(cat) && (
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="Popular" />
-                                                )}
-                                            </div>
-
-                                            {/* Active Indicator */}
-                                            {isActive && !isBlacklisted && (
-                                                <div className="absolute inset-0 border-2 rounded-xl pointer-events-none" style={{ borderColor: theme.accent }} />
-                                            )}
-
-                                            <span className="uppercase tracking-tighter leading-tight line-clamp-2 px-1 z-10">
-                                                {cat}
-                                            </span>
-
-                                            {/* Overlay Actions (Only in non-compact mode) */}
-                                            {!isCompactMode && !isBlacklisted && (
-                                                <div className="absolute bottom-0 inset-x-0 h-8 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent">
-                                                    <div 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPreviewCategory(cat);
-                                                        }}
-                                                        className="p-1 hover:scale-125 transition-transform"
-                                                    >
-                                                        <Eye size={12} style={{ color: theme.text }} />
-                                                    </div>
-                                                    
-                                                    {onToggleFavoriteCategory && (
-                                                        <div 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onToggleFavoriteCategory(cat);
-                                                            }}
-                                                            className="p-1 hover:scale-125 transition-transform"
-                                                        >
-                                                            <Heart size={12} className={isFavorite ? "text-red-500 fill-red-500" : "text-white"} />
-                                                        </div>
-                                                    )}
-
-                                                    {onBlockCategory && (
-                                                        <div 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                // Block for 5 rounds
-                                                                onBlockCategory(cat);
-                                                            }}
-                                                            className="p-1 hover:scale-125 transition-transform"
-                                                        >
-                                                            <Ban size={12} className="text-red-400" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <CategoryGrid
+                                categories={filteredCategories}
+                                selectedCategories={selectedCategories}
+                                favoriteCategories={favoriteCategories}
+                                temporaryBlacklist={temporaryBlacklist}
+                                categoryUsageStats={categoryUsageStats}
+                                isCompactMode={isCompactMode}
+                                theme={theme}
+                                onToggleCategory={onToggleCategory}
+                                onPreviewCategory={setPreviewCategory}
+                                onToggleFavoriteCategory={onToggleFavoriteCategory}
+                                onBlockCategory={onBlockCategory}
+                            />
                         )}
-                        
-                        {/* No Results */}
+
                         {searchQuery && filteredCategories.length === 0 && (
                             <div className="text-center py-12 opacity-50">
-                                <p className="text-xs font-bold" style={{ color: theme.text }}>Sin resultados</p>
+                                <p className="text-xs font-bold" style={{ color: theme.text }}>Sin resultados para "{searchQuery}"</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* DYNAMIC FOOTER CONTROLS */}
-                <div 
+                {/* Footer */}
+                <div
                     className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pointer-events-none transition-all duration-300"
                     style={!isGradientBg ? {
                         background: `linear-gradient(to top, ${theme.bg} 40%, ${theme.bg}CC 80%, transparent 100%)`
                     } : undefined}
                 >
-                    {/* Gradient Theme Backdrop */}
                     {isGradientBg && (
-                        <div 
+                        <div
                             className="absolute inset-0 w-full h-full"
                             style={{
                                 backgroundColor: theme.cardBg,
@@ -551,13 +388,11 @@ export const CategorySelector: React.FC<Props> = ({
                     )}
 
                     <div className="flex gap-2 items-end pointer-events-auto">
-                        
-                        {/* Confirm Button (Shrinks) */}
-                        <button 
+                        <button
                             onClick={onClose}
                             style={{ backgroundColor: theme.accent, color: '#fff' }}
                             className={`
-                                py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl 
+                                py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl
                                 active:scale-95 transition-all hover:brightness-110 flex items-center justify-center gap-2
                                 ${isScrolled ? 'flex-1' : 'w-full'}
                             `}
@@ -565,8 +400,9 @@ export const CategorySelector: React.FC<Props> = ({
                             CONFIRMAR SELECCIÓN
                         </button>
 
-                        {/* Extra Actions (Appear on Scroll) */}
-                        <div className={`flex gap-2 transition-all duration-500 ease-out overflow-hidden ${isScrolled ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+                        <div className={`flex gap-2 transition-all duration-500 ease-out overflow-hidden ${
+                            isScrolled ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0'
+                        }`}>
                             <button
                                 onClick={onToggleAll}
                                 className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/10 active:scale-90 transition-transform"
@@ -575,7 +411,6 @@ export const CategorySelector: React.FC<Props> = ({
                             >
                                 <CheckCheck size={18} />
                             </button>
-                            
                             <button
                                 onClick={scrollToTopAndSearch}
                                 className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/10 active:scale-90 transition-transform"
@@ -589,121 +424,26 @@ export const CategorySelector: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* PREVIEW MODAL */}
+            {/* Modals */}
             {previewCategory && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setPreviewCategory(null)}>
-                    <div 
-                        className="w-full max-w-sm p-6 rounded-3xl border shadow-2xl animate-in zoom-in-95 duration-300"
-                        style={{ backgroundColor: theme.bg, borderColor: theme.border }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <p className="text-[9px] font-black uppercase tracking-widest opacity-60" style={{ color: theme.sub }}>VISTA PREVIA</p>
-                                <h3 className="text-xl font-black uppercase" style={{ color: theme.text }}>{previewCategory}</h3>
-                            </div>
-                            <button onClick={() => setPreviewCategory(null)} className="p-2 rounded-full hover:bg-white/5" style={{ color: theme.text }}>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {getPreviewWords(previewCategory).map((word, i) => (
-                                <span 
-                                    key={i}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold border"
-                                    style={{ 
-                                        backgroundColor: theme.cardBg, 
-                                        color: theme.text,
-                                        borderColor: theme.border 
-                                    }}
-                                >
-                                    {word}
-                                </span>
-                            ))}
-                            {getCategoryWordCount(previewCategory!) > 10 && (
-                                <span className="px-2 py-1.5 text-xs opacity-50" style={{ color: theme.sub }}>... y más</span>
-                            )}
-                        </div>
-
-                        <button 
-                            onClick={() => {
-                                if (!selectedCategories.includes(previewCategory!)) onToggleCategory(previewCategory!);
-                                setPreviewCategory(null);
-                            }}
-                            className="w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest"
-                            style={{ backgroundColor: theme.accent, color: 'white' }}
-                        >
-                            Seleccionar Categoría
-                        </button>
-                    </div>
-                </div>
+                <PreviewModal
+                    category={previewCategory}
+                    selectedCategories={selectedCategories}
+                    theme={theme}
+                    onClose={() => setPreviewCategory(null)}
+                    onSelect={handleSelectFromPreview}
+                />
             )}
 
-            {/* SAVE PRESET MODAL */}
             {showSavePresetModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div 
-                        className="w-full max-w-sm p-6 rounded-3xl border shadow-2xl animate-in zoom-in-95 duration-300"
-                        style={{ backgroundColor: theme.bg, borderColor: theme.border }}
-                    >
-                        <h3 className="text-lg font-black mb-4 uppercase" style={{ color: theme.text }}>Guardar Preset</h3>
-                        
-                        <input
-                            id="preset-name"
-                            type="text"
-                            placeholder="Nombre del preset (ej: Fiesta Loca)"
-                            className="w-full px-4 py-3 rounded-xl mb-3 outline-none text-sm font-bold border focus:border-white/50 transition-colors"
-                            style={{ backgroundColor: theme.cardBg, color: theme.text, borderColor: theme.border }}
-                            autoFocus
-                        />
-                        
-                        <input
-                            id="preset-emoji"
-                            type="text"
-                            placeholder="Emoji (ej: 🍕)"
-                            maxLength={2}
-                            className="w-full px-4 py-3 rounded-xl mb-6 outline-none text-center text-2xl border focus:border-white/50 transition-colors"
-                            style={{ backgroundColor: theme.cardBg, color: theme.text, borderColor: theme.border }}
-                        />
-                        
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowSavePresetModal(false)}
-                                className="flex-1 py-3 rounded-xl font-bold text-xs uppercase"
-                                style={{ backgroundColor: theme.border, color: theme.text }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const nameInput = document.getElementById('preset-name') as HTMLInputElement;
-                                    const emojiInput = document.getElementById('preset-emoji') as HTMLInputElement;
-                                    const name = nameInput.value.trim();
-                                    const emoji = emojiInput.value.trim() || '⭐';
-                                    
-                                    if (name) {
-                                        const newPreset: CategoryPreset = {
-                                            id: Date.now().toString(),
-                                            name,
-                                            emoji,
-                                            categories: [...selectedCategories],
-                                            createdAt: Date.now()
-                                        };
-                                        setPresets(prev => [...prev, newPreset]);
-                                        setShowSavePresetModal(false);
-                                    }
-                                }}
-                                className="flex-1 py-3 rounded-xl font-bold text-xs uppercase shadow-lg"
-                                style={{ backgroundColor: theme.accent, color: 'white' }}
-                            >
-                                Guardar
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <SavePresetModal
+                    selectedCategories={selectedCategories}
+                    theme={theme}
+                    onSave={preset => setPresets(prev => [...prev, preset])}
+                    onClose={() => setShowSavePresetModal(false)}
+                />
             )}
-            
+
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
