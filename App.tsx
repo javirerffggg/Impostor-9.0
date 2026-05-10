@@ -90,7 +90,7 @@ function App() {
                     }));
                     confetti({ particleCount: 200, spread: 160, origin: { y: 0.5 }, colors: ['#ff0000','#00ff00','#0000ff','#ffff00'] });
                     if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
-                    setTimeout(() => alert('🎮 KONAMI CODE ACTIVATED!\n\nModo Centinela Legendary desbloqueado.'), 100);
+                    setTimeout(() => alert('\uD83C\uDFAE KONAMI CODE ACTIVATED!\n\nModo Centinela Legendary desbloqueado.'), 100);
                     return [];
                 }
                 return newSeq;
@@ -359,6 +359,7 @@ function App() {
                         onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
                         onArchitectConfirm={actions.handleArchitectConfirm}
                         onArchitectRegenerate={actions.handleArchitectRegenerate}
+                        onSifonDecision={actions.handleSifonDecision}
                         architectOptions={architectOptions}
                         architectRegenCount={architectRegenCount}
                         isExiting={isExiting}
