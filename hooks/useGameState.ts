@@ -419,6 +419,7 @@ export const useGameState = () => {
                 useNexusMode: prev.settings.nexusMode,
                 useRenunciaMode: prev.settings.renunciaMode,
                 useMagistradoMode: prev.settings.protocolMagistrado,
+                useSifonMode: prev.settings.useSifonMode,  // ← ADDED
                 selectedCats: prev.settings.selectedCategories,
                 history: prev.history,
                 debugOverrides: prev.debugState.isEnabled ? {
