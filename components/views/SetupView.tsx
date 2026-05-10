@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GameState, ThemeConfig } from '../../types';
-import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, ChevronDown, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, AlertTriangle, Gamepad2, Pencil } from 'lucide-react';
+import { Users, X, Save, Check, Database, LayoutGrid, Settings, ChevronRight, ChevronDown, Lock, Droplets, ScanEye, Ghost, ShieldCheck, Network, Beer, Eye, Zap, UserMinus, Brain, Gavel, AlertTriangle, Gamepad2, Pencil, Pipette } from 'lucide-react';
 import { GameModeWithTabs, GameModeItem } from '../GameModeWithTabs';
 import { getMemoryConfigForDifficulty } from '../../utils/memoryWordGenerator';
 import { getPlayerColor, getPlayerInitials } from '../../utils/playerHelpers';
@@ -177,6 +177,7 @@ export const SetupView: React.FC<Props> = ({
             case 'vanguardia': onUpdateSettings({ vanguardiaMode: !gameState.settings.vanguardiaMode }); break;
             case 'renuncia':   onUpdateSettings({ renunciaMode: !gameState.settings.renunciaMode }); break;
             case 'magistrado': onUpdateSettings({ protocolMagistrado: !gameState.settings.protocolMagistrado }); break;
+            case 'sifon':      onUpdateSettings({ useSifonMode: !gameState.settings.useSifonMode }); break;
             case 'memory': {
                 const config = gameState.settings.memoryModeConfig;
                 if (!config.enabled) {
@@ -198,6 +199,7 @@ export const SetupView: React.FC<Props> = ({
         { id: 'architect',  name: 'Arquitecto', description: 'Civil elige la palabra.',       icon: <ShieldCheck size={20} />, isActive: gameState.settings.architectMode },
         { id: 'magistrado', name: 'Magistrado', description: 'Alcalde con voto doble.',       icon: <Gavel size={20} />,       isActive: gameState.settings.protocolMagistrado, isDisabled: gameState.players.length < 6 },
         { id: 'renuncia',   name: 'Renuncia',   description: 'Rechazar rol impostor.',        icon: <UserMinus size={20} />,   isActive: gameState.settings.renunciaMode, isDisabled: gameState.impostorCount < 2 },
+        { id: 'sifon',      name: 'Sifón',      description: 'Dilema del prisionero.',        icon: <Pipette size={20} />,     isActive: gameState.settings.useSifonMode, isDisabled: gameState.impostorCount < 2 },
         { id: 'nexus',      name: 'Nexus',      description: 'Impostores aliados.',           icon: <Network size={20} />,     isActive: gameState.settings.nexusMode },
         { id: 'oracle',     name: 'Oráculo',    description: 'Pista pública inicial.',        icon: <Eye size={20} />,         isActive: gameState.settings.oracleMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
         { id: 'vanguardia', name: 'Vanguardia', description: 'Ventaja al inicio.',            icon: <Zap size={20} />,         isActive: gameState.settings.vanguardiaMode && gameState.settings.hintMode, isDisabled: !gameState.settings.hintMode },
