@@ -1,6 +1,3 @@
-
-
-
 export interface SelectionTelemetry {
     playerId: string;
     playerName: string;
@@ -46,7 +43,7 @@ export interface CuratedCollection {
 export interface Player {
     id: string;
     name: string;
-    avatarIdx?: number; // Visual color index persistence
+    avatarIdx?: number;
 }
 
 export type SocialRole = 'civil' | 'bartender' | 'vip' | 'alguacil' | 'bufon';
@@ -66,14 +63,13 @@ export interface GamePlayer extends Player {
     oracleTriggered?: boolean;
     partyRole?: SocialRole;
     isArchitect?: boolean;
-    isAlcalde?: boolean; // ✨ NUEVO: Protocolo Magistrado
+    isAlcalde?: boolean;
     nexusPartners?: string[];
     isWitness?: boolean;
     hasRejectedImpRole?: boolean;
     wasTransferred?: boolean;
-    // v9.0 Memory Mode
     memoryWords?: string[];
-    memoryCorrectIndex?: number; // -1 for impostors
+    memoryCorrectIndex?: number;
 }
 
 export type PartyIntensity = 'aperitivo' | 'hora_punta' | 'after_hours' | 'resaca';
@@ -86,7 +82,6 @@ export interface InfinityVault {
         civilStreak: number;
         totalImpostorWins: number;
         quarantineRounds: number;
-        // ✨ NUEVO: Stats Magistrado
         timesAsAlcalde?: number;
         alcaldeWinRate?: number;
     };
@@ -121,7 +116,6 @@ export interface RenunciaData {
     hasSeenInitialRole?: boolean;
 }
 
-// ✨ NUEVO: Datos de la sesión de Magistrado
 export interface MagistradoData {
     alcaldePlayerId: string;
     alcaldePlayerName: string;
@@ -137,24 +131,21 @@ export interface MatchLog {
     round: number;
     category: string;
     word: string;
-    impostors: string[]; // Names
-    civilians: string[]; // Names
+    impostors: string[];
+    civilians: string[];
     isTroll: boolean;
     trollScenario: string | null;
     paranoiaLevel: number;
     breakProtocol: string | null;
     architect: string | null;
-    oracle?: string | null; // v7.0
-    leteoGrade?: 0 | 1 | 2 | 3; // v6.3 LETEO Protocol
-    entropyLevel?: number;      // v6.3 LETEO Protocol
-    telemetry?: SelectionTelemetry[]; // v6.4 Debugging
-    affectsINFINITUM?: boolean; // v11.0: If false, stats are not updated (Troll events)
-    // v12.0 RENUNCIA Logging
-    renunciaTriggered?: boolean;      
-    renunciaDecision?: RenunciaDecision; 
-    renunciaWitness?: string;         
-    
-    // v12.1 RENUNCIA v2.0 Telemetry
+    oracle?: string | null;
+    leteoGrade?: 0 | 1 | 2 | 3;
+    entropyLevel?: number;
+    telemetry?: SelectionTelemetry[];
+    affectsINFINITUM?: boolean;
+    renunciaTriggered?: boolean;
+    renunciaDecision?: RenunciaDecision;
+    renunciaWitness?: string;
     renunciaTelemetry?: {
         finalProbability: number;
         karmaBonus: number;
@@ -162,17 +153,13 @@ export interface MatchLog {
         failureBonus: number;
         candidateStreak: number;
     };
-    magistrado?: string; // Name of Alcalde
-    
-    // v12.3: Telemetría de Selección de Categoría
+    magistrado?: string;
     categorySelectionTelemetry?: {
         candidateCategories: string[];
         weights: Record<string, number>;
         finalProbabilities: Record<string, number>;
         selectionReason: string;
     };
-    
-    // v12.5: Alertas de Agotamiento
     exhaustionWarning?: 'none' | 'medium' | 'high' | 'critical';
     categoryExhaustionRate?: number;
 }
@@ -184,24 +171,23 @@ export type MemoryDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
 export interface MemoryModeConfig {
     enabled: boolean;
     difficulty: MemoryDifficulty;
-    displayTime: number; // Seconds
-    wordCount: number; // Words to show
-    highlightIntensity: number; // 0-1
+    displayTime: number;
+    wordCount: number;
+    highlightIntensity: number;
 }
 
 export interface CategoryExhaustionData {
-    usedWords: string[];        // Palabras ya jugadas
-    totalWords: number;          // Total de palabras en esa categoría
-    lastReset: number;           // Timestamp del último reset
-    cycleCount: number;          // Cuántas veces se ha completado el ciclo
+    usedWords: string[];
+    totalWords: number;
+    lastReset: number;
+    cycleCount: number;
 }
 
-// ✨ NUEVO: Estadísticas de uso por categoría
 export interface CategoryUsageStats {
-    totalTimesSelected: number;        // Veces que salió la categoría
-    lastSelectedRound: number;         // Última ronda que salió
-    averageWordsPerSelection: number;  // Promedio de palabras vistas
-    exhaustionRate: number;            // % de palabras ya usadas (0-1)
+    totalTimesSelected: number;
+    lastSelectedRound: number;
+    averageWordsPerSelection: number;
+    exhaustionRate: number;
 }
 
 export interface GameState {
@@ -219,11 +205,8 @@ export interface GameState {
         lastWords: string[];
         lastCategories: string[];
         globalWordUsage: Record<string, number>;
-        // ✨ NUEVO: Tracking persistente de palabras usadas por categoría
         categoryExhaustion?: Record<string, CategoryExhaustionData>;
-        // ✨ NUEVO: Tracking de uso de categorías
         categoryUsageStats?: Record<string, CategoryUsageStats>;
-        
         playerStats: Record<string, InfinityVault>;
         lastTrollRound: number;
         lastArchitectRound: number;
@@ -235,13 +218,9 @@ export interface GameState {
         lastBreakProtocol: string | null;
         matchLogs: MatchLog[];
         lastLeteoRound?: number;
-        
-        // v12.3 Rotation Mode State
         rotationIndex?: number;
-
-        // ✨ NUEVO: Gestión de Blacklist y Modo Explorador
-        temporaryBlacklist?: Record<string, number>; // Categoría -> Rondas restantes
-        explorerDeck?: string[]; // Categorías ya jugadas en el ciclo actual
+        temporaryBlacklist?: Record<string, number>;
+        explorerDeck?: string[];
     };
     settings: {
         hintMode: boolean;
@@ -253,36 +232,34 @@ export interface GameState {
         nexusMode: boolean;
         passPhoneMode: boolean;
         shuffleEnabled: boolean;
-        impostorEffects: boolean; // ✨ NUEVO: Control de FX Impostor
+        impostorEffects: boolean;
         revealMethod: 'hold' | 'swipe';
         swipeSensitivity: 'low' | 'medium' | 'high';
-        holdRevealSpeed: 'low' | 'medium' | 'high'; // ✨ NUEVO: Fluidez de la animación de mantener
+        holdRevealSpeed: 'low' | 'medium' | 'high';
         hapticFeedback: boolean;
         soundEnabled: boolean;
         selectedCategories: string[];
         renunciaMode: boolean;
-        protocolMagistrado: boolean; // ✨ NUEVO
-        magistradoMinPlayers: number; 
-        memoryModeConfig: MemoryModeConfig; // v9.0 Memory Mode
-        // ✨ NUEVO: Ajustes de selección de categorías
+        protocolMagistrado: boolean;
+        magistradoMinPlayers: number;
+        memoryModeConfig: MemoryModeConfig;
         categoryRepetitionAvoidance: 'none' | 'soft' | 'medium' | 'hard';
         rareCategoryBoost: boolean;
-        rotationMode?: boolean; // v12.3: Modo Rotación secuencial
-        
-        // ✨ NUEVO v12.4
-        favoriteCategories?: string[]; // Lista de favoritos (2x peso)
-        explorerMode?: boolean; // Modo Explorador (deck de cartas)
-
-        // ✨ NUEVO: Consulta de Rol post-revelación
+        rotationMode?: boolean;
+        favoriteCategories?: string[];
+        explorerMode?: boolean;
+        /** Permite revisar la carta en pantalla de resultados */
         allowReReveal: boolean;
+        /** Modo rendimiento optimizado para hardware mid-range (e.g. OnePlus 9) */
+        performanceMode: boolean;
     };
     debugState: {
         isEnabled: boolean;
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
         forceRenuncia?: boolean;
-        godModeAssignments?: Record<string, string>; // ✨ NUEVO: Asignación manual
-        easterEggUnlocked?: boolean; // ✨ NUEVO
+        godModeAssignments?: Record<string, string>;
+        easterEggUnlocked?: boolean;
     };
     partyState: {
         intensity: PartyIntensity;
@@ -293,10 +270,9 @@ export interface GameState {
     theme: ThemeName;
     oracleSetup?: OracleSetupData;
     renunciaData?: RenunciaData;
-    magistradoData?: MagistradoData; // ✨ NUEVO
+    magistradoData?: MagistradoData;
 }
 
-// ✨ NUEVO: Interfaz para presets de categorías
 export interface CategoryPreset {
     id: string;
     name: string;

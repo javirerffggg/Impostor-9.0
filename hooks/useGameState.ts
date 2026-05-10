@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import { useState, useEffect, useCallback } from 'react';
 import { 
     GameState, 
@@ -34,10 +28,10 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
     nexusMode: false,
     passPhoneMode: false,
     shuffleEnabled: false,
-    impostorEffects: true, // Default to true
+    impostorEffects: true,
     revealMethod: 'hold',
     swipeSensitivity: 'medium',
-    holdRevealSpeed: 'medium', // Default smoothness
+    holdRevealSpeed: 'medium',
     hapticFeedback: true,
     soundEnabled: true,
     selectedCategories: [],
@@ -51,12 +45,13 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
         wordCount: 5,
         highlightIntensity: 0.5
     },
-    // ✨ NUEVO: Ajustes de selección de categorías
     categoryRepetitionAvoidance: 'medium',
     rareCategoryBoost: false,
     rotationMode: false,
     favoriteCategories: [],
-    explorerMode: false
+    explorerMode: false,
+    allowReReveal: false,
+    performanceMode: false,
 };
 
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
@@ -67,15 +62,11 @@ const STORAGE_KEY_SESSION = 'impostor_session_state_v1';
 const safeLocalStorageSet = (key: string, value: any): boolean => {
     try {
         const serialized = JSON.stringify(value);
-        
-        // Check size before saving (5MB limit typical)
         const sizeInBytes = new Blob([serialized]).size;
         const sizeInMB = sizeInBytes / (1024 * 1024);
         
-        if (sizeInMB > 4.5) { // Leave 0.5MB buffer
+        if (sizeInMB > 4.5) {
             console.warn(`Data too large (${sizeInMB.toFixed(2)}MB). Compressing...`);
-            
-            // Trim old match logs if history is too big
             const parsed = JSON.parse(serialized);
             if (parsed.matchLogs && parsed.matchLogs.length > 50) {
                 parsed.matchLogs = parsed.matchLogs.slice(0, 50);
@@ -88,11 +79,9 @@ const safeLocalStorageSet = (key: string, value: any): boolean => {
         return true;
     } catch (e) {
         if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-            // Try clearing old data
             try {
                 const oldKeys = ['impostor_game_history_v1', 'old_cache_key'];
                 oldKeys.forEach(k => localStorage.removeItem(k));
-                
                 localStorage.setItem(key, JSON.stringify(value));
                 return true;
             } catch {
@@ -110,11 +99,9 @@ const getInitialHistory = (): GameState['history'] => {
         const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
         if (stored) {
             const parsed = JSON.parse(stored);
-            // Basic validation to ensure it has required fields
             if (parsed && typeof parsed === 'object') {
                 return {
                     ...parsed,
-                    // Ensure new fields exist if loading old history
                     categoryExhaustion: parsed.categoryExhaustion || {},
                     categoryUsageStats: parsed.categoryUsageStats || {},
                     rotationIndex: parsed.rotationIndex || 0,
@@ -132,8 +119,8 @@ const getInitialHistory = (): GameState['history'] => {
         lastWords: [],
         lastCategories: [],
         globalWordUsage: {},
-        categoryExhaustion: {}, // New Exhaustion System
-        categoryUsageStats: {}, // Usage Stats
+        categoryExhaustion: {},
+        categoryUsageStats: {},
         playerStats: {},
         lastTrollRound: 0,
         lastArchitectRound: 0,
@@ -155,7 +142,6 @@ const getInitialSettings = (): GameState['settings'] => {
         const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
         if (stored) {
             const parsed = JSON.parse(stored);
-            // Deep merge to ensure new settings keys are present
             return {
                 ...DEFAULT_SETTINGS,
                 ...parsed,
@@ -164,7 +150,9 @@ const getInitialSettings = (): GameState['settings'] => {
                     ...(parsed.memoryModeConfig || {})
                 },
                 favoriteCategories: parsed.favoriteCategories || [],
-                explorerMode: parsed.explorerMode || false
+                explorerMode: parsed.explorerMode ?? false,
+                allowReReveal: parsed.allowReReveal ?? false,
+                performanceMode: parsed.performanceMode ?? false,
             };
         }
     } catch (e) {
@@ -172,6 +160,22 @@ const getInitialSettings = (): GameState['settings'] => {
     }
     return DEFAULT_SETTINGS;
 };
+
+// Apply/remove perf mode attribute on <html> on startup
+// (so CSS rules take effect immediately before React mounts)
+(function applyPerfModeOnBoot() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.performanceMode === true) {
+                document.documentElement.setAttribute('data-perf', 'low');
+            }
+        }
+    } catch {
+        // silent — non-critical
+    }
+})();
 
 const getInitialSession = (): { players: Player[], impostorCount: number } => {
     try {
@@ -189,12 +193,11 @@ const getInitialSession = (): { players: Player[], impostorCount: number } => {
         console.error("Error loading session state:", e);
     }
     
-    // Usar Date.now() también para defaults para asegurar IDs únicos
     return {
         players: DEFAULT_PLAYERS.map((name, index) => ({ 
             id: `default_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
             name,
-            avatarIdx: index // Initial assignment
+            avatarIdx: index
         })),
         impostorCount: 1
     };
@@ -226,7 +229,6 @@ const INITIAL_STATE: GameState = {
 };
 
 export const useGameState = () => {
-    // Load saved players from local storage
     const [savedPlayers, setSavedPlayers] = useState<string[]>(() => {
         try {
             return JSON.parse(localStorage.getItem('impostor_saved_players') || '[]');
@@ -240,22 +242,18 @@ export const useGameState = () => {
     const [architectRegenCount, setArchitectRegenCount] = useState(0);
     const [currentWordPair, setCurrentWordPair] = useState<CategoryData | null>(null);
 
-    // Save players effect
     useEffect(() => {
         localStorage.setItem('impostor_saved_players', JSON.stringify(savedPlayers));
     }, [savedPlayers]);
 
-    // Save history effect (Persistence) - USING SAFE STORAGE
     useEffect(() => {
         safeLocalStorageSet(STORAGE_KEY_HISTORY, gameState.history);
     }, [gameState.history]);
 
-    // Save settings effect (Persistence) - USING SAFE STORAGE
     useEffect(() => {
         safeLocalStorageSet(STORAGE_KEY_SETTINGS, gameState.settings);
     }, [gameState.settings]);
 
-    // Save active session state (Persistence) - USING SAFE STORAGE
     useEffect(() => {
         const sessionData = {
             players: gameState.players,
@@ -264,19 +262,23 @@ export const useGameState = () => {
         safeLocalStorageSet(STORAGE_KEY_SESSION, sessionData);
     }, [gameState.players, gameState.impostorCount]);
 
-    // Actions
+    // Sync data-perf attribute whenever performanceMode changes
+    useEffect(() => {
+        if (gameState.settings.performanceMode) {
+            document.documentElement.setAttribute('data-perf', 'low');
+        } else {
+            document.documentElement.removeAttribute('data-perf');
+        }
+    }, [gameState.settings.performanceMode]);
 
     const addPlayer = useCallback((name: string) => {
         if (!name.trim()) return;
-        
-        // NEW: Validate player limit
         if (gameState.players.length >= GAME_LIMITS.MAX_PLAYERS) {
             console.warn(`Cannot add more than ${GAME_LIMITS.MAX_PLAYERS} players`);
             return;
         }
-
         setGameState(prev => {
-            const nextAvatarIdx = (prev.players.length) % 12; // Cycle through 12 colors
+            const nextAvatarIdx = (prev.players.length) % 12;
             return {
                 ...prev,
                 players: [...prev.players, { 
@@ -340,7 +342,6 @@ export const useGameState = () => {
         });
     }, []);
 
-    // ✨ NUEVO: Gestión de Favoritos
     const toggleFavoriteCategory = useCallback((cat: string) => {
         setGameState(prev => {
             const current = prev.settings.favoriteCategories || [];
@@ -357,7 +358,6 @@ export const useGameState = () => {
         });
     }, []);
 
-    // ✨ NUEVO: Gestión de Blacklist Temporal
     const blockCategoryTemporarily = useCallback((cat: string, rounds: number = 5) => {
         setGameState(prev => ({
             ...prev,
@@ -375,17 +375,14 @@ export const useGameState = () => {
         setGameState(prev => {
             const collection = CURATED_COLLECTIONS.find(c => c.id === colId);
             if (!collection) return prev;
-
             const current = prev.settings.selectedCategories;
             const allIn = collection.categories.every(c => current.includes(c));
-            
             let newCats: string[];
             if (allIn) {
                 newCats = current.filter(c => !collection.categories.includes(c));
             } else {
                 newCats = [...new Set([...current, ...collection.categories])];
             }
-            
             return {
                 ...prev,
                 settings: { ...prev.settings, selectedCategories: newCats }
@@ -408,7 +405,6 @@ export const useGameState = () => {
     }, []);
 
     const runGameGeneration = useCallback(() => {
-        // Usar functional update para acceder a estado más reciente
         setGameState(prev => {
             const result = generateGameData({
                 players: prev.players,
@@ -429,7 +425,6 @@ export const useGameState = () => {
                 } : undefined,
                 isPartyMode: prev.settings.partyMode,
                 memoryModeConfig: prev.settings.memoryModeConfig,
-                // ✨ NUEVO: Pasar ajustes completos de categoría
                 categorySettings: {
                     repetitionAvoidance: prev.settings.categoryRepetitionAvoidance,
                     rareBoost: prev.settings.rareCategoryBoost,
@@ -439,22 +434,17 @@ export const useGameState = () => {
                 }
             });
 
-            // Update local refs (side effects are tricky inside setGameState, but these are for immediate UI sync)
             setCurrentWordPair(result.wordPair);
 
-            // Handle Architect
             if (result.isArchitectTriggered) {
                 const options = generateArchitectOptions(prev.settings.selectedCategories);
                 setArchitectOptions(options);
                 setArchitectRegenCount(0);
-                
-                // Adjust current player index to the architect
                 const architectIndex = result.players.findIndex(p => p.isArchitect);
-                
                 return {
                     ...prev,
                     phase: 'architect',
-                    gameData: result.players, // Initial assignment
+                    gameData: result.players,
                     isTrollEvent: result.isTrollEvent,
                     trollScenario: result.trollScenario,
                     isArchitectRound: true,
@@ -468,7 +458,6 @@ export const useGameState = () => {
                 };
             }
 
-            // Standard Start
             return {
                 ...prev,
                 phase: result.oracleSetup ? 'oracle' : 'revealing',
@@ -490,9 +479,6 @@ export const useGameState = () => {
     }, []);
 
     const handleArchitectRegenerate = useCallback(() => {
-        // Need current settings for regeneration, access via prev state in a real component or ref, 
-        // here using dependency on gameState.settings is acceptable if this function is recreated on setting change
-        // OR pass settings as arg. For simplicity, we use dependencies here as it's triggered by user.
         if (architectRegenCount >= 3) return;
         const newOptions = generateArchitectOptions(gameState.settings.selectedCategories);
         setArchitectOptions(newOptions);
@@ -501,7 +487,6 @@ export const useGameState = () => {
 
     const handleArchitectConfirm = useCallback((selection: { categoryName: string, wordPair: CategoryData }) => {
         setCurrentWordPair(selection.wordPair);
-        
         setGameState(prev => {
             const newGameData = prev.gameData.map(p => {
                 if (!p.isImp) {
@@ -512,7 +497,6 @@ export const useGameState = () => {
                         category: selection.categoryName 
                     };
                 } else {
-                    // Update Impostor
                     let newWord = "ERES EL IMPOSTOR";
                     if (prev.settings.hintMode) {
                         if (p.isVanguardia) {
@@ -530,7 +514,6 @@ export const useGameState = () => {
                 }
             });
 
-            // ✅ Actualizar oracleSetup si existe con la nueva palabra
             let updatedOracleSetup = prev.oracleSetup;
             if (updatedOracleSetup) {
                 const hints = selection.wordPair.hints && selection.wordPair.hints.length >= 3 
@@ -566,7 +549,7 @@ export const useGameState = () => {
                         ...p,
                         word: `PISTA: ${selectedHint}`,
                         oracleChosen: true,
-                        oracleTriggered: true // For UI feedback
+                        oracleTriggered: true
                     };
                 }
                 return p;
@@ -577,7 +560,7 @@ export const useGameState = () => {
                 gameData: newGameData,
                 phase: 'revealing',
                 currentPlayerIndex: 0,
-                oracleSetup: undefined // Clear setup so we don't loop back
+                oracleSetup: undefined
             };
         });
     }, []);
@@ -589,12 +572,10 @@ export const useGameState = () => {
     const handleRenunciaDecision = useCallback((decision: RenunciaDecision) => {
         if (!gameState.renunciaData || !currentWordPair) return;
 
-        // Find candidate's position in reveal order
         const candidateRevealIndex = gameState.gameData.findIndex(
             p => p.id === gameState.renunciaData!.candidatePlayerId
         );
 
-        // Apply Logic
         const result = applyRenunciaDecision(
             decision,
             gameState.gameData,
@@ -607,10 +588,8 @@ export const useGameState = () => {
             gameState.oracleSetup?.oraclePlayerId
         );
 
-        // Update MatchLog with decision
         setGameState(prev => {
             const updatedMatchLogs = [...prev.history.matchLogs];
-            
             if (updatedMatchLogs.length > 0) {
                 const latestLog = updatedMatchLogs[0];
                 updatedMatchLogs[0] = {
@@ -658,7 +637,7 @@ export const useGameState = () => {
             updateSettings,
             addPlayer,
             removePlayer,
-            cyclePlayerColor, // Exported new action
+            cyclePlayerColor,
             saveToBank,
             deleteFromBank,
             toggleCategory,

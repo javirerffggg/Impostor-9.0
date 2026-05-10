@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   PERFORMANCE MODE — [data-perf="low"]
+   Applied when performanceMode is enabled in settings.
+   Targets GPU-heavy CSS properties to reduce compositor load
+   on mid-range devices (Snapdragon 888, 8 GB RAM class).
+   ============================================================ */
+
+[data-perf="low"] *,
+[data-perf="low"] *::before,
+[data-perf="low"] *::after {
+  /* Kill expensive blur compositing on every layer */
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+
+  /* Flatten all animated shadows to a single cheap one */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
+
+  /* Cut transition durations to near-instant */
+  transition-duration: 80ms !important;
+
+  /* Release GPU compositing layers — let browser decide */
+  will-change: auto !important;
+}
+
+/* Stop all looping/pulse animations — the costliest CSS */
+[data-perf="low"] .animate-ping,
+[data-perf="low"] .animate-pulse,
+[data-perf="low"] .animate-spin,
+[data-perf="low"] .animate-bounce {
+  animation: none !important;
+}
+
+/* Kill any custom @keyframes animations that run indefinitely */
+[data-perf="low"] [style*="animation"] {
+  animation-play-state: paused !important;
+}
+
+/* Gradient text is cheap, leave it. But gradient backgrounds
+   on animated elements are expensive — flatten them */
+[data-perf="low"] [style*="background-size: 200%"],
+[data-perf="low"] [style*="backgroundSize: '200%'"] {
+  animation: none !important;
+  background-size: 100% !important;
+}
+
+/* Reduce filter usage — drop-shadow filter is composited */
+[data-perf="low"] [style*="filter"] {
+  filter: none !important;
+}
+
+/* ============================================================
+   EXISTING APP STYLES (add yours below this line)
+   ============================================================ */
