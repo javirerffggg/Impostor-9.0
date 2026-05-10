@@ -9,6 +9,7 @@ export interface SelectionTelemetry {
 }
 
 export type RenunciaDecision = 'pending' | 'accept' | 'reject' | 'transfer';
+export type SifonDecision = 'pending' | 'sifon' | 'silence' | 'integrity';
 
 export interface ThemeConfig {
     name: string;
@@ -70,6 +71,10 @@ export interface GamePlayer extends Player {
     wasTransferred?: boolean;
     memoryWords?: string[];
     memoryCorrectIndex?: number;
+    // SIFÓN
+    isSiphoner?: boolean;
+    isSiphoned?: boolean;
+    leakedSifonHints?: string[];
 }
 
 export type PartyIntensity = 'aperitivo' | 'hora_punta' | 'after_hours' | 'resaca';
@@ -114,6 +119,14 @@ export interface RenunciaData {
     witnessPlayerId?: string;
     transferredToId?: string;
     hasSeenInitialRole?: boolean;
+}
+
+export interface SifonData {
+    activePlayerId: string;
+    decision: SifonDecision;
+    leakedHints: string[];
+    siphonedImpostorsIds: string[];
+    timestamp?: number;
 }
 
 export interface MagistradoData {
@@ -162,6 +175,10 @@ export interface MatchLog {
     };
     exhaustionWarning?: 'none' | 'medium' | 'high' | 'critical';
     categoryExhaustionRate?: number;
+    sifonTriggered?: boolean;
+    sifonDecision?: SifonDecision;
+    sifonSiphoner?: string;
+    sifonVictims?: string[];
 }
 
 export type TrollScenario = 'espejo_total' | 'civil_solitario' | 'falsa_alarma';
@@ -252,12 +269,15 @@ export interface GameState {
         allowReReveal: boolean;
         /** Modo rendimiento optimizado para hardware mid-range (e.g. OnePlus 9) */
         performanceMode: boolean;
+        /** Protocolo SIFÓN: dilema del prisionero asimétrico entre impostores */
+        useSifonMode: boolean;
     };
     debugState: {
         isEnabled: boolean;
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
         forceRenuncia?: boolean;
+        forceSifon?: boolean;
         godModeAssignments?: Record<string, string>;
         easterEggUnlocked?: boolean;
     };
@@ -270,6 +290,7 @@ export interface GameState {
     theme: ThemeName;
     oracleSetup?: OracleSetupData;
     renunciaData?: RenunciaData;
+    sifonData?: SifonData;
     magistradoData?: MagistradoData;
 }
 
