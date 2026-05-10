@@ -29,7 +29,7 @@ const TABS: Record<TabId, { label: string; icon: string; modeIds: string[] }> = 
     protocols: { 
         label: 'Protocolos', 
         icon: '🛡️', 
-        modeIds: ['architect', 'magistrado', 'renuncia'] 
+        modeIds: ['architect', 'magistrado', 'renuncia', 'sifon'] 
     },
     alliances: { 
         label: 'Alianzas', 
