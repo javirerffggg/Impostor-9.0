@@ -442,9 +442,6 @@ export const useGameState = () => {
                 const options = generateArchitectOptions(prev.settings.selectedCategories);
                 setArchitectOptions(options);
                 setArchitectRegenCount(0);
-                // Architect goes directly into 'revealing' at index 0.
-                // The ArchitectBloomGate in RevealingView intercepts their card
-                // and shows the selection screen after a hold gesture.
                 return {
                     ...prev,
                     phase: result.oracleSetup ? 'oracle' : 'revealing',
@@ -541,8 +538,6 @@ export const useGameState = () => {
                 ...prev,
                 gameData: newGameData,
                 oracleSetup: updatedOracleSetup,
-                // After confirming, advance to next player (index 1) so the
-                // Architect's own card turn is not repeated.
                 phase: updatedOracleSetup ? 'oracle' : 'revealing',
                 currentPlayerIndex: 1
             };
@@ -635,22 +630,30 @@ export const useGameState = () => {
         });
     }, []);
 
+    // -------------------------------------------------------------------------
+    // handleSifonDecision — pure functional updater
+    // All state reads happen inside setGameState(prev => ...) to avoid stale
+    // closures. currentWordPair is kept as a ref-like useState outside GameState
+    // so we still read it from the outer scope, but guard against null inside.
+    // -------------------------------------------------------------------------
     const handleSifonDecision = useCallback((decision: SifonDecision) => {
-        if (!gameState.sifonData || !currentWordPair) return;
+        setGameState(prev => {
+            if (!prev.sifonData || !currentWordPair) return prev;
 
-        const { updatedGameData, updatedSifonData } = applySifonDecision(
-            decision,
-            gameState.gameData,
-            gameState.sifonData,
-            currentWordPair
-        );
+            const { updatedGameData, updatedSifonData } = applySifonDecision(
+                decision,
+                prev.gameData,
+                prev.sifonData,
+                currentWordPair
+            );
 
-        setGameState(prev => ({
-            ...prev,
-            gameData: updatedGameData,
-            sifonData: updatedSifonData
-        }));
-    }, [gameState.sifonData, gameState.gameData, currentWordPair]);
+            return {
+                ...prev,
+                gameData: updatedGameData,
+                sifonData: updatedSifonData
+            };
+        });
+    }, [currentWordPair]);
 
     return {
         gameState,
