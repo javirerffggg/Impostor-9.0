@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointer2, ChevronUp, Hand, Smartphone } from 'lucide-react';
+import { MousePointer2, ChevronUp, Hand, Smartphone, Eye } from 'lucide-react';
 import { ThemeConfig, GameState } from '../../types';
 import {
     SectionContainer, SectionHeader, ContentCard,
@@ -121,7 +121,7 @@ export const RevealMethodSection: React.FC<Props> = ({ gameState, theme, onUpdat
             </ContentCard>
         )}
 
-        {/* Hold speed — only shown when hold is selected (was missing from original) */}
+        {/* Hold speed — only shown when hold is selected */}
         {gameState.settings.revealMethod === 'hold' && (
             <ContentCard theme={theme} variant="glass">
                 <div className="animate-in fade-in zoom-in duration-300">
@@ -138,5 +138,23 @@ export const RevealMethodSection: React.FC<Props> = ({ gameState, theme, onUpdat
                 </div>
             </ContentCard>
         )}
+
+        {/* Consulta de Rol — siempre visible, independiente del método */}
+        <ContentCard theme={theme} variant="glass">
+            <SettingRow
+                icon={<Eye size={14} />}
+                title="Consulta de Rol"
+                subtitle="Permite revisar la carta en resultados si alguien olvidó su rol"
+                action={
+                    <PremiumToggle
+                        active={gameState.settings.allowReReveal ?? false}
+                        onClick={() => onUpdateSettings({ allowReReveal: !(gameState.settings.allowReReveal ?? false) })}
+                        theme={theme}
+                    />
+                }
+                theme={theme}
+                noBorder
+            />
+        </ContentCard>
     </SectionContainer>
 );

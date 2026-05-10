@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
-import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu, BatteryWarning } from 'lucide-react';
+import { Fingerprint, Unlock, Lock, Eye, AlertTriangle, Ghost, Clock, Beer, RotateCcw, Crown, Zap, Network, Menu, BatteryWarning, X, ChevronLeft } from 'lucide-react';
 import { PLAYER_COLORS } from '../../constants';
 import { RenunciaDecisionView } from '../RenunciaDecisionView';
 import { PartyNotification } from '../PartyNotification';
@@ -74,6 +74,131 @@ const DigitFlip: React.FC<{ value: number; theme: ThemeConfig }> = ({ value, the
     );
 };
 
+// --- SUB-COMPONENT: RE-REVEAL MODAL ---
+const ReRevealModal: React.FC<{
+    gameState: GameState;
+    theme: ThemeConfig;
+    onClose: () => void;
+}> = ({ gameState, theme, onClose }) => {
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+    const selectedPlayer = selectedPlayerId
+        ? gameState.gameData.find(p => p.id === selectedPlayerId) ?? null
+        : null;
+    const selectedPlayerColor = selectedPlayer
+        ? PLAYER_COLORS[gameState.gameData.findIndex(p => p.id === selectedPlayerId) % PLAYER_COLORS.length]
+        : '#ffffff';
+
+    return (
+        <div
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)' }}
+        >
+            {/* Backdrop tap closes */}
+            <div className="absolute inset-0" onClick={onClose} />
+
+            <div
+                className="relative z-10 w-full max-w-sm mx-4 rounded-3xl overflow-hidden animate-in zoom-in-95 fade-in duration-300"
+                style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}` }}
+            >
+                {/* Header */}
+                <div
+                    className="flex items-center justify-between px-5 py-4 border-b"
+                    style={{ borderColor: `${theme.border}50` }}
+                >
+                    {selectedPlayer ? (
+                        <button
+                            onClick={() => setSelectedPlayerId(null)}
+                            className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity active:scale-95"
+                            style={{ color: theme.text }}
+                            aria-label="Volver a la lista"
+                        >
+                            <ChevronLeft size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Volver</span>
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Eye size={16} style={{ color: theme.accent }} />
+                            <span className="text-sm font-black uppercase tracking-wider" style={{ color: theme.text }}>
+                                Consulta de Rol
+                            </span>
+                        </div>
+                    )}
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-90 transition-all"
+                        style={{ color: theme.sub }}
+                        aria-label="Cerrar"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                {selectedPlayer ? (
+                    /* Card view — read-only, no advance */
+                    <div className="p-4 flex flex-col items-center gap-4">
+                        <IdentityCard
+                            player={selectedPlayer}
+                            theme={theme}
+                            color={selectedPlayerColor}
+                            onRevealStart={() => {}}
+                            onRevealEnd={() => {}}
+                            nextAction={() => {}}
+                            readyForNext={false}
+                            isLastPlayer={false}
+                            isParty={false}
+                            partyIntensity="aperitivo"
+                            debugMode={false}
+                            onOracleConfirm={() => {}}
+                            impostorEffectsEnabled={gameState.settings.impostorEffects}
+                            revealSpeed={gameState.settings.holdRevealSpeed}
+                        />
+                        <p
+                            className="text-[10px] font-mono uppercase tracking-widest opacity-50 pb-2"
+                            style={{ color: theme.sub }}
+                        >
+                            Solo lectura · No avanza turno
+                        </p>
+                    </div>
+                ) : (
+                    /* Player picker */
+                    <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+                        <p
+                            className="text-[10px] font-mono uppercase tracking-widest opacity-50 mb-3 px-1"
+                            style={{ color: theme.sub }}
+                        >
+                            Elige tu nombre para ver tu carta
+                        </p>
+                        {gameState.gameData.map((player, idx) => {
+                            const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+                            return (
+                                <button
+                                    key={player.id}
+                                    onClick={() => setSelectedPlayerId(player.id)}
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all active:scale-[0.98] hover:bg-white/5"
+                                    style={{
+                                        borderColor: `${theme.border}60`,
+                                        backgroundColor: 'transparent'
+                                    }}
+                                >
+                                    <div
+                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}80` }}
+                                    />
+                                    <span className="text-sm font-bold text-left flex-1" style={{ color: theme.text }}>
+                                        {player.name}
+                                    </span>
+                                    <Eye size={14} style={{ color: theme.sub }} className="opacity-40" />
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onReplay, currentPlayerColor, onNextPlayer, onOracleConfirm, onRenunciaDecision, onRenunciaRoleSeen, isExiting, transitionName }) => {
     const impostors = gameState.gameData.filter(p => p.isImp);
     const civilWord = gameState.gameData.find(p => !p.isImp)?.realWord || "???";
@@ -111,6 +236,9 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
 
     // --- TOOLTIP STATE ---
     const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+
+    // --- RE-REVEAL MODAL STATE ---
+    const [showReReveal, setShowReReveal] = useState(false);
 
     // Timer Logic
     useEffect(() => {
@@ -456,6 +584,15 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     // --- RENDER: RESULTS (MODERN & PREMIUM) ---
     return (
         <div className="flex flex-col h-full items-center p-6 pb-24 animate-in slide-in-from-bottom duration-700 relative z-10 pt-[calc(1.5rem+env(safe-area-inset-top))] overflow-y-auto">
+
+            {/* RE-REVEAL MODAL */}
+            {showReReveal && (
+                <ReRevealModal
+                    gameState={gameState}
+                    theme={theme}
+                    onClose={() => setShowReReveal(false)}
+                />
+            )}
             
             {/* 1. HERO SECTION: THE WORD */}
             <div className="w-full max-w-sm mb-10 mt-4 text-center relative group">
@@ -517,7 +654,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                         backdropFilter: 'blur(20px)'
                     }}
                 >
-                    {/* Animated background pattern */}
                     <div 
                         className="absolute inset-0 opacity-5 pointer-events-none"
                         style={{
@@ -549,330 +685,4 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                 >
                                     Protocolo PANDORA
                                 </h3>
-                                <p className="text-xs opacity-60" style={{ color: theme.sub }}>
-                                    Evento Especial de Caos
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
-                                {trollScenario === 'espejo_total' && (
-                                    <>
-                                        <strong className="font-bold">Espejo Total:</strong> Todos recibieron pistas falsas. 
-                                        Nadie sabía quién era realmente el impostor.
-                                    </>
-                                )}
-                                {trollScenario === 'civil_solitario' && (
-                                    <>
-                                        <strong className="font-bold">Civil Solitario:</strong> Solo hubo 1 civil. 
-                                        Todos los demás fueron impostores con pistas confusas.
-                                    </>
-                                )}
-                                {trollScenario === 'falsa_alarma' && (
-                                    <>
-                                        <strong className="font-bold">Falsa Alarma:</strong> No había impostores reales. 
-                                        Todos tenían la misma palabra.
-                                    </>
-                                )}
-                            </p>
-                            
-                            <div 
-                                className="flex items-center gap-2 pt-2 mt-2 border-t"
-                                style={{ borderColor: `${theme.accent}20` }}
-                            >
-                                <span className="text-lg">💾</span>
-                                <p className="text-xs font-bold" style={{ color: theme.accent }}>
-                                    Tu historial NO se vio afectado. Esta ronda no cuenta para estadísticas.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 2. THE REVEAL: IMPOSTORS */}
-            <div className="w-full max-w-sm mb-10">
-                <div className="flex items-center justify-between mb-4 px-2">
-                    <h3 style={{ color: theme.text }} className="text-sm font-black uppercase tracking-widest">
-                        {isTroll ? "Informe de Daños" : "Los Impostores"}
-                    </h3>
-                    {isTroll ? <AlertTriangle size={14} className="text-red-500" /> : <Ghost size={14} style={{ color: theme.sub }} />}
-                </div>
-
-                {isTroll ? (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 text-center backdrop-blur-md">
-                        <p className="text-xs text-red-200/60 leading-relaxed font-bold">
-                            Nivel de Paranoia reseteado. Los sistemas vuelven a la normalidad para la próxima ronda.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid gap-3">
-                        {impostors.map(imp => (
-                            <div 
-                                key={imp.id} 
-                                className="relative overflow-hidden group rounded-2xl p-4 border transition-all hover:scale-[1.02]"
-                                style={{ 
-                                    backgroundColor: theme.cardBg,
-                                    borderColor: theme.accent,
-                                    boxShadow: `0 8px 32px -10px ${theme.accent}15`
-                                }}
-                            >
-                                <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: theme.accent }} />
-                                
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black bg-white/5 border border-white/10" style={{ color: theme.text }}>
-                                            {imp.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="text-lg font-bold leading-none mb-1" style={{ color: theme.text }}>{imp.name}</p>
-                                            <p className="text-[10px] font-bold uppercase opacity-60 flex items-center gap-1" style={{ color: theme.sub }}>
-                                                {imp.nexusPartners && imp.nexusPartners.length > 0 && <Network size={10} />}
-                                                Infiltrado
-                                            </p>
-                                        </div>
-                                    </div>
-                                    
-                                    {imp.isVanguardia && (
-                                        <div className="flex flex-col items-end">
-                                            <Zap size={16} className="text-amber-400 mb-1" />
-                                            <span className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Vanguardia</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* 3. PLAYER STATS LIST (CLEAN) */}
-            <div className="w-full max-w-sm space-y-3">
-                <div className="flex items-center justify-between px-2 mb-2 opacity-60">
-                    <h4 style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-widest">
-                        Resumen de Agentes
-                    </h4>
-                    <span className="text-[10px] font-mono" style={{ color: theme.sub }}>TIEMPO / ESTADO</span>
-                </div>
-
-                <div className="space-y-2">
-                    {gameState.gameData.map((p, idx) => {
-                        const isImp = p.isImp && !isTroll;
-                        const suspicion = getSuspicionLevel(p.viewTime);
-                        const isArchitect = p.isArchitect;
-                        const isOracle = p.isOracle;
-                        const isBartender = p.partyRole === 'bartender' && isParty;
-
-                        return (
-                            <div 
-                                key={p.id}
-                                className="flex items-center justify-between py-3 px-4 rounded-xl transition-colors hover:bg-white/5 border border-transparent hover:border-white/5"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div 
-                                        className="w-2 h-2 rounded-full" 
-                                        style={{ backgroundColor: isImp ? '#ef4444' : PLAYER_COLORS[idx % PLAYER_COLORS.length] }} 
-                                    />
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-sm" style={{ color: theme.text }}>{p.name}</span>
-                                            
-                                            {/* Role Badges */}
-                                            {isImp && <span className="text-[9px] font-black text-red-400 bg-red-500/10 px-1.5 rounded">IMP</span>}
-                                            {isArchitect && <span className="text-[9px] font-black text-yellow-400 bg-yellow-500/10 px-1.5 rounded flex items-center gap-1"><Crown size={8}/> ARQ</span>}
-                                            {isOracle && <span className="text-[9px] font-black text-violet-400 bg-violet-500/10 px-1.5 rounded flex items-center gap-1"><Eye size={8}/> ORC</span>}
-                                            {isBartender && <span className="text-[9px] font-black text-pink-400 bg-pink-500/10 px-1.5 rounded flex items-center gap-1"><Beer size={8}/> BAR</span>}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-1.5 opacity-60">
-                                        <Clock size={10} style={{ color: theme.sub }} />
-                                        <span className="text-xs font-mono tabular-nums" style={{ color: theme.sub }}>
-                                            {(p.viewTime / 1000).toFixed(1)}s
-                                        </span>
-                                    </div>
-                                    
-                                    <div 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedPlayerId(expandedPlayerId === p.id ? null : p.id);
-                                        }}
-                                        className="cursor-pointer relative p-2 -m-2"
-                                    >
-                                        <div 
-                                            className={`w-2 h-2 rounded-full ${suspicion.dotColor}`} 
-                                        />
-                                        
-                                        {expandedPlayerId === p.id && (
-                                            <div 
-                                                className="absolute right-0 top-full mt-2 p-3 rounded-xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 w-48 z-50"
-                                                style={{
-                                                    backgroundColor: theme.cardBg,
-                                                    borderColor: theme.border,
-                                                    backdropFilter: 'blur(20px)',
-                                                    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
-                                                }}
-                                            >
-                                                <p className="text-xs font-bold mb-2 pb-1 border-b border-white/5" style={{ color: theme.text }}>
-                                                    Análisis
-                                                </p>
-                                                <div className="space-y-1.5 text-[10px]" style={{ color: theme.sub }}>
-                                                    <div className="flex justify-between">
-                                                        <span>Tiempo:</span>
-                                                        <span className="font-mono font-bold" style={{ color: theme.text }}>{(p.viewTime / 1000).toFixed(1)}s</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Promedio:</span>
-                                                        <span className="font-mono font-bold" style={{ color: theme.text }}>{(avgViewTime / 1000).toFixed(1)}s</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Estado:</span>
-                                                        <span style={{ color: suspicion.color }} className="font-bold">{suspicion.label}</span>
-                                                    </div>
-                                                    <p className="pt-2 mt-1 text-[9px] opacity-80 leading-relaxed" style={{ color: theme.text, borderTop: `1px solid ${theme.border}` }}>
-                                                        {suspicion.label === 'Lento' && '🐢 Demasiado tiempo. ¿Dudaba al ver su rol?'}
-                                                        {suspicion.label === 'Rápido' && '⚡ Muy rápido. ¿Sabía qué hacer o estaba nervioso?'}
-                                                        {suspicion.label === 'Normal' && '✅ Comportamiento estándar dentro de la media.'}
-                                                        {suspicion.label === '-' && '❓ Sin datos suficientes.'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* 4. ACTIONS */}
-            <div className="w-full max-w-sm mt-12 grid grid-cols-2 gap-4">
-                <button 
-                    onClick={handleMenuClick}
-                    style={{ 
-                        borderColor: showMenuConfirm ? '#ef4444' : theme.border, 
-                        color: showMenuConfirm ? '#ef4444' : theme.sub,
-                        backgroundColor: showMenuConfirm ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0,0,0,0.2)'
-                    }}
-                    className="py-4 rounded-2xl border font-bold uppercase tracking-widest text-xs hover:bg-white/5 active:scale-95 transition-all backdrop-blur-sm touch-manipulation flex items-center justify-center gap-2"
-                >
-                    {showMenuConfirm ? (
-                        <span className="animate-pulse">¿SEGURO?</span>
-                    ) : (
-                        <>
-                            <Menu size={14} /> MENÚ
-                        </>
-                    )}
-                </button>
-                <button 
-                    onClick={(e) => { e.preventDefault(); onReplay(); }}
-                    style={{ backgroundColor: theme.accent, color: '#ffffff' }}
-                    className="py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 hover:brightness-110 touch-manipulation"
-                >
-                    <RotateCcw size={14} strokeWidth={3} /> REJUGAR
-                </button>
-            </div>
-
-            {/* RENUNCIA v2.0 Debug Panel */}
-            {gameState.debugState.isEnabled && gameState.history.matchLogs.length > 0 && gameState.history.matchLogs[0].renunciaTelemetry && (
-                <div className="mt-6 p-4 rounded-xl border-2 backdrop-blur-xl"
-                    style={{
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        borderColor: 'rgba(139, 92, 246, 0.3)'
-                    }}>
-                    <p className="text-[10px] font-mono text-purple-300 mb-3 font-bold">
-                        &gt;&gt; RENUNCIA v2.0 TELEMETRY
-                    </p>
-                    {(() => {
-                        const t = gameState.history.matchLogs[0].renunciaTelemetry!;
-                        return (
-                            <>
-                                <p className="text-[9px] font-mono text-purple-300">
-                                    &gt;&gt; CANDIDATE_STREAK: {t.candidateStreak}
-                                </p>
-                                <p className="text-[9px] font-mono text-purple-300">
-                                    &gt;&gt; KARMA_VECTOR: {(t.karmaBonus * 100).toFixed(0)}%
-                                </p>
-                                <p className="text-[9px] font-mono text-purple-300">
-                                    &gt;&gt; SESSION_VECTOR: {(t.sessionBonus * 100).toFixed(0)}%
-                                </p>
-                                <p className="text-[9px] font-mono text-purple-300">
-                                    &gt;&gt; FAILURE_VECTOR: {(t.failureBonus * 100).toFixed(0)}%
-                                </p>
-                                <p className="text-[9px] font-mono text-green-400 mt-2 font-bold">
-                                    &gt;&gt; FINAL_PROBABILITY: {(t.finalProbability * 100).toFixed(1)}%
-                                </p>
-                                <p className="text-[9px] font-mono text-purple-300 mt-1">
-                                    &gt;&gt; STATUS: {gameState.history.matchLogs[0].renunciaTriggered ? 'ACTIVE ✓' : 'STANDBY'}
-                                </p>
-                            </>
-                        );
-                    })()}
-                </div>
-            )}
-            
-             <style>{`
-                .glitch-text-anim {
-                    position: relative;
-                }
-                .glitch-text-anim::before, .glitch-text-anim::after {
-                    content: attr(data-text);
-                    position: absolute;
-                    top: 0; left: 0; width: 100%; height: 100%;
-                }
-                .glitch-text-anim::before {
-                    left: 2px; text-shadow: -1px 0 #00ffff; clip: rect(44px, 450px, 56px, 0);
-                    animation: glitch-anim-1 5s infinite linear alternate-reverse;
-                }
-                .glitch-text-anim::after {
-                    left: -2px; text-shadow: -1px 0 #ff00ff; clip: rect(44px, 450px, 56px, 0);
-                    animation: glitch-anim-2 5s infinite linear alternate-reverse;
-                }
-                @keyframes glitch-anim-1 {
-                    0% { clip: rect(10px, 9999px, 30px, 0); }
-                    20% { clip: rect(50px, 9999px, 90px, 0); }
-                    100% { clip: rect(80px, 9999px, 100px, 0); }
-                }
-                @keyframes glitch-anim-2 {
-                    0% { clip: rect(60px, 9999px, 70px, 0); }
-                    20% { clip: rect(10px, 9999px, 20px, 0); }
-                    100% { clip: rect(30px, 9999px, 50px, 0); }
-                }
-                @keyframes flip-in {
-                    0% { transform: rotateX(-90deg); opacity: 0; }
-                    100% { transform: rotateX(0deg); opacity: 1; }
-                }
-                @keyframes flip-out {
-                    0% { transform: rotateX(0deg); opacity: 1; }
-                    100% { transform: rotateX(90deg); opacity: 0; }
-                }
-                .animate-flip-in { animation: flip-in 300ms ease-out forwards; }
-                .animate-flip-out { animation: flip-out 300ms ease-in forwards; }
-                
-                @keyframes soundwave {
-                    0% { transform: scale(1); opacity: 1; }
-                    100% { transform: scale(1.5); opacity: 0; }
-                }
-                
-                @keyframes gradient-shift {
-                    0%, 100% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                }
-                
-                @keyframes shimmer-progress {
-                    0% { background-position: -200% center; }
-                    100% { background-position: 200% center; }
-                }
-                
-                @keyframes slide-shine {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(200%); }
-                }
-            `}</style>
-        </div>
-    );
-};
+  

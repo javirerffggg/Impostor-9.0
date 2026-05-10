@@ -272,6 +272,9 @@ export interface GameState {
         // ✨ NUEVO v12.4
         favoriteCategories?: string[]; // Lista de favoritos (2x peso)
         explorerMode?: boolean; // Modo Explorador (deck de cartas)
+
+        // ✨ NUEVO: Consulta de Rol post-revelación
+        allowReReveal: boolean;
     };
     debugState: {
         isEnabled: boolean;
