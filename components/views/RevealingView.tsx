@@ -338,13 +338,15 @@ export const RevealingView: React.FC<Props> = React.memo(({
             candidatePlayer={currentPlayer}
             otherPlayers={gameState.gameData.filter(p => p.id !== currentPlayer.id)}
             theme={theme}
+            // FIX: Se elimina la restricción `index > currentPlayerIndex`.
+            // El receptor puede ser cualquier civil sin rol especial,
+            // independientemente de si ya reveló su carta.
             canTransfer={
-                gameState.gameData.filter((p, index) =>
+                gameState.gameData.filter(p =>
                     !p.isImp &&
                     p.id !== currentPlayer.id &&
-                    p.id !== gameState.gameData.find(pl => pl.isArchitect)?.id &&
-                    p.id !== gameState.oracleSetup?.oraclePlayerId &&
-                    index > gameState.currentPlayerIndex
+                    !p.isArchitect &&
+                    p.id !== gameState.oracleSetup?.oraclePlayerId
                 ).length > 0
             }
             onDecision={(decision) => onRenunciaDecision(decision)}

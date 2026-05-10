@@ -156,6 +156,14 @@ function App() {
                 const isLast = nextIndex >= prev.players.length;
 
                 if (isLast) {
+                    // FIX: No saltar a 'results' si hay una decisión Renuncia pendiente.
+                    // Esto ocurre cuando el candidato es el último jugador y aún no
+                    // ha tomado su decisión (accept / reject / transfer).
+                    if (prev.renunciaData && prev.renunciaData.decision === 'pending') {
+                        setIsExiting(false);
+                        return { ...prev, gameData: newData };
+                    }
+
                     if (prev.magistradoData) {
                         setShowMagistradoAnnouncement(true);
                         setIsExiting(false);
