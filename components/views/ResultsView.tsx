@@ -214,8 +214,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     const [isDecrypted, setIsDecrypted] = useState(false);
     const [decryptProgress, setDecryptProgress] = useState(0);
     const [isHoldingDecrypt, setIsHoldingDecrypt] = useState(false);
-    const [scannedName, setScannedName] = useState("CALCULANDO...");
-    const [vocalisLocked, setVocalisLocked] = useState(false);
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [showMenuConfirm, setShowMenuConfirm] = useState(false);
     const confirmTimeoutRef = useRef<number | null>(null);
@@ -229,27 +227,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         }, 1000);
         return () => clearInterval(interval);
     }, [isDecrypted]);
-
-    useEffect(() => {
-        if (isDecrypted) return; 
-        let interval: number;
-        const targetName = gameState.startingPlayer || "Nadie";
-        const allNames = gameState.players.map(p => p.name);
-        const scanDuration = 2500;
-        const startTime = Date.now();
-        interval = window.setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            if (elapsed < scanDuration) {
-                setScannedName(allNames[Math.floor(Math.random() * allNames.length)]);
-            } else {
-                setScannedName(targetName);
-                setVocalisLocked(true);
-                if (navigator.vibrate) navigator.vibrate([30, 80]);
-                clearInterval(interval);
-            }
-        }, 80);
-        return () => clearInterval(interval);
-    }, [isDecrypted, gameState.startingPlayer, gameState.players]);
 
     useEffect(() => {
         let interval: number;
@@ -369,90 +346,30 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                         <DigitFlip value={(timerSeconds % 60) % 10} theme={theme} />
                     </div>
 
-                    <div className="relative w-full max-w-sm sm:max-w-md flex items-center justify-center">
-                        <div 
-                            className={`absolute w-[150%] h-[150%] pointer-events-none transition-opacity duration-1000 ${vocalisLocked ? 'opacity-100' : 'opacity-0'}`}
-                            style={{
-                                background: `radial-gradient(circle at center, ${theme.accent}15 0%, ${theme.accent}05 30%, transparent 70%)`,
-                                animation: vocalisLocked ? 'pulse 3s ease-in-out infinite' : 'none'
+                    {/* NUEVO DISEÑO MINIMALISTA TIPOGRÁFICO */}
+                    <div className="relative w-full max-w-sm sm:max-w-md flex flex-col items-center justify-center animate-in zoom-in-95 fade-in duration-500 my-8 sm:my-12">
+                        <p className="text-sm font-black uppercase tracking-[0.2em] mb-3 animate-pulse" style={{ color: theme.accent }}>
+                            Empieza a hablar
+                        </p>
+                        <h2 
+                            className="text-6xl sm:text-7xl font-black uppercase leading-none tracking-tight text-center break-words w-full"
+                            style={{ 
+                                color: theme.text,
+                                fontFamily: theme.font,
+                                textShadow: `0 0 50px ${theme.accent}60, 0 4px 15px rgba(0,0,0,0.5)`
                             }}
-                        />
-                        <div className={`relative w-full transition-all duration-700 ease-out ${vocalisLocked ? 'scale-100 opacity-100' : 'scale-95 opacity-70 blur-sm'}`}>
-                            <div
-                                className="relative rounded-[2rem] p-6 sm:p-8 overflow-hidden backdrop-blur-3xl"
-                                style={{
-                                    backgroundColor: `${theme.cardBg}DD`,
-                                    border: `1px solid ${vocalisLocked ? theme.accent : theme.border}`,
-                                    boxShadow: vocalisLocked ? `0 20px 60px -15px ${theme.accent}20` : 'none'
-                                }}
-                            >
-                                {vocalisLocked && (
-                                    <div 
-                                        className="absolute inset-0 opacity-10 pointer-events-none"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${theme.accent}40 0%, transparent 50%, ${theme.accent}40 100%)`,
-                                            backgroundSize: '200% 200%',
-                                            animation: 'gradient-shift 3s ease-in-out infinite'
-                                        }}
-                                    />
-                                )}
-                                <div className="relative z-10 text-center space-y-4 sm:space-y-6">
-                                    <div className="inline-flex items-center justify-center">
-                                        <div 
-                                            className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all duration-500 ${vocalisLocked ? 'bg-white/10' : 'bg-white/5'}`}
-                                            style={{ boxShadow: vocalisLocked ? `0 0 30px ${theme.accent}30` : 'none' }}
-                                        >
-                                            {vocalisLocked && [...Array(3)].map((_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="absolute inset-0 rounded-full border-2"
-                                                    style={{
-                                                        borderColor: theme.accent,
-                                                        animation: `soundwave 2s ease-out infinite ${i * 0.6}s`
-                                                    }}
-                                                />
-                                            ))}
-                                            <svg 
-                                                width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                                style={{ color: theme.accent }}
-                                                className={`w-8 h-8 sm:w-10 sm:h-10 ${vocalisLocked ? 'animate-pulse' : ''}`}
-                                            >
-                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="currentColor"/>
-                                                <path d="M19 10v2a7 7 0 1 1-14 0v-2M12 19v4M8 23h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${vocalisLocked ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
-                                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: theme.sub }}>
-                                                {vocalisLocked ? "MICRÓFONO ACTIVO" : "CALCULANDO TURNO..."}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <h2 
-                                        className="text-3xl sm:text-5xl font-black leading-none tracking-tight transition-all duration-500"
-                                        style={{ color: theme.text, textShadow: vocalisLocked ? `0 0 30px ${theme.accent}30` : 'none' }}
-                                    >
-                                        {scannedName}
-                                    </h2>
-                                    {vocalisLocked && (
-                                        <div className="pt-4 border-t animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ borderColor: `${theme.border}50` }}>
-                                            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: theme.text }}>Tu turno para hablar</p>
-                                            <p className="text-[10px] opacity-60 leading-relaxed mt-1" style={{ color: theme.sub }}>Describe la palabra sin mencionarla</p>
-                                        </div>
-                                    )}
-                                    {isParty && vocalisLocked && (
-                                        <div className="animate-in zoom-in duration-300">
-                                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-pink-500/30 bg-pink-500/10">
-                                                <Beer size={14} className="text-pink-400" />
-                                                <span className="text-xs font-black text-pink-400 uppercase tracking-wider">Shot al terminar</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                        >
+                            {gameState.startingPlayer || "Nadie"}
+                        </h2>
+                        <p className="text-[10px] sm:text-xs opacity-60 uppercase tracking-widest mt-5 text-center" style={{ color: theme.sub }}>
+                            Describe la palabra sin mencionarla
+                        </p>
+                        {isParty && (
+                            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-pink-500/30 bg-pink-500/10 animate-in zoom-in duration-300">
+                                <Beer size={14} className="text-pink-400" />
+                                <span className="text-xs font-black text-pink-400 uppercase tracking-wider">Shot al terminar</span>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     <div className="w-full max-w-xs sm:max-w-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
