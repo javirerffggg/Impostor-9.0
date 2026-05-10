@@ -4,7 +4,6 @@ import { ThemeName } from './types';
 import { useGameState } from './hooks/useGameState';
 import { useAudioSystem } from './hooks/useAudioSystem';
 import { usePartyPrompts } from './hooks/usePartyPrompts';
-// @ts-ignore
 import confetti from 'canvas-confetti';
 import { LoadingSpinner } from './components/LoadingSpinner';
 
@@ -124,7 +123,8 @@ function App() {
         return () => { if (interval !== undefined) clearInterval(interval); };
     }, [gameState.partyState.isHydrationLocked, hydrationTimer]);
 
-    const [pendingGameResult, setPendingGameResult] = useState<any>(null);
+    // pendingGameResult is typed to match the return value of runGameGeneration
+    const [pendingGameResult, setPendingGameResult] = useState<{ hydrationTimer: number } | null>(null);
 
     const handleStartGame = () => {
         if (gameState.players.length < 3) return;
@@ -158,34 +158,35 @@ function App() {
         if (isExiting) return;
         setIsExiting(true);
 
-        // Paso 1: guardar viewTime del jugador actual
-        setGameState(prev => {
-            const newData = [...prev.gameData];
-            if (newData[prev.currentPlayerIndex]) newData[prev.currentPlayerIndex].viewTime = viewTime;
-            const nextIndex = prev.currentPlayerIndex + 1;
-            if (prev.settings.partyMode && nextIndex < prev.players.length) {
-                setTimeout(() => triggerPartyMessage('revealing'), 50);
-            }
-            return { ...prev, gameData: newData };
-        });
-
         setTimeout(() => {
-            // Paso 2: avanzar fase — FUERA del updater para que setIsExiting
-            // se procese en el mismo batch de React sin race condition.
+            // Single atomic state update: save viewTime + advance phase/index together.
+            // This eliminates the previous two-setState pattern that required a
+            // setTimeout(0) coordination hack to avoid React render race conditions.
             setGameState(prev => {
+                const newData = [...prev.gameData];
+                if (newData[prev.currentPlayerIndex]) {
+                    newData[prev.currentPlayerIndex].viewTime = viewTime;
+                }
+
                 const nextIndex = prev.currentPlayerIndex + 1;
                 const isLast = nextIndex >= prev.players.length;
 
                 if (isLast) {
                     if (prev.magistradoData) {
-                        // MagistradoAnnouncement se encarga de ir a 'results'
+                        // MagistradoAnnouncement handles the transition to 'results'
                         setShowMagistradoAnnouncement(true);
-                        // isExiting se resetea en el setTimeout(0) de abajo
-                        return prev;
+                        setIsExiting(false);
+                        return { ...prev, gameData: newData };
                     }
-                    if (prev.settings.partyMode) setTimeout(() => triggerPartyMessage('discussion'), 500);
-                    // Cambiamos fase AQUÍ; setIsExiting(false) va en el setTimeout(0)
-                    return { ...prev, phase: 'results', currentDrinkingPrompt: '' };
+                    if (prev.settings.partyMode) {
+                        setTimeout(() => triggerPartyMessage('discussion'), 500);
+                    }
+                    setIsExiting(false);
+                    return { ...prev, gameData: newData, phase: 'results', currentDrinkingPrompt: '' };
+                }
+
+                if (prev.settings.partyMode) {
+                    setTimeout(() => triggerPartyMessage('revealing'), 50);
                 }
 
                 if (prev.settings.passPhoneMode) {
@@ -198,18 +199,13 @@ function App() {
                             setIsExiting(false);
                         }, 300);
                     }, 2000);
-                    // isExiting se resetea en el setTimeout(0) de abajo
-                    return prev;
+                    return { ...prev, gameData: newData };
                 }
 
                 setTransitionName(null);
-                return { ...prev, currentPlayerIndex: nextIndex };
+                setIsExiting(false);
+                return { ...prev, gameData: newData, currentPlayerIndex: nextIndex };
             });
-
-            // Resetear isExiting SIEMPRE fuera del updater, en el siguiente
-            // microtask, para que React lo procese en un render independiente
-            // y no bloquee la transición a 'results'.
-            setTimeout(() => setIsExiting(false), 0);
         }, 300);
     }, [isExiting, triggerPartyMessage]);
 
@@ -226,10 +222,6 @@ function App() {
         setIsPixelating(true);
         if (navigator.vibrate) navigator.vibrate(10);
         setTimeout(() => {
-            setGameState(prev => {
-                if (prev.players.length < 3) return prev;
-                return prev;
-            });
             handleStartGame();
         }, 400);
     };
