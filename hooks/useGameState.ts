@@ -4,7 +4,8 @@ import {
     Player, 
     ThemeName, 
     CategoryData, 
-    RenunciaDecision 
+    RenunciaDecision,
+    SifonDecision
 } from '../types';
 import { DEFAULT_PLAYERS, CURATED_COLLECTIONS, GAME_LIMITS, PLAYER_COLORS } from '../constants';
 import { generateGameData } from '../utils/gameLogic';
@@ -14,6 +15,7 @@ import {
     generateVanguardHints
 } from '../utils/lexicon/wordSelection';
 import { applyRenunciaDecision } from '../utils/protocols/renuncia';
+import { applySifonDecision } from '../utils/protocols/sifon';
 import { CATEGORIES_DATA } from '../categories';
 import { calculatePartyIntensity } from '../utils/partyLogic';
 import { shuffleArray } from '../utils/utils/helpers';
@@ -52,6 +54,7 @@ const DEFAULT_SETTINGS: GameState['settings'] = {
     explorerMode: false,
     allowReReveal: false,
     performanceMode: false,
+    useSifonMode: false,
 };
 
 const STORAGE_KEY_HISTORY = 'impostor_game_history_v2';
@@ -153,6 +156,7 @@ const getInitialSettings = (): GameState['settings'] => {
                 explorerMode: parsed.explorerMode ?? false,
                 allowReReveal: parsed.allowReReveal ?? false,
                 performanceMode: parsed.performanceMode ?? false,
+                useSifonMode: parsed.useSifonMode ?? false,
             };
         }
     } catch (e) {
@@ -454,7 +458,8 @@ export const useGameState = () => {
                     partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
                     oracleSetup: result.oracleSetup,
                     renunciaData: result.renunciaData,
-                    magistradoData: result.magistradoData
+                    magistradoData: result.magistradoData,
+                    sifonData: result.sifonData
                 };
             }
 
@@ -471,7 +476,8 @@ export const useGameState = () => {
                 partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
                 oracleSetup: result.oracleSetup,
                 renunciaData: result.renunciaData,
-                magistradoData: result.magistradoData
+                magistradoData: result.magistradoData,
+                sifonData: result.sifonData
             };
         });
 
@@ -629,6 +635,23 @@ export const useGameState = () => {
         });
     }, []);
 
+    const handleSifonDecision = useCallback((decision: SifonDecision) => {
+        if (!gameState.sifonData || !currentWordPair) return;
+
+        const { updatedGameData, updatedSifonData } = applySifonDecision(
+            decision,
+            gameState.gameData,
+            gameState.sifonData,
+            currentWordPair
+        );
+
+        setGameState(prev => ({
+            ...prev,
+            gameData: updatedGameData,
+            sifonData: updatedSifonData
+        }));
+    }, [gameState.sifonData, gameState.gameData, currentWordPair]);
+
     return {
         gameState,
         setGameState,
@@ -654,7 +677,8 @@ export const useGameState = () => {
             handleOracleConfirm,
             handleOracleSelection,
             handleRenunciaDecision,
-            handleRenunciaRoleSeen
+            handleRenunciaRoleSeen,
+            handleSifonDecision
         }
     };
 };
