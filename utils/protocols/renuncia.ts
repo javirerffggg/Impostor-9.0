@@ -1,4 +1,3 @@
-
 import { Player, InfinityVault, RenunciaData, RenunciaDecision, GamePlayer, CategoryData, GameState } from '../../types';
 import { getVault } from '../core/vault';
 import { generateSmartHint } from '../lexicon/wordSelection';
@@ -20,29 +19,40 @@ export const calculateRenunciaProbability = (
     history: GameState['history']
 ): { probability: number; telemetry: RenunciaTelemetry } => {
     
-    const BASE_PROB = 0.15;
+    // Especificación v2.0 - Ecuación: Probabilidad Base (10%)
+    const BASE_PROB = 0.10; 
     
     const candidateKey = candidatePlayer.name.trim().toLowerCase();
     const candidateVault = getVault(candidateKey, stats);
     const candidateStreak = candidateVault.metrics.civilStreak;
     
+    // VECTOR B: Intensidad de Karma (Ik)
     let vectorKarma = 0;
-    if (candidateStreak <= 1) vectorKarma = 0.20;
-    else if (candidateStreak >= 8) vectorKarma = -0.15;
-    else vectorKarma = 0.05;
-    
-    const vectorSession = Math.floor(currentRound / 3) * 0.05;
-    
-    let vectorFailure = 0;
-    let impostorLosses = 0;
-    
-    if (history.matchLogs && history.matchLogs.length >= 3) {
-        const lastThreeRounds = history.matchLogs.slice(0, 3);
-        impostorLosses = lastThreeRounds.filter(log => !log.isTroll).length;
-        if (impostorLosses >= 3) vectorFailure = 0.15;
+    if (candidateStreak <= 1) {
+        vectorKarma = 0.40; // Especificación 2.B: sube un 40% para "Impostor Reincidente"
+    } else if (candidateStreak >= 8) {
+        vectorKarma = -0.15; // Especificación 2.B: "Justicia del Civil", baja al mínimo
+    } else {
+        vectorKarma = 0.05; // Valor neutro base
     }
     
-    const finalProb = Math.max(0.05, Math.min(0.70, 
+    // VECTOR A: Longevidad de Sesión (Ls)
+    // Especificación 3: Bonus de Sesión: +2% por cada ronda total jugada
+    const vectorSession = currentRound * 0.02; 
+    
+    // VECTOR C: Fatiga Acumulada (Adaptación del "Fracaso Acumulado")
+    // Como la app no registra victorias/derrotas, evaluamos si el jugador 
+    // ya ha tenido que ser impostor 3 o más veces en el histórico general.
+    let vectorFailure = 0;
+    const totalImpostorTimes = candidateVault.metrics.totalImpostor || 0;
+    
+    if (totalImpostorTimes >= 3) {
+        vectorFailure = 0.15; // Válvula de escape activada por fatiga de rol
+    }
+    
+    // Cálculo final: Probabilidad Base + Bonus de Racha + Bonus de Sesión + Fracaso/Fatiga
+    // Ampliamos un poco el techo de probabilidad a 0.85 para permitir el pico del 40% de racha + sesión.
+    const finalProb = Math.max(0.05, Math.min(0.85, 
         BASE_PROB + vectorKarma + vectorSession + vectorFailure
     ));
     
@@ -55,7 +65,7 @@ export const calculateRenunciaProbability = (
             vectorFailure,
             finalProb,
             candidateStreak,
-            impostorLosses
+            impostorLosses: totalImpostorTimes // Reutilizamos la variable de telemetría para debug técnico
         }
     };
 };
