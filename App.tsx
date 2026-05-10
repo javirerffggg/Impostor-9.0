@@ -22,13 +22,9 @@ const RevealingView = lazy(() => import('./components/views/RevealingView').then
 const ResultsView = lazy(() => import('./components/views/ResultsView').then(m => ({ default: m.ResultsView })));
 const OracleSelectionView = lazy(() => import('./components/views/OracleSelectionView').then(m => ({ default: m.OracleSelectionView })));
 
-// Precarga explícita del chunk de ResultsView — se llama en cuanto
-// entramos en 'revealing' para que el módulo esté listo cuando la
-// fase cambie a 'results' y no haya flash negro por Suspense.
 const preloadResultsView = () =>
     import('./components/views/ResultsView').catch(() => {/* silencioso */});
 
-// Konami code as a module-level constant (never changes, no need to be inside component)
 const KONAMI_CODE = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
 
 function App() {
@@ -76,15 +72,12 @@ function App() {
     const [konamiSequence, setKonamiSequence] = useState<string[]>([]);
     const [konamiActivated, setKonamiActivated] = useState(false);
 
-    // Precarga ResultsView en cuanto entramos en 'revealing' para que el
-    // chunk esté disponible antes de que la fase cambie a 'results'.
     useEffect(() => {
         if (gameState.phase === 'revealing') {
             preloadResultsView();
         }
     }, [gameState.phase]);
 
-    // -- KONAMI CODE LISTENER --
     useEffect(() => {
         if (konamiActivated) return;
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -108,13 +101,9 @@ function App() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [konamiActivated]);
 
-    // Persist theme
     useEffect(() => { localStorage.setItem('impostor_theme_v1', themeName); }, [themeName]);
-
-    // Persist volume
     useEffect(() => { localStorage.setItem('impostor_volume_v1', String(volume)); }, [volume]);
 
-    // Hydration timer countdown
     useEffect(() => {
         let interval: number | undefined;
         if (gameState.partyState.isHydrationLocked && hydrationTimer > 0) {
@@ -123,7 +112,6 @@ function App() {
         return () => { if (interval !== undefined) clearInterval(interval); };
     }, [gameState.partyState.isHydrationLocked, hydrationTimer]);
 
-    // pendingGameResult is typed to match the return value of runGameGeneration
     const [pendingGameResult, setPendingGameResult] = useState<{ hydrationTimer: number } | null>(null);
 
     const handleStartGame = () => {
@@ -159,9 +147,6 @@ function App() {
         setIsExiting(true);
 
         setTimeout(() => {
-            // Single atomic state update: save viewTime + advance phase/index together.
-            // This eliminates the previous two-setState pattern that required a
-            // setTimeout(0) coordination hack to avoid React render race conditions.
             setGameState(prev => {
                 const newData = [...prev.gameData];
                 if (newData[prev.currentPlayerIndex]) {
@@ -173,7 +158,6 @@ function App() {
 
                 if (isLast) {
                     if (prev.magistradoData) {
-                        // MagistradoAnnouncement handles the transition to 'results'
                         setShowMagistradoAnnouncement(true);
                         setIsExiting(false);
                         return { ...prev, gameData: newData };
@@ -219,11 +203,14 @@ function App() {
     };
 
     const handleReplay = () => {
-        setIsPixelating(true);
+        // Limpiar isPixelating ANTES de llamar handleStartGame.
+        // Si shuffleEnabled está activo, handleStartGame entra en el branch
+        // de shuffle y nunca llama setIsPixelating(false) por sí solo,
+        // dejando la pantalla negra hasta que handleShuffleComplete se ejecuta
+        // (que sí lo limpia, pero el overlay ya tapó todo el CardShuffle).
+        setIsPixelating(false);
         if (navigator.vibrate) navigator.vibrate(10);
-        setTimeout(() => {
-            handleStartGame();
-        }, 400);
+        handleStartGame();
     };
 
     const handleHydrationUnlock = () => {
@@ -324,7 +311,6 @@ function App() {
                 </Suspense>
             )}
 
-            {/* Main View Area */}
             <Suspense fallback={<LoadingSpinner theme={theme} />}>
                 {gameState.phase === 'setup' && (
                     <SetupView
@@ -389,11 +375,17 @@ function App() {
                         theme={theme}
                         onBack={handleBackToSetup}
                         onReplay={handleReplay}
+                        currentPlayerColor={currentPlayerColor}
+                        onNextPlayer={handleNextPlayer}
+                        onOracleConfirm={actions.handleOracleConfirm}
+                        onRenunciaDecision={actions.handleRenunciaDecision}
+                        onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
+                        isExiting={isExiting}
+                        transitionName={transitionName}
                     />
                 )}
             </Suspense>
 
-            {/* Drawers / Modals */}
             <Suspense fallback={null}>
                 <SettingsDrawer
                     isOpen={settingsOpen}
