@@ -1,5 +1,3 @@
-
-
 import { CATEGORIES_DATA } from '../categories';
 import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, MagistradoData } from '../types';
 import { assignPartyRoles } from './partyLogic';
@@ -108,7 +106,6 @@ export const generateGameData = (config: GameConfig): {
     }
 
     // --- STEP 2: SELECT CATEGORY & WORD (FOR BOTH NORMAL AND TROLL) ---
-    // ✅ Fix: Use selectLexiconWord even for trolls to maintain rotation/explorer integrity
     const { 
         categoryName: catName, 
         wordPair, 
@@ -129,9 +126,6 @@ export const generateGameData = (config: GameConfig): {
             else trollScenario = 'falsa_alarma';
         }
 
-        // For troll events, we might use a random word from the SAME category
-        // to confuse players, or stick with the selected one. 
-        // Let's use the selected category but pick a random pair for chaos generation
         const catDataList = CATEGORIES_DATA[catName];
         const trollBasePair = catDataList[Math.floor(Math.random() * catDataList.length)];
         const noiseIndex = Math.floor(Math.random() * players.length);
@@ -166,7 +160,6 @@ export const generateGameData = (config: GameConfig): {
             trollPlayers = assignPartyRoles(trollPlayers, history, history.playerStats);
         }
 
-        // Calculate Exhaustion for logs
         const exhaustionRate = historyWithWordTracking.categoryExhaustion?.[catName]?.usedWords.length /
                                historyWithWordTracking.categoryExhaustion?.[catName]?.totalWords || 0;
 
@@ -186,7 +179,6 @@ export const generateGameData = (config: GameConfig): {
             leteoGrade: 0,
             entropyLevel: 0,
             affectsINFINITUM: false,
-            // v12.5 Exhaustion Warning
             categoryExhaustionRate: exhaustionRate,
             exhaustionWarning: exhaustionRate > 0.95 ? 'critical' : exhaustionRate > 0.8 ? 'high' : exhaustionRate > 0.6 ? 'medium' : 'none'
         };
@@ -212,10 +204,7 @@ export const generateGameData = (config: GameConfig): {
     }
     
     // --- STEP 4: NORMAL GAME LOGIC ---
-    
-    // 🆕 Usar el historial actualizado en lugar del original para los siguientes pasos
     const workingHistory = historyWithWordTracking;
-    
     const currentStats = { ...workingHistory.playerStats };
     const shuffledPlayers = shuffleArray(players);
 
@@ -261,7 +250,7 @@ export const generateGameData = (config: GameConfig): {
                     coolingFactor, 
                     avgWeight, 
                     entropyLevel,
-                    workingHistory.categoryUsageStats // ✅ Pass Stats for Affinity calculation
+                    workingHistory.categoryUsageStats
                 );
         }
         
@@ -286,7 +275,6 @@ export const generateGameData = (config: GameConfig): {
         playerWeights[0].weight = 999999; 
     }
 
-    // Filter duplicates if any
     const uniqueCandidates = playerWeights.filter((v, i, a) => a.findIndex(t => (t.player.id === v.player.id)) === i);
 
     const selectedImpostors: Player[] = [];
@@ -307,9 +295,7 @@ export const generateGameData = (config: GameConfig): {
 
         const totalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
         
-        // SAFEGUARD: If total weight is 0 or NaN, fallback to equal distribution
         if (totalWeight <= 0 || isNaN(totalWeight)) {
-            console.warn('Infinitum: Total weight is invalid. Fallback to equal distribution.');
             availableCandidates.forEach(pw => {
                 pw.weight = 100;
                 pw.telemetry.finalWeight = 100;
@@ -328,7 +314,6 @@ export const generateGameData = (config: GameConfig): {
             }
         });
 
-        // Recalculate total weight after safeguard to ensure it's valid for selection
         const safeTotalWeight = availableCandidates.reduce((sum, pw) => sum + pw.weight, 0);
         let randomTicket = Math.random() * safeTotalWeight;
         let selectedIndex = -1;
@@ -421,7 +406,6 @@ export const generateGameData = (config: GameConfig): {
     const newGlobalWordUsage = { ...workingHistory.globalWordUsage };
     newGlobalWordUsage[wordPair.civ] = (newGlobalWordUsage[wordPair.civ] || 0) + 1;
 
-    // ✨ NUEVO: Actualizar Blacklist Temporal (Decrementar contadores)
     const newTemporaryBlacklist: Record<string, number> = {};
     if (workingHistory.temporaryBlacklist) {
         Object.entries(workingHistory.temporaryBlacklist).forEach(([cat, rounds]) => {
@@ -431,28 +415,38 @@ export const generateGameData = (config: GameConfig): {
         });
     }
 
+    // --- PROTOCOLO ARQUITECTO v1.1 ---
     let isArchitectTriggered = false;
     let architectId: string | undefined;
 
     if (debugOverrides?.forceArchitect) {
         if (players.length > 0) {
-            const firstPlayer = players[0];
-            const firstPlayerKey = firstPlayer.name.trim().toLowerCase();
-            if (!selectedKeys.includes(firstPlayerKey)) {
+            const primerJugador = players[0];
+            const primerJugadorKey = primerJugador.name.trim().toLowerCase();
+            if (!selectedKeys.includes(primerJugadorKey)) {
                 isArchitectTriggered = true;
-                architectId = firstPlayer.id;
+                architectId = primerJugador.id;
             }
         }
     } else if (useArchitectMode && players.length > 0) {
-        const firstPlayer = players[0];
-        const firstPlayerKey = firstPlayer.name.trim().toLowerCase();
-        if (!selectedKeys.includes(firstPlayerKey)) {
-            const vault = newPlayerStats[firstPlayerKey];
+        // Designación Estricta: Slot 0
+        const primerJugador = players[0];
+        const primerJugadorKey = primerJugador.name.trim().toLowerCase();
+        
+        if (!selectedKeys.includes(primerJugadorKey)) {
+            // ACTIVACIÓN: El primer jugador es civil
+            const vault = newPlayerStats[primerJugadorKey];
             const streak = vault?.metrics?.civilStreak || 0;
+            
             if (calculateArchitectTrigger(history, streak)) {
                 isArchitectTriggered = true;
-                architectId = firstPlayer.id;
+                architectId = primerJugador.id;
             }
+        } else {
+            // CANCELACIÓN SILENCIOSA: El primer jugador es impostor
+            // No se asigna arquitecto a nadie más. La IA elige la palabra.
+            isArchitectTriggered = false;
+            architectId = undefined;
         }
     }
 
@@ -655,7 +649,6 @@ export const generateGameData = (config: GameConfig): {
         ? [newBartenderId, ...lastBartenders].slice(0, 10) 
         : lastBartenders;
 
-    // Calculate Exhaustion for logs
     const exhaustionRate = workingHistory.categoryExhaustion?.[catName]?.usedWords.length /
                            workingHistory.categoryExhaustion?.[catName]?.totalWords || 0;
 
@@ -685,9 +678,7 @@ export const generateGameData = (config: GameConfig): {
             candidateStreak: renunciaTelemetry.candidateStreak
         } : undefined,
         magistrado: alcaldePlayer?.name,
-        // ✨ NUEVO: Telemetría de Selección de Categoría
         categorySelectionTelemetry: categoryTelemetry,
-        // ✨ NUEVO: Alerta de Exhaustion
         categoryExhaustionRate: exhaustionRate,
         exhaustionWarning: exhaustionRate > 0.95 ? 'critical' : exhaustionRate > 0.8 ? 'high' : exhaustionRate > 0.6 ? 'medium' : 'none'
     };
@@ -725,9 +716,7 @@ export const generateGameData = (config: GameConfig): {
             lastBreakProtocol: breakProtocolType,
             matchLogs: updatedLogs,
             lastLeteoRound: breakProtocolType === 'leteo' ? currentRound : workingHistory.lastLeteoRound,
-            // ✨ NUEVO: Update rotation index
             rotationIndex: workingHistory.rotationIndex,
-            // ✨ NUEVO: Update blacklist and explorer deck
             temporaryBlacklist: newTemporaryBlacklist,
             explorerDeck: workingHistory.explorerDeck
         },
