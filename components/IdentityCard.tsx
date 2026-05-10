@@ -45,6 +45,9 @@ export const IdentityCard: React.FC<Props> = ({
     const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     
+    // --- NUEVO ESTADO PARA LA ANIMACIÓN DE INTRODUCCIÓN ---
+    const [isIntroAnim, setIsIntroAnim] = useState(true);
+    
     const viewStartTime = useRef<number>(0);
     const totalViewTime = useRef<number>(0);
 
@@ -68,10 +71,9 @@ export const IdentityCard: React.FC<Props> = ({
     };
 
     const roleColor = getRoleColor();
-    
-    // El color activo cambia: Color Jugador (Idle) -> Color Rol (Holding)
     const activeColor = isHolding ? roleColor : color;
 
+    // Reinicios y temporizador de animación al cambiar de jugador
     useEffect(() => {
         setHasInteracted(false);
         setIsHolding(false);
@@ -80,11 +82,20 @@ export const IdentityCard: React.FC<Props> = ({
         isPointerDown.current = false;
         setOracleSelectionMade(false);
         setIsTransmitting(false);
+        
+        // Activar animación cinematográfica inicial
+        setIsIntroAnim(true);
+        const timer = setTimeout(() => {
+            setIsIntroAnim(false);
+        }, 1500);
+
         if (player.isOracle && !player.isImp) {
             const catDataList = CATEGORIES_DATA[player.category];
             const pair = catDataList.find(c => c.civ === player.realWord);
             if (pair) setOracleOptions(pair.hints || [player.category, "Sin Pista", "Ruido"]);
         }
+
+        return () => clearTimeout(timer);
     }, [player.id]);
 
     useEffect(() => {
@@ -162,23 +173,11 @@ export const IdentityCard: React.FC<Props> = ({
     const rotationOverride = isHolding && isParty && isHighIntensity ? Math.sin(Date.now() / 200) * 3 : 0;
     const isOracleLockedOpen = player.isOracle && !oracleSelectionMade && isHolding;
 
-    // --- ESTILOS DINÁMICOS PARA AURA Y BORDE ---
-    
-    // Aura de reposo (Color Jugador)
     const idleShadow = `0 0 25px ${color}40, 0 0 50px ${color}20, inset 0 0 30px ${color}10`;
-    
-    // Aura de revelación (Color Rol - Más intensa)
     const revealShadow = `0 0 40px ${roleColor}, 0 0 80px ${roleColor}60, inset 0 0 40px ${roleColor}30`;
-
-    // Selección de sombra
     const shadowStyle = isHolding ? revealShadow : idleShadow;
 
-    // Borde base
-    const restBorder = theme.border.includes('px') ? theme.border : '1.5px solid transparent';
-
-    // Construcción de estilos según Premium/Standard
     const premiumStyle: React.CSSProperties = isPremium ? {
-        // En premium usamos background-clip para el borde degradado.
         background: `
             linear-gradient(135deg, ${theme.cardBg}, ${activeColor}10) padding-box, 
             linear-gradient(135deg, ${activeColor}, ${activeColor}40 40%, transparent) border-box
@@ -188,27 +187,71 @@ export const IdentityCard: React.FC<Props> = ({
         WebkitBackgroundClip: 'padding-box, border-box',
         boxShadow: shadowStyle,
     } : {
-        // En standard es un borde sólido normal
         background: `linear-gradient(135deg, ${theme.cardBg} 0%, ${activeColor}15 100%)`,
         border: `2px solid ${activeColor}`,
         borderColor: activeColor, 
         boxShadow: shadowStyle,
     };
 
-    // Calculate transition duration based on setting
     const getTransitionDuration = () => {
         if (revealSpeed === 'high') return '0.3s';
         if (revealSpeed === 'low') return '1.2s';
-        return '0.6s'; // Medium/Default
+        return '0.6s'; 
     };
     
     const transitionDuration = getTransitionDuration();
 
     return (
         <div className="flex flex-col items-center gap-8 w-full max-w-sm z-10 relative">
-            <div className={`text-center space-y-1 transition-all duration-300 ease-out origin-center ${isHolding ? 'scale-90 opacity-80 -translate-y-2' : 'scale-100 opacity-100 translate-y-0'}`}>
-                <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-[0.3em]">Identidad</p>
-                <h2 style={{ color: activeColor, fontFamily: theme.font }} className="text-4xl font-bold transition-colors duration-500">{player.name}</h2>
+            
+            {/* ENCABEZADO CON ANIMACIÓN CINEMATOGRÁFICA Y AURA */}
+            <div className={`text-center transition-all duration-300 ease-out origin-center ${isHolding ? 'scale-90 opacity-80 -translate-y-2' : 'scale-100 opacity-100 translate-y-0'} mb-2`}>
+                <p style={{ color: theme.sub }} className="text-xs font-black uppercase tracking-[0.3em] mb-4">Identidad</p>
+                
+                {/* Contenedor relativo para alojar el Aura debajo del texto */}
+                <div className="relative flex justify-center items-center h-10 w-full">
+                    
+                    {/* CAPA 1: AURA INFERIOR (Solo visible durante la Intro) */}
+                    <h2 
+                        className="text-4xl font-bold absolute pointer-events-none"
+                        style={{
+                            fontFamily: theme.font,
+                            color: 'transparent',
+                            // Usamos un easing elástico/smooth para el tamaño
+                            transition: 'all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                            transform: isIntroAnim ? 'scale(1.5) translateY(4px)' : 'scale(1) translateY(0)',
+                            // La sombra se proyecta intensamente hacia abajo
+                            textShadow: isIntroAnim ? `0 25px 40px ${activeColor}, 0 10px 20px ${activeColor}80` : 'none',
+                            opacity: isIntroAnim ? 0.9 : 0,
+                            zIndex: 0
+                        }}
+                        aria-hidden="true"
+                    >
+                        {player.name}
+                    </h2>
+                    
+                    {/* CAPA 2: NOMBRE PRINCIPAL (Con gradiente brillante animado) */}
+                    <h2 
+                        className={`text-4xl font-bold relative z-10 ${isIntroAnim ? 'animate-pulse' : ''}`}
+                        style={{ 
+                            fontFamily: theme.font,
+                            transition: 'all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.5s ease',
+                            transform: isIntroAnim ? 'scale(1.5)' : 'scale(1)',
+                            ...(isIntroAnim ? {
+                                backgroundImage: `linear-gradient(135deg, #ffffff 0%, ${activeColor} 50%, #ffffff 100%)`,
+                                backgroundSize: '200% auto',
+                                backgroundPosition: 'center',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                            } : {
+                                color: activeColor,
+                                WebkitTextFillColor: 'initial', // Limpia el efecto de gradiente
+                            })
+                        }}
+                    >
+                        {player.name}
+                    </h2>
+                </div>
             </div>
 
             <div className="w-full aspect-[3/4] relative" style={{ animation: (!isHolding && !hasInteracted && !isDragging) ? 'breathe 4s ease-in-out infinite' : 'none', transition: 'transform 0.3s ease-out' }}>
