@@ -1,5 +1,5 @@
 import { CATEGORIES_DATA } from '../categories';
-import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, MagistradoData } from '../types';
+import { GamePlayer, Player, InfinityVault, TrollScenario, CategoryData, MatchLog, SelectionTelemetry, OracleSetupData, GameState, RenunciaData, MagistradoData, SifonData } from '../types';
 import { assignPartyRoles } from './partyLogic';
 import { generateMemoryWords } from './memoryWordGenerator';
 
@@ -10,6 +10,7 @@ import { calculateParanoiaScore, detectLinearPattern } from './core/paranoia';
 import { calculateInfinitumWeight, applySynergyFactor, getDebugPlayerStats } from './core/infinitum';
 import { selectAlcalde } from './protocols/magistrado';
 import { calculateRenunciaProbability, applyRenunciaDecision } from './protocols/renuncia';
+import { getNextSifonCandidate } from './protocols/sifon';
 import { runVocalisProtocol } from './protocols/vocalis';
 import { calculateArchitectTrigger } from './protocols/architect';
 import { selectLexiconWord, generateSmartHint, generateVanguardHints, generateArchitectOptions } from './lexicon/wordSelection';
@@ -25,22 +26,23 @@ interface GameConfig {
     useNexusMode: boolean;
     useRenunciaMode: boolean;
     useMagistradoMode: boolean;
+    useSifonMode: boolean;
     selectedCats: string[];
     history: GameState['history'];
     debugOverrides?: {
         forceTroll: TrollScenario | null;
         forceArchitect: boolean;
         forceRenuncia?: boolean;
+        forceSifon?: boolean;
     }
     isPartyMode?: boolean;
     memoryModeConfig?: GameState['settings']['memoryModeConfig'];
-    // ✨ NUEVO: Ajustes de categoría
     categorySettings?: {
         repetitionAvoidance: 'none' | 'soft' | 'medium' | 'hard';
         rareBoost: boolean;
         rotationMode?: boolean;
-        favorites?: string[]; // v12.4
-        explorerMode?: boolean; // v12.4
+        favorites?: string[];
+        explorerMode?: boolean;
     };
 }
 
@@ -53,10 +55,11 @@ export const generateGameData = (config: GameConfig): {
     newHistory: GameState['history'];
     oracleSetup?: OracleSetupData;
     renunciaData?: RenunciaData;
+    sifonData?: SifonData;
     magistradoData?: MagistradoData;
     wordPair: CategoryData;
 } => {
-    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig, categorySettings } = config;
+    const { players, impostorCount, useHintMode, useTrollMode, useArchitectMode, useOracleMode, useVanguardiaMode, useNexusMode, useRenunciaMode, useMagistradoMode, useSifonMode, selectedCats, history, debugOverrides, isPartyMode, memoryModeConfig, categorySettings } = config;
     
     const currentRound = history.roundCounter + 1;
     
@@ -105,7 +108,7 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
-    // --- STEP 2: SELECT CATEGORY & WORD (FOR BOTH NORMAL AND TROLL) ---
+    // --- STEP 2: SELECT CATEGORY & WORD ---
     const { 
         categoryName: catName, 
         wordPair, 
@@ -429,12 +432,10 @@ export const generateGameData = (config: GameConfig): {
             }
         }
     } else if (useArchitectMode && players.length > 0) {
-        // Designación Estricta: Slot 0
         const primerJugador = players[0];
         const primerJugadorKey = primerJugador.name.trim().toLowerCase();
         
         if (!selectedKeys.includes(primerJugadorKey)) {
-            // ACTIVACIÓN: El primer jugador es civil
             const vault = newPlayerStats[primerJugadorKey];
             const streak = vault?.metrics?.civilStreak || 0;
             
@@ -443,8 +444,6 @@ export const generateGameData = (config: GameConfig): {
                 architectId = primerJugador.id;
             }
         } else {
-            // CANCELACIÓN SILENCIOSA: El primer jugador es impostor
-            // No se asigna arquitecto a nadie más. La IA elige la palabra.
             isArchitectTriggered = false;
             architectId = undefined;
         }
@@ -634,6 +633,31 @@ export const generateGameData = (config: GameConfig): {
         }
     }
 
+    // --- PROTOCOLO SIFÓN ---
+    // Se activa solo si: modo habilitado (o forceSifon), al menos 2 impostores,
+    // no hay evento Troll y no hay una Renuncia activa en la misma ronda
+    // (los dos protocolos son mutuamente excluyentes para evitar sobrecarga).
+    let sifonData: SifonData | undefined;
+
+    const shouldTrySifon = (
+        (useSifonMode || debugOverrides?.forceSifon) &&
+        impostorCount >= 2 &&
+        !isTrollEvent &&
+        !renunciaData  // mutuamente excluyente con Renuncia
+    );
+
+    if (shouldTrySifon) {
+        const firstCandidateId = getNextSifonCandidate(gamePlayers, -1);
+        if (firstCandidateId) {
+            sifonData = {
+                activePlayerId: firstCandidateId,
+                decision: 'pending',
+                leakedHints: [],
+                siphonedImpostorsIds: []
+            };
+        }
+    }
+
     if (newPastImpostorIds.length > 20) newPastImpostorIds.length = 20;
     
     const lastBartenders = history.lastBartenders || [];
@@ -678,6 +702,9 @@ export const generateGameData = (config: GameConfig): {
             candidateStreak: renunciaTelemetry.candidateStreak
         } : undefined,
         magistrado: alcaldePlayer?.name,
+        sifonTriggered: !!sifonData,
+        sifonDecision: sifonData ? 'pending' : undefined,
+        sifonSiphoner: sifonData ? players.find(p => p.id === sifonData!.activePlayerId)?.name : undefined,
         categorySelectionTelemetry: categoryTelemetry,
         categoryExhaustionRate: exhaustionRate,
         exhaustionWarning: exhaustionRate > 0.95 ? 'critical' : exhaustionRate > 0.8 ? 'high' : exhaustionRate > 0.6 ? 'medium' : 'none'
@@ -696,7 +723,8 @@ export const generateGameData = (config: GameConfig): {
         isArchitectTriggered: isArchitectTriggered,
         designatedStarter: vocalisStarter.name,
         oracleSetup: oracleSetup, 
-        renunciaData: renunciaData, 
+        renunciaData: renunciaData,
+        sifonData: sifonData,
         magistradoData: magistradoData,
         newHistory: {
             roundCounter: currentRound, 

@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { GameState, ThemeConfig, RenunciaDecision, CategoryData } from '../../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GameState, ThemeConfig, RenunciaDecision, CategoryData, SifonDecision } from '../../types';
 import { IdentityCard } from '../IdentityCard';
 import { SwipeRevealCard } from '../SwipeRevealCard';
 import { MemoryRevealCard } from '../MemoryRevealCard';
 import { PartyNotification } from '../PartyNotification';
 import { ArchitectCuration } from '../ArchitectCuration';
+import { SifonDecisionView } from '../SifonDecisionView';
+import { applySifonDecision } from '../../utils/protocols/sifon';
 import { PLAYER_COLORS } from '../../constants';
-import { Smartphone, ArrowRight } from 'lucide-react';
+import { Smartphone, ArrowRight, AlertTriangle } from 'lucide-react';
 import { RenunciaDecisionView } from '../RenunciaDecisionView';
 
 interface Props {
@@ -19,6 +21,7 @@ interface Props {
     onRenunciaRoleSeen: () => void;
     onArchitectConfirm: (selection: { categoryName: string, wordPair: CategoryData }) => void;
     onArchitectRegenerate: () => void;
+    onSifonDecision: (decision: SifonDecision) => void;
     architectOptions: [{ categoryName: string, wordPair: CategoryData }, { categoryName: string, wordPair: CategoryData }] | null;
     architectRegenCount: number;
     isExiting: boolean;
@@ -27,7 +30,6 @@ interface Props {
 
 // ---------------------------------------------------------------------------
 // RENUNCIA FLIP GATE
-// Front: normal card (no hints). Hold 1.2s → 3D flip → decision screen.
 // ---------------------------------------------------------------------------
 const RenunciaFlipGate: React.FC<{
     front: React.ReactNode;
@@ -86,7 +88,6 @@ const RenunciaFlipGate: React.FC<{
                     transition: flipped ? 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
                 }}
             >
-                {/* FRONT */}
                 <div
                     className="w-full touch-none select-none"
                     style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
@@ -109,7 +110,6 @@ const RenunciaFlipGate: React.FC<{
                         </div>
                     )}
                 </div>
-                {/* BACK */}
                 <div
                     className="absolute inset-0 w-full"
                     style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
@@ -123,7 +123,6 @@ const RenunciaFlipGate: React.FC<{
 
 // ---------------------------------------------------------------------------
 // ARCHITECT BLOOM GATE
-// Front: normal card (no hints). Hold 1.2s → scale bloom expand → selection screen.
 // ---------------------------------------------------------------------------
 const ArchitectBloomGate: React.FC<{
     front: React.ReactNode;
@@ -132,7 +131,7 @@ const ArchitectBloomGate: React.FC<{
 }> = ({ front, selection, theme }) => {
     const HOLD_DURATION = 1200;
     const [bloomed, setBloomed] = useState(false);
-    const [blooming, setBlooming] = useState(false); // animation in-progress
+    const [blooming, setBlooming] = useState(false);
     const [holdProgress, setHoldProgress] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
     const holdStart = useRef<number | null>(null);
@@ -155,11 +154,7 @@ const ArchitectBloomGate: React.FC<{
                 setIsHolding(false);
                 setHoldProgress(0);
                 setBlooming(true);
-                // Let the bloom animation play, then reveal selection
-                setTimeout(() => {
-                    setBlooming(false);
-                    setBloomed(true);
-                }, 500);
+                setTimeout(() => { setBlooming(false); setBloomed(true); }, 500);
             }
         };
         rafRef.current = requestAnimationFrame(tick);
@@ -188,7 +183,6 @@ const ArchitectBloomGate: React.FC<{
 
     return (
         <div className="relative w-full">
-            {/* Card wrapper with bloom animation */}
             <div
                 className="relative w-full touch-none select-none"
                 style={{
@@ -210,8 +204,6 @@ const ArchitectBloomGate: React.FC<{
                 onContextMenu={e => e.preventDefault()}
             >
                 {front}
-
-                {/* Glow pulse ring while holding */}
                 {isHolding && holdProgress > 0 && (
                     <div
                         className="absolute inset-0 rounded-[3rem] pointer-events-none"
@@ -222,8 +214,6 @@ const ArchitectBloomGate: React.FC<{
                         }}
                     />
                 )}
-
-                {/* Progress ring bottom-right */}
                 {isHolding && holdProgress > 0 && (
                     <div className="absolute bottom-3 right-3 z-50 pointer-events-none" style={{ opacity: Math.min(holdProgress * 4, 1) }}>
                         <svg width={RADIUS * 2 + 8} height={RADIUS * 2 + 8} style={{ transform: 'rotate(-90deg)' }}>
@@ -250,6 +240,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
     onRenunciaRoleSeen,
     onArchitectConfirm,
     onArchitectRegenerate,
+    onSifonDecision,
     architectOptions,
     architectRegenCount,
     isExiting,
@@ -261,7 +252,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
     const currentPlayer = gameState.gameData[gameState.currentPlayerIndex];
     const isLastPlayer = gameState.currentPlayerIndex === gameState.players.length - 1;
 
-    // RENUNCIA LOGIC
+    // --- RENUNCIA LOGIC ---
     const isRenunciaPhase1 = gameState.renunciaData &&
         currentPlayer.id === gameState.renunciaData.candidatePlayerId &&
         gameState.renunciaData.decision === 'pending' &&
@@ -272,8 +263,18 @@ export const RevealingView: React.FC<Props> = React.memo(({
         gameState.renunciaData.decision === 'pending' &&
         gameState.renunciaData.hasSeenInitialRole;
 
-    // ARCHITECT LOGIC
-    // Only intercept the Architect's own card (isArchitect flag + options available).
+    // --- SIFÓN LOGIC ---
+    // El Sifón intercepta la pantalla cuando el jugador activo tiene la decisión pendiente.
+    // Se muestra en lugar de la tarjeta normal (full-screen overlay).
+    const sifonPending =
+        !!gameState.sifonData &&
+        gameState.sifonData.decision === 'pending' &&
+        currentPlayer.id === gameState.sifonData.activePlayerId;
+
+    // Badge de filtración para civiles que recibieron las pistas del sifonador
+    const hasSifonLeak = !currentPlayer.isImp && (currentPlayer.leakedSifonHints?.length ?? 0) > 0;
+
+    // --- ARCHITECT LOGIC ---
     const isArchitectCard = gameState.isArchitectRound &&
         currentPlayer.isArchitect &&
         !!architectOptions;
@@ -295,7 +296,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
         </div>
     );
 
-    // Standard card (shared by all gate front-faces)
+    // Tarjeta estándar (compartida por todas las gates)
     const standardCard = isMemoryMode ? (
         <MemoryRevealCard
             player={currentPlayer}
@@ -338,9 +339,6 @@ export const RevealingView: React.FC<Props> = React.memo(({
             candidatePlayer={currentPlayer}
             otherPlayers={gameState.gameData.filter(p => p.id !== currentPlayer.id)}
             theme={theme}
-            // FIX: Se elimina la restricción `index > currentPlayerIndex`.
-            // El receptor puede ser cualquier civil sin rol especial,
-            // independientemente de si ya reveló su carta.
             canTransfer={
                 gameState.gameData.filter(p =>
                     !p.isImp &&
@@ -367,6 +365,15 @@ export const RevealingView: React.FC<Props> = React.memo(({
     return (
         <div className="flex flex-col h-full items-center justify-center p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] relative z-10">
             {auraExplosion}
+
+            {/* PROTOCOLO SIFÓN: overlay full-screen cuando el jugador activo tiene decisión pendiente */}
+            {sifonPending && (
+                <SifonDecisionView
+                    player={currentPlayer}
+                    theme={theme}
+                    onDecision={onSifonDecision}
+                />
+            )}
 
             {isParty && gameState.currentDrinkingPrompt && (
                 <div className="absolute top-20 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
@@ -427,25 +434,49 @@ export const RevealingView: React.FC<Props> = React.memo(({
                         </div>
                     </div>
                 ) : isArchitectCard && architectSelection ? (
-                    // PROTOCOLO ARQUITECTO: carta normal → mantén → bloom → selección
                     <ArchitectBloomGate
                         theme={theme}
                         front={standardCard}
                         selection={architectSelection}
                     />
                 ) : isRenunciaPhase2 ? (
-                    // PROTOCOLO RENUNCIA FASE 2: carta normal → mantén → flip 3D → decisión
                     <RenunciaFlipGate
                         theme={theme}
                         front={standardCard}
                         back={renunciaBack}
                     />
                 ) : (
-                    standardCard
+                    // Tarjeta estándar + badge de filtración si el civil recibió las pistas del sifonador
+                    <div className="relative w-full">
+                        {standardCard}
+                        {hasSifonLeak && (
+                            <div
+                                className="mt-3 mx-auto w-full max-w-xs rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgba(6,182,212,0.12), rgba(76,29,149,0.18))',
+                                    border: '1px solid rgba(6,182,212,0.3)',
+                                    boxShadow: '0 0 20px rgba(6,182,212,0.15)'
+                                }}
+                            >
+                                <AlertTriangle size={16} style={{ color: '#67e8f9', flexShrink: 0, marginTop: 2 }} />
+                                <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] mb-1.5" style={{ color: 'rgba(103,232,249,0.7)' }}>
+                                        🚨 Filtración Interceptada
+                                    </p>
+                                    <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(207,250,254,0.8)' }}>
+                                        El Súpr-Infiltrado posee las pistas:{' '}
+                                        <span className="font-bold" style={{ color: '#67e8f9' }}>
+                                            {currentPlayer.leakedSifonHints!.join(' • ')}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
-            {!transitionName && !isRenunciaPhase2 && !isArchitectCard && (
+            {!transitionName && !isRenunciaPhase2 && !isArchitectCard && !sifonPending && (
                 <div className="mt-auto mb-6 flex flex-col items-center gap-2.5 shrink-0">
                     <span
                         className="text-[9px] font-mono tracking-[0.3em] uppercase opacity-30"
