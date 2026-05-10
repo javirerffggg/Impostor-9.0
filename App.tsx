@@ -10,7 +10,6 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 // --- LAZY IMPORTS FOR AGGRESSIVE CODE SPLITTING ---
 const Background = lazy(() => import('./components/Background').then(m => ({ default: m.Background })));
 const PartyNotification = lazy(() => import('./components/PartyNotification').then(m => ({ default: m.PartyNotification })));
-const ArchitectCuration = lazy(() => import('./components/ArchitectCuration').then(m => ({ default: m.ArchitectCuration })));
 const CardShuffle = lazy(() => import('./components/CardShuffle').then(m => ({ default: m.CardShuffle })));
 const DebugConsole = lazy(() => import('./components/DebugConsole').then(m => ({ default: m.DebugConsole })));
 const MagistradoAnnouncement = lazy(() => import('./components/MagistradoAnnouncement').then(m => ({ default: m.MagistradoAnnouncement })));
@@ -203,11 +202,6 @@ function App() {
     };
 
     const handleReplay = () => {
-        // Limpiar isPixelating ANTES de llamar handleStartGame.
-        // Si shuffleEnabled está activo, handleStartGame entra en el branch
-        // de shuffle y nunca llama setIsPixelating(false) por sí solo,
-        // dejando la pantalla negra hasta que handleShuffleComplete se ejecuta
-        // (que sí lo limpia, pero el overlay ya tapó todo el CardShuffle).
         setIsPixelating(false);
         if (navigator.vibrate) navigator.vibrate(10);
         handleStartGame();
@@ -333,16 +327,7 @@ function App() {
                     />
                 )}
 
-                {gameState.phase === 'architect' && architectOptions && !isShuffling && (
-                    <ArchitectCuration
-                        architect={gameState.gameData[gameState.currentPlayerIndex]}
-                        currentOptions={architectOptions}
-                        onRegenerate={actions.handleArchitectRegenerate}
-                        onConfirm={actions.handleArchitectConfirm}
-                        regenCount={architectRegenCount}
-                        theme={theme}
-                    />
-                )}
+                {/* 'architect' phase no longer exists — architect goes directly to 'revealing' */}
 
                 {gameState.phase === 'oracle' && gameState.oracleSetup && !isShuffling && (
                     <OracleSelectionView
@@ -364,6 +349,10 @@ function App() {
                         onOracleConfirm={actions.handleOracleConfirm}
                         onRenunciaDecision={actions.handleRenunciaDecision}
                         onRenunciaRoleSeen={actions.handleRenunciaRoleSeen}
+                        onArchitectConfirm={actions.handleArchitectConfirm}
+                        onArchitectRegenerate={actions.handleArchitectRegenerate}
+                        architectOptions={architectOptions}
+                        architectRegenCount={architectRegenCount}
                         isExiting={isExiting}
                         transitionName={transitionName}
                     />

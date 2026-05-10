@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, ThemeConfig, RenunciaDecision } from '../../types';
+import { GameState, ThemeConfig, RenunciaDecision, CategoryData } from '../../types';
 import { IdentityCard } from '../IdentityCard';
 import { SwipeRevealCard } from '../SwipeRevealCard';
 import { MemoryRevealCard } from '../MemoryRevealCard';
 import { PartyNotification } from '../PartyNotification';
+import { ArchitectCuration } from '../ArchitectCuration';
 import { PLAYER_COLORS } from '../../constants';
 import { Smartphone, ArrowRight } from 'lucide-react';
 import { RenunciaDecisionView } from '../RenunciaDecisionView';
@@ -16,19 +17,24 @@ interface Props {
     onOracleConfirm: (hint: string) => void;
     onRenunciaDecision: (decision: RenunciaDecision) => void;
     onRenunciaRoleSeen: () => void;
+    onArchitectConfirm: (selection: { categoryName: string, wordPair: CategoryData }) => void;
+    onArchitectRegenerate: () => void;
+    architectOptions: [{ categoryName: string, wordPair: CategoryData }, { categoryName: string, wordPair: CategoryData }] | null;
+    architectRegenCount: number;
     isExiting: boolean;
     transitionName?: string | null;
 }
 
-// --- SUB-COMPONENT: RENUNCIA FLIP GATE ---
-// Shows a normal-looking card on the front. After holding 1.2s, flips 3D
-// to reveal the Renuncia decision screen on the back. No visual hints on front.
+// ---------------------------------------------------------------------------
+// RENUNCIA FLIP GATE
+// Front: normal card (no hints). Hold 1.2s → 3D flip → decision screen.
+// ---------------------------------------------------------------------------
 const RenunciaFlipGate: React.FC<{
     front: React.ReactNode;
     back: React.ReactNode;
     theme: ThemeConfig;
 }> = ({ front, back, theme }) => {
-    const HOLD_DURATION = 1200; // ms
+    const HOLD_DURATION = 1200;
     const [flipped, setFlipped] = useState(false);
     const [holdProgress, setHoldProgress] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
@@ -40,17 +46,14 @@ const RenunciaFlipGate: React.FC<{
         e.preventDefault();
         holdStart.current = performance.now();
         setIsHolding(true);
-
         const tick = () => {
             if (!holdStart.current) return;
             const elapsed = performance.now() - holdStart.current;
             const progress = Math.min(elapsed / HOLD_DURATION, 1);
             setHoldProgress(progress);
-
             if (progress < 1) {
                 rafRef.current = requestAnimationFrame(tick);
             } else {
-                // Complete — flip!
                 if (navigator.vibrate) navigator.vibrate([30, 60, 100]);
                 setFlipped(true);
                 setIsHolding(false);
@@ -70,25 +73,20 @@ const RenunciaFlipGate: React.FC<{
 
     useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
-    // Circumference for SVG progress ring
     const RADIUS = 28;
     const CIRCUM = 2 * Math.PI * RADIUS;
 
     return (
-        <div
-            className="relative w-full"
-            style={{ perspective: '1200px' }}
-        >
-            {/* Flip container */}
+        <div className="relative w-full" style={{ perspective: '1200px' }}>
             <div
-                className="relative w-full transition-transform"
+                className="relative w-full"
                 style={{
                     transformStyle: 'preserve-3d',
                     transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                     transition: flipped ? 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
                 }}
             >
-                {/* FRONT FACE — normal card, no hints */}
+                {/* FRONT */}
                 <div
                     className="w-full touch-none select-none"
                     style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
@@ -99,53 +97,144 @@ const RenunciaFlipGate: React.FC<{
                     onContextMenu={e => e.preventDefault()}
                 >
                     {front}
-
-                    {/* Subtle hold progress ring — only visible while actively holding.
-                        Positioned bottom-right of the card, small enough to not distract. */}
                     {isHolding && holdProgress > 0 && (
-                        <div
-                            className="absolute bottom-3 right-3 z-50 pointer-events-none"
-                            style={{ opacity: Math.min(holdProgress * 4, 1) }}
-                        >
+                        <div className="absolute bottom-3 right-3 z-50 pointer-events-none" style={{ opacity: Math.min(holdProgress * 4, 1) }}>
                             <svg width={RADIUS * 2 + 8} height={RADIUS * 2 + 8} style={{ transform: 'rotate(-90deg)' }}>
-                                {/* Track */}
-                                <circle
-                                    cx={RADIUS + 4}
-                                    cy={RADIUS + 4}
-                                    r={RADIUS}
-                                    fill="none"
-                                    stroke={`${theme.accent}30`}
-                                    strokeWidth={3}
-                                />
-                                {/* Progress */}
-                                <circle
-                                    cx={RADIUS + 4}
-                                    cy={RADIUS + 4}
-                                    r={RADIUS}
-                                    fill="none"
-                                    stroke={theme.accent}
-                                    strokeWidth={3}
-                                    strokeLinecap="round"
-                                    strokeDasharray={CIRCUM}
-                                    strokeDashoffset={CIRCUM * (1 - holdProgress)}
+                                <circle cx={RADIUS + 4} cy={RADIUS + 4} r={RADIUS} fill="none" stroke={`${theme.accent}30`} strokeWidth={3} />
+                                <circle cx={RADIUS + 4} cy={RADIUS + 4} r={RADIUS} fill="none" stroke={theme.accent} strokeWidth={3} strokeLinecap="round"
+                                    strokeDasharray={CIRCUM} strokeDashoffset={CIRCUM * (1 - holdProgress)}
                                     style={{ transition: 'stroke-dashoffset 0.05s linear' }}
                                 />
                             </svg>
                         </div>
                     )}
                 </div>
-
-                {/* BACK FACE — Renuncia decision */}
+                {/* BACK */}
                 <div
                     className="absolute inset-0 w-full"
-                    style={{
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden',
-                        transform: 'rotateY(180deg)',
-                    }}
+                    style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                 >
                     {back}
                 </div>
+            </div>
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
+// ARCHITECT BLOOM GATE
+// Front: normal card (no hints). Hold 1.2s → scale bloom expand → selection screen.
+// ---------------------------------------------------------------------------
+const ArchitectBloomGate: React.FC<{
+    front: React.ReactNode;
+    selection: React.ReactNode;
+    theme: ThemeConfig;
+}> = ({ front, selection, theme }) => {
+    const HOLD_DURATION = 1200;
+    const [bloomed, setBloomed] = useState(false);
+    const [blooming, setBlooming] = useState(false); // animation in-progress
+    const [holdProgress, setHoldProgress] = useState(0);
+    const [isHolding, setIsHolding] = useState(false);
+    const holdStart = useRef<number | null>(null);
+    const rafRef = useRef<number | null>(null);
+
+    const startHold = (e: React.PointerEvent) => {
+        if (bloomed || blooming) return;
+        e.preventDefault();
+        holdStart.current = performance.now();
+        setIsHolding(true);
+        const tick = () => {
+            if (!holdStart.current) return;
+            const elapsed = performance.now() - holdStart.current;
+            const progress = Math.min(elapsed / HOLD_DURATION, 1);
+            setHoldProgress(progress);
+            if (progress < 1) {
+                rafRef.current = requestAnimationFrame(tick);
+            } else {
+                if (navigator.vibrate) navigator.vibrate([20, 40, 80, 40, 120]);
+                setIsHolding(false);
+                setHoldProgress(0);
+                setBlooming(true);
+                // Let the bloom animation play, then reveal selection
+                setTimeout(() => {
+                    setBlooming(false);
+                    setBloomed(true);
+                }, 500);
+            }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+    };
+
+    const cancelHold = () => {
+        if (bloomed || blooming) return;
+        holdStart.current = null;
+        setIsHolding(false);
+        setHoldProgress(0);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+
+    useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+    const RADIUS = 28;
+    const CIRCUM = 2 * Math.PI * RADIUS;
+
+    if (bloomed) {
+        return (
+            <div className="w-full h-full animate-in fade-in slide-in-from-bottom-4 duration-400">
+                {selection}
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative w-full">
+            {/* Card wrapper with bloom animation */}
+            <div
+                className="relative w-full touch-none select-none"
+                style={{
+                    transform: blooming ? 'scale(1.12)' : isHolding ? `scale(${1 + holdProgress * 0.04})` : 'scale(1)',
+                    transition: blooming
+                        ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out, filter 0.3s ease-out'
+                        : 'transform 0.15s ease-out',
+                    opacity: blooming ? 0 : 1,
+                    filter: blooming
+                        ? `blur(8px) brightness(2)`
+                        : isHolding
+                            ? `brightness(${1 + holdProgress * 0.25}) drop-shadow(0 0 ${holdProgress * 24}px ${theme.accent})`
+                            : 'none',
+                }}
+                onPointerDown={startHold}
+                onPointerUp={cancelHold}
+                onPointerLeave={cancelHold}
+                onPointerCancel={cancelHold}
+                onContextMenu={e => e.preventDefault()}
+            >
+                {front}
+
+                {/* Glow pulse ring while holding */}
+                {isHolding && holdProgress > 0 && (
+                    <div
+                        className="absolute inset-0 rounded-[3rem] pointer-events-none"
+                        style={{
+                            boxShadow: `0 0 ${holdProgress * 60}px ${holdProgress * 30}px ${theme.accent}${Math.round(holdProgress * 80).toString(16).padStart(2, '0')}`,
+                            opacity: holdProgress,
+                            transition: 'box-shadow 0.05s linear, opacity 0.05s linear',
+                        }}
+                    />
+                )}
+
+                {/* Progress ring bottom-right */}
+                {isHolding && holdProgress > 0 && (
+                    <div className="absolute bottom-3 right-3 z-50 pointer-events-none" style={{ opacity: Math.min(holdProgress * 4, 1) }}>
+                        <svg width={RADIUS * 2 + 8} height={RADIUS * 2 + 8} style={{ transform: 'rotate(-90deg)' }}>
+                            <circle cx={RADIUS + 4} cy={RADIUS + 4} r={RADIUS} fill="none" stroke={`${theme.accent}30`} strokeWidth={3} />
+                            <circle cx={RADIUS + 4} cy={RADIUS + 4} r={RADIUS} fill="none" stroke={theme.accent} strokeWidth={3} strokeLinecap="round"
+                                strokeDasharray={CIRCUM} strokeDashoffset={CIRCUM * (1 - holdProgress)}
+                                style={{ transition: 'stroke-dashoffset 0.05s linear' }}
+                            />
+                        </svg>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -159,6 +248,10 @@ export const RevealingView: React.FC<Props> = React.memo(({
     onOracleConfirm,
     onRenunciaDecision,
     onRenunciaRoleSeen,
+    onArchitectConfirm,
+    onArchitectRegenerate,
+    architectOptions,
+    architectRegenCount,
     isExiting,
     transitionName
 }) => {
@@ -179,6 +272,12 @@ export const RevealingView: React.FC<Props> = React.memo(({
         gameState.renunciaData.decision === 'pending' &&
         gameState.renunciaData.hasSeenInitialRole;
 
+    // ARCHITECT LOGIC
+    // Only intercept the Architect's own card (isArchitect flag + options available).
+    const isArchitectCard = gameState.isArchitectRound &&
+        currentPlayer.isArchitect &&
+        !!architectOptions;
+
     const handleNext = (viewTime: number) => {
         if (isRenunciaPhase1) {
             onRenunciaRoleSeen();
@@ -190,16 +289,13 @@ export const RevealingView: React.FC<Props> = React.memo(({
     const auraExplosion = isExiting && (
         <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none">
             <div
-                style={{
-                    backgroundColor: currentPlayerColor,
-                    animation: 'aura-expand 0.6s ease-out forwards',
-                }}
+                style={{ backgroundColor: currentPlayerColor, animation: 'aura-expand 0.6s ease-out forwards' }}
                 className="w-64 h-64 rounded-full blur-3xl opacity-80"
             />
         </div>
     );
 
-    // Build the standard card (used both standalone and as flip front)
+    // Standard card (shared by all gate front-faces)
     const standardCard = isMemoryMode ? (
         <MemoryRevealCard
             player={currentPlayer}
@@ -237,7 +333,6 @@ export const RevealingView: React.FC<Props> = React.memo(({
         />
     );
 
-    // Build the Renuncia decision back face
     const renunciaBack = (
         <RenunciaDecisionView
             candidatePlayer={currentPlayer}
@@ -255,6 +350,17 @@ export const RevealingView: React.FC<Props> = React.memo(({
             onDecision={(decision) => onRenunciaDecision(decision)}
         />
     );
+
+    const architectSelection = architectOptions ? (
+        <ArchitectCuration
+            architect={currentPlayer}
+            currentOptions={architectOptions}
+            onRegenerate={onArchitectRegenerate}
+            onConfirm={onArchitectConfirm}
+            regenCount={architectRegenCount}
+            theme={theme}
+        />
+    ) : null;
 
     return (
         <div className="flex flex-col h-full items-center justify-center p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] relative z-10">
@@ -318,9 +424,15 @@ export const RevealingView: React.FC<Props> = React.memo(({
                             </div>
                         </div>
                     </div>
+                ) : isArchitectCard && architectSelection ? (
+                    // PROTOCOLO ARQUITECTO: carta normal → mantén → bloom → selección
+                    <ArchitectBloomGate
+                        theme={theme}
+                        front={standardCard}
+                        selection={architectSelection}
+                    />
                 ) : isRenunciaPhase2 ? (
-                    // PROTOCOLO RENUNCIA PHASE 2:
-                    // Front = normal card (no hints). Hold 1.2s → 3D flip → decision screen.
+                    // PROTOCOLO RENUNCIA FASE 2: carta normal → mantén → flip 3D → decisión
                     <RenunciaFlipGate
                         theme={theme}
                         front={standardCard}
@@ -331,7 +443,7 @@ export const RevealingView: React.FC<Props> = React.memo(({
                 )}
             </div>
 
-            {!transitionName && !isRenunciaPhase2 && (
+            {!transitionName && !isRenunciaPhase2 && !isArchitectCard && (
                 <div className="mt-auto mb-6 flex flex-col items-center gap-2.5 shrink-0">
                     <span
                         className="text-[9px] font-mono tracking-[0.3em] uppercase opacity-30"
@@ -348,18 +460,12 @@ export const RevealingView: React.FC<Props> = React.memo(({
                                 <div key={i} className="relative flex items-center justify-center">
                                     {isActive && (
                                         <>
-                                            <div
-                                                className="absolute w-8 h-8 rounded-full blur-md opacity-40"
-                                                style={{ backgroundColor: playerColor, animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }}
-                                            />
-                                            <div
-                                                className="absolute w-6 h-6 rounded-full blur-sm opacity-60 animate-pulse"
-                                                style={{ backgroundColor: playerColor }}
-                                            />
-                                            <div
-                                                className="absolute w-5 h-5 rounded-full opacity-20 animate-pulse"
-                                                style={{ backgroundColor: playerColor, animationDelay: '0.5s' }}
-                                            />
+                                            <div className="absolute w-8 h-8 rounded-full blur-md opacity-40"
+                                                style={{ backgroundColor: playerColor, animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
+                                            <div className="absolute w-6 h-6 rounded-full blur-sm opacity-60 animate-pulse"
+                                                style={{ backgroundColor: playerColor }} />
+                                            <div className="absolute w-5 h-5 rounded-full opacity-20 animate-pulse"
+                                                style={{ backgroundColor: playerColor, animationDelay: '0.5s' }} />
                                         </>
                                     )}
                                     <div
@@ -373,10 +479,8 @@ export const RevealingView: React.FC<Props> = React.memo(({
                                         }}
                                     >
                                         {isActive && (
-                                            <div
-                                                className="absolute inset-0 rounded-full"
-                                                style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6) 0%, transparent 60%)', animation: 'pulse 2s ease-in-out infinite' }}
-                                            />
+                                            <div className="absolute inset-0 rounded-full"
+                                                style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6) 0%, transparent 60%)', animation: 'pulse 2s ease-in-out infinite' }} />
                                         )}
                                     </div>
                                 </div>

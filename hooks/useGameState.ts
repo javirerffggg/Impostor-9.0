@@ -162,7 +162,6 @@ const getInitialSettings = (): GameState['settings'] => {
 };
 
 // Apply/remove perf mode attribute on <html> on startup
-// (so CSS rules take effect immediately before React mounts)
 (function applyPerfModeOnBoot() {
     try {
         const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
@@ -173,7 +172,7 @@ const getInitialSettings = (): GameState['settings'] => {
             }
         }
     } catch {
-        // silent — non-critical
+        // silent
     }
 })();
 
@@ -262,7 +261,6 @@ export const useGameState = () => {
         safeLocalStorageSet(STORAGE_KEY_SESSION, sessionData);
     }, [gameState.players, gameState.impostorCount]);
 
-    // Sync data-perf attribute whenever performanceMode changes
     useEffect(() => {
         if (gameState.settings.performanceMode) {
             document.documentElement.setAttribute('data-perf', 'low');
@@ -440,16 +438,18 @@ export const useGameState = () => {
                 const options = generateArchitectOptions(prev.settings.selectedCategories);
                 setArchitectOptions(options);
                 setArchitectRegenCount(0);
-                const architectIndex = result.players.findIndex(p => p.isArchitect);
+                // Architect goes directly into 'revealing' at index 0.
+                // The ArchitectBloomGate in RevealingView intercepts their card
+                // and shows the selection screen after a hold gesture.
                 return {
                     ...prev,
-                    phase: 'architect',
+                    phase: result.oracleSetup ? 'oracle' : 'revealing',
                     gameData: result.players,
                     isTrollEvent: result.isTrollEvent,
                     trollScenario: result.trollScenario,
                     isArchitectRound: true,
                     startingPlayer: result.designatedStarter,
-                    currentPlayerIndex: architectIndex !== -1 ? architectIndex : 0,
+                    currentPlayerIndex: 0,
                     history: result.newHistory,
                     partyState: { ...prev.partyState, intensity: calculatePartyIntensity(result.newHistory.roundCounter) },
                     oracleSetup: result.oracleSetup,
@@ -535,8 +535,10 @@ export const useGameState = () => {
                 ...prev,
                 gameData: newGameData,
                 oracleSetup: updatedOracleSetup,
+                // After confirming, advance to next player (index 1) so the
+                // Architect's own card turn is not repeated.
                 phase: updatedOracleSetup ? 'oracle' : 'revealing',
-                currentPlayerIndex: 0
+                currentPlayerIndex: 1
             };
         });
     }, []);
