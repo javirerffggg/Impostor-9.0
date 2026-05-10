@@ -299,6 +299,36 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     if (!isDecrypted) {
         return (
             <div className="flex flex-col h-full items-center justify-between relative z-10 animate-in fade-in duration-700 bg-black/20">
+
+                {/* RE-REVEAL MODAL — available during debate phase */}
+                {showReReveal && (
+                    <ReRevealModal
+                        gameState={gameState}
+                        theme={theme}
+                        onClose={() => setShowReReveal(false)}
+                    />
+                )}
+
+                {/* FLOATING RE-REVEAL BUTTON — debate phase */}
+                {gameState.settings.allowReReveal && (
+                    <button
+                        onClick={() => { setShowReReveal(true); if (navigator.vibrate) navigator.vibrate(20); }}
+                        className="fixed bottom-6 right-4 z-[150] flex items-center gap-2 px-4 py-3 rounded-2xl border shadow-xl active:scale-95 transition-all duration-200 animate-in fade-in slide-in-from-bottom-4"
+                        style={{
+                            backgroundColor: `${theme.cardBg}E0`,
+                            backdropFilter: 'blur(16px)',
+                            borderColor: `${theme.accent}60`,
+                            boxShadow: `0 8px 32px -8px ${theme.accent}40`
+                        }}
+                        aria-label="Consultar rol"
+                    >
+                        <Eye size={16} style={{ color: theme.accent }} />
+                        <span className="text-xs font-black uppercase tracking-wider" style={{ color: theme.text }}>
+                            Revisar Rol
+                        </span>
+                    </button>
+                )}
+
                 <header className="absolute top-0 left-0 right-0 z-30 pt-[calc(0.5rem+env(safe-area-inset-top))] px-4 sm:px-6">
                     <div 
                         className="flex items-center justify-between p-3 rounded-2xl backdrop-blur-2xl transition-all duration-500 animate-in slide-in-from-top"
@@ -510,35 +540,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     // --- RENDER: RESULTS ---
     return (
         <div className="flex flex-col h-full items-center p-6 pb-24 animate-in slide-in-from-bottom duration-700 relative z-10 pt-[calc(1.5rem+env(safe-area-inset-top))] overflow-y-auto">
-
-            {/* RE-REVEAL MODAL */}
-            {showReReveal && (
-                <ReRevealModal
-                    gameState={gameState}
-                    theme={theme}
-                    onClose={() => setShowReReveal(false)}
-                />
-            )}
-
-            {/* FLOATING RE-REVEAL BUTTON */}
-            {gameState.settings.allowReReveal && (
-                <button
-                    onClick={() => { setShowReReveal(true); if (navigator.vibrate) navigator.vibrate(20); }}
-                    className="fixed bottom-6 right-4 z-[150] flex items-center gap-2 px-4 py-3 rounded-2xl border shadow-xl active:scale-95 transition-all duration-200 animate-in fade-in slide-in-from-bottom-4"
-                    style={{
-                        backgroundColor: `${theme.cardBg}E0`,
-                        backdropFilter: 'blur(16px)',
-                        borderColor: `${theme.accent}60`,
-                        boxShadow: `0 8px 32px -8px ${theme.accent}40`
-                    }}
-                    aria-label="Consultar rol"
-                >
-                    <Eye size={16} style={{ color: theme.accent }} />
-                    <span className="text-xs font-black uppercase tracking-wider" style={{ color: theme.text }}>
-                        Revisar Rol
-                    </span>
-                </button>
-            )}
 
             {/* 1. HERO SECTION: THE WORD */}
             <div className="w-full max-w-sm mb-10 mt-4 text-center relative group">
