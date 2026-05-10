@@ -6,6 +6,7 @@ import { SensorialSection } from './settings/SensorialSection';
 import { RevealMethodSection } from './settings/RevealMethodSection';
 import { CategoryLogicSection } from './settings/CategoryLogicSection';
 import { MemorySection } from './settings/MemorySection';
+import { PerformanceSection } from './settings/PerformanceSection';
 import { PREMIUM_THEMES } from './settings/settingsUtils';
 
 interface Props {
@@ -124,6 +125,12 @@ export const SettingsDrawer: React.FC<Props> = ({
                     />
 
                     <MemorySection
+                        gameState={gameState}
+                        theme={theme}
+                        onUpdateSettings={onUpdateSettings}
+                    />
+
+                    <PerformanceSection
                         gameState={gameState}
                         theme={theme}
                         onUpdateSettings={onUpdateSettings}
