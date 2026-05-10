@@ -51,7 +51,6 @@ const DigitFlip: React.FC<{ value: number; theme: ThemeConfig }> = ({ value, the
           boxShadow: `0 10px 40px -10px ${theme.accent}20`
         }}
       >
-        {/* 3D Lighting Effects */}
         <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none z-10" />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent pointer-events-none z-10" />
         <div className="absolute inset-x-0 top-1/2 h-[1px] bg-black/30 z-10 shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
@@ -93,14 +92,12 @@ const ReRevealModal: React.FC<{
             className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
             style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)' }}
         >
-            {/* Backdrop tap closes */}
             <div className="absolute inset-0" onClick={onClose} />
 
             <div
                 className="relative z-10 w-full max-w-sm mx-4 rounded-3xl overflow-hidden animate-in zoom-in-95 fade-in duration-300"
                 style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}` }}
             >
-                {/* Header */}
                 <div
                     className="flex items-center justify-between px-5 py-4 border-b"
                     style={{ borderColor: `${theme.border}50` }}
@@ -133,9 +130,7 @@ const ReRevealModal: React.FC<{
                     </button>
                 </div>
 
-                {/* Content */}
                 {selectedPlayer ? (
-                    /* Card view — read-only, no advance */
                     <div className="p-4 flex flex-col items-center gap-4">
                         <IdentityCard
                             player={selectedPlayer}
@@ -161,7 +156,6 @@ const ReRevealModal: React.FC<{
                         </p>
                     </div>
                 ) : (
-                    /* Player picker */
                     <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
                         <p
                             className="text-[10px] font-mono uppercase tracking-widest opacity-50 mb-3 px-1"
@@ -207,7 +201,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     const isParty = gameState.settings.partyMode;
     const lastLog = gameState.history.matchLogs[0];
     
-    // Stats calculation
     const allViewTimes = gameState.gameData.map(p => p.viewTime || 0);
     const avgViewTime = allViewTimes.reduce((a, b) => a + b, 0) / (allViewTimes.length || 1);
 
@@ -218,29 +211,17 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         return { label: "Normal", color: theme.sub, dotColor: 'bg-emerald-400' };
     };
     
-    // --- REVEAL LOGIC ---
     const [isDecrypted, setIsDecrypted] = useState(false);
     const [decryptProgress, setDecryptProgress] = useState(0);
     const [isHoldingDecrypt, setIsHoldingDecrypt] = useState(false);
-
-    // --- VOCALIS ANIMATION STATE ---
     const [scannedName, setScannedName] = useState("CALCULANDO...");
     const [vocalisLocked, setVocalisLocked] = useState(false);
-
-    // --- STOPWATCH STATE ---
     const [timerSeconds, setTimerSeconds] = useState(0);
-
-    // --- MENU CONFIRMATION STATE ---
     const [showMenuConfirm, setShowMenuConfirm] = useState(false);
     const confirmTimeoutRef = useRef<number | null>(null);
-
-    // --- TOOLTIP STATE ---
     const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
-
-    // --- RE-REVEAL MODAL STATE ---
     const [showReReveal, setShowReReveal] = useState(false);
 
-    // Timer Logic
     useEffect(() => {
         if (isDecrypted) return;
         const interval = setInterval(() => {
@@ -249,20 +230,15 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         return () => clearInterval(interval);
     }, [isDecrypted]);
 
-    // Vocalis Effect (Speaker Selection)
     useEffect(() => {
         if (isDecrypted) return; 
-
         let interval: number;
         const targetName = gameState.startingPlayer || "Nadie";
         const allNames = gameState.players.map(p => p.name);
-        
         const scanDuration = 2500;
         const startTime = Date.now();
-
         interval = window.setInterval(() => {
             const elapsed = Date.now() - startTime;
-            
             if (elapsed < scanDuration) {
                 setScannedName(allNames[Math.floor(Math.random() * allNames.length)]);
             } else {
@@ -272,11 +248,9 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                 clearInterval(interval);
             }
         }, 80);
-
         return () => clearInterval(interval);
     }, [isDecrypted, gameState.startingPlayer, gameState.players]);
 
-    // Haptics & Progress Loop for Button
     useEffect(() => {
         let interval: number;
         if (isHoldingDecrypt && !isDecrypted) {
@@ -293,7 +267,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         return () => clearInterval(interval);
     }, [isHoldingDecrypt, isDecrypted]);
 
-    // Trigger Unlock
     useEffect(() => {
         if (decryptProgress >= 100 && !isDecrypted) {
             setIsDecrypted(true);
@@ -301,18 +274,14 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         }
     }, [decryptProgress, isDecrypted]);
 
-    // --- CONFIRMATION HANDLER ---
     const handleMenuClick = (e: React.MouseEvent | React.PointerEvent) => {
         e.preventDefault();
-        
         if (showMenuConfirm) {
             if (navigator.vibrate) navigator.vibrate(50);
             onBack();
         } else {
             if (navigator.vibrate) navigator.vibrate(20);
             setShowMenuConfirm(true);
-            
-            // Auto-reset after 3 seconds if not confirmed
             if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
             confirmTimeoutRef.current = window.setTimeout(() => {
                 setShowMenuConfirm(false);
@@ -320,7 +289,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         }
     };
 
-    // Clean up timeout
     useEffect(() => {
         return () => {
             if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
@@ -331,8 +299,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
     if (!isDecrypted) {
         return (
             <div className="flex flex-col h-full items-center justify-between relative z-10 animate-in fade-in duration-700 bg-black/20">
-                
-                {/* 1. HEADER CONTEXTUAL */}
                 <header className="absolute top-0 left-0 right-0 z-30 pt-[calc(0.5rem+env(safe-area-inset-top))] px-4 sm:px-6">
                     <div 
                         className="flex items-center justify-between p-3 rounded-2xl backdrop-blur-2xl transition-all duration-500 animate-in slide-in-from-top"
@@ -351,39 +317,29 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                 </span>
                             </div>
                         </div>
-                        
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
                             <div className="relative">
                                 <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
                                 <div className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                             </div>
-                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-red-400">
-                                EN VIVO
-                            </span>
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-red-400">EN VIVO</span>
                         </div>
                     </div>
                 </header>
 
-                {/* 2. MAIN CONTENT CONTAINER */}
                 <div className="flex-1 w-full flex flex-col items-center justify-center gap-6 sm:gap-10 pt-20 px-4">
-                    
-                    {/* A. PREMIUM TIMER */}
                     <div className="relative flex items-center justify-center gap-1 sm:gap-2 scale-90 sm:scale-100 transition-transform">
                         <DigitFlip value={Math.floor(timerSeconds / 60 / 10)} theme={theme} />
                         <DigitFlip value={Math.floor(timerSeconds / 60) % 10} theme={theme} />
-                        
                         <div className="flex flex-col gap-1.5 sm:gap-2 px-1">
                             <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse" style={{ backgroundColor: theme.accent }} />
                             <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse delay-500" style={{ backgroundColor: theme.accent }} />
                         </div>
-                        
                         <DigitFlip value={Math.floor((timerSeconds % 60) / 10)} theme={theme} />
                         <DigitFlip value={(timerSeconds % 60) % 10} theme={theme} />
                     </div>
 
-                    {/* B. VOCALIS SPOTLIGHT SECTION */}
                     <div className="relative w-full max-w-sm sm:max-w-md flex items-center justify-center">
-                        {/* Spotlight Effect */}
                         <div 
                             className={`absolute w-[150%] h-[150%] pointer-events-none transition-opacity duration-1000 ${vocalisLocked ? 'opacity-100' : 'opacity-0'}`}
                             style={{
@@ -391,10 +347,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                 animation: vocalisLocked ? 'pulse 3s ease-in-out infinite' : 'none'
                             }}
                         />
-                        
-                        <div 
-                            className={`relative w-full transition-all duration-700 ease-out ${vocalisLocked ? 'scale-100 opacity-100' : 'scale-95 opacity-70 blur-sm'}`}
-                        >
+                        <div className={`relative w-full transition-all duration-700 ease-out ${vocalisLocked ? 'scale-100 opacity-100' : 'scale-95 opacity-70 blur-sm'}`}>
                             <div
                                 className="relative rounded-[2rem] p-6 sm:p-8 overflow-hidden backdrop-blur-3xl"
                                 style={{
@@ -413,9 +366,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                         }}
                                     />
                                 )}
-                                
                                 <div className="relative z-10 text-center space-y-4 sm:space-y-6">
-                                    {/* Animated Mic Icon */}
                                     <div className="inline-flex items-center justify-center">
                                         <div 
                                             className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all duration-500 ${vocalisLocked ? 'bg-white/10' : 'bg-white/5'}`}
@@ -441,7 +392,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                             </svg>
                                         </div>
                                     </div>
-                                    
                                     <div className="space-y-1">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
                                             <div className={`w-1.5 h-1.5 rounded-full ${vocalisLocked ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
@@ -450,21 +400,18 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                             </span>
                                         </div>
                                     </div>
-                                    
                                     <h2 
-                                        className={`text-3xl sm:text-5xl font-black leading-none tracking-tight transition-all duration-500`}
+                                        className="text-3xl sm:text-5xl font-black leading-none tracking-tight transition-all duration-500"
                                         style={{ color: theme.text, textShadow: vocalisLocked ? `0 0 30px ${theme.accent}30` : 'none' }}
                                     >
                                         {scannedName}
                                     </h2>
-                                    
                                     {vocalisLocked && (
                                         <div className="pt-4 border-t animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ borderColor: `${theme.border}50` }}>
                                             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: theme.text }}>Tu turno para hablar</p>
                                             <p className="text-[10px] opacity-60 leading-relaxed mt-1" style={{ color: theme.sub }}>Describe la palabra sin mencionarla</p>
                                         </div>
                                     )}
-
                                     {isParty && vocalisLocked && (
                                         <div className="animate-in zoom-in duration-300">
                                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-pink-500/30 bg-pink-500/10">
@@ -478,23 +425,14 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                         </div>
                     </div>
 
-                    {/* C. BIOMETRIC UNLOCK BUTTON */}
                     <div className="w-full max-w-xs sm:max-w-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                         <button
                             className="group relative w-full h-20 sm:h-24 rounded-[2rem] overflow-hidden touch-none select-none active:scale-[0.98] transition-transform"
-                            onPointerDown={(e) => {
-                                e.preventDefault();
-                                setIsHoldingDecrypt(true);
-                                if (navigator.vibrate) navigator.vibrate([10, 20, 30]);
-                            }}
-                            onPointerUp={(e) => {
-                                e.preventDefault();
-                                setIsHoldingDecrypt(false);
-                            }}
+                            onPointerDown={(e) => { e.preventDefault(); setIsHoldingDecrypt(true); if (navigator.vibrate) navigator.vibrate([10, 20, 30]); }}
+                            onPointerUp={(e) => { e.preventDefault(); setIsHoldingDecrypt(false); }}
                             onPointerLeave={() => setIsHoldingDecrypt(false)}
                             onContextMenu={(e) => e.preventDefault()}
                         >
-                            {/* Base Layer */}
                             <div 
                                 className="absolute inset-0 transition-all duration-300"
                                 style={{
@@ -507,8 +445,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                         : '0 10px 30px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)'
                                 }}
                             />
-                            
-                            {/* Progress Layer */}
                             <div 
                                 className="absolute inset-0 transition-all duration-100 ease-linear"
                                 style={{
@@ -519,8 +455,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                     borderRadius: '2rem'
                                 }}
                             />
-                            
-                            {/* Shine Effect */}
                             {!isHoldingDecrypt && (
                                 <div 
                                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -530,10 +464,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                     }}
                                 />
                             )}
-                            
-                            {/* Content */}
                             <div className="relative z-10 h-full flex items-center px-4 sm:px-6">
-                                {/* Fingerprint Icon */}
                                 <div className={`relative flex items-center justify-center transition-all duration-300 ${isHoldingDecrypt ? 'scale-110' : 'scale-100'}`} style={{ width: '3.5rem', height: '3.5rem' }}>
                                     <div 
                                         className={`absolute inset-0 rounded-full border-2 transition-all duration-300 ${isHoldingDecrypt ? 'scale-125 opacity-0' : 'scale-100 opacity-100'}`}
@@ -543,8 +474,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                         <Fingerprint size={24} className={isHoldingDecrypt ? 'text-black' : 'text-white'} />
                                     </div>
                                 </div>
-                                
-                                {/* Text */}
                                 <div className="flex-1 ml-4 sm:ml-6 space-y-0.5 text-left">
                                     <div className="flex items-baseline gap-2">
                                         <span className={`font-black uppercase tracking-[0.2em] transition-all duration-300 ${isHoldingDecrypt ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`} style={{ color: theme.text, textShadow: isHoldingDecrypt ? `0 0 20px ${theme.accent}60` : 'none' }}>
@@ -556,8 +485,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                         {isHoldingDecrypt ? "Verificando identidad..." : "Para revelar resultados"}
                                     </p>
                                 </div>
-                                
-                                {/* Status Icon */}
                                 <div className="ml-2">
                                     {isHoldingDecrypt ? (
                                         <div className="animate-spin w-5 h-5 rounded-full border-2 border-t-transparent" style={{ borderColor: theme.accent, borderTopColor: 'transparent' }} />
@@ -567,7 +494,6 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                                 </div>
                             </div>
                         </button>
-                        
                         <div className={`mt-3 flex items-center justify-between px-4 transition-opacity duration-300 ${isHoldingDecrypt ? 'opacity-0' : 'opacity-50'}`}>
                             <div className="flex items-center gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_5px_#4ade80]" />
@@ -581,7 +507,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
         );
     }
 
-    // --- RENDER: RESULTS (MODERN & PREMIUM) ---
+    // --- RENDER: RESULTS ---
     return (
         <div className="flex flex-col h-full items-center p-6 pb-24 animate-in slide-in-from-bottom duration-700 relative z-10 pt-[calc(1.5rem+env(safe-area-inset-top))] overflow-y-auto">
 
@@ -593,18 +519,36 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                     onClose={() => setShowReReveal(false)}
                 />
             )}
-            
+
+            {/* FLOATING RE-REVEAL BUTTON */}
+            {gameState.settings.allowReReveal && (
+                <button
+                    onClick={() => { setShowReReveal(true); if (navigator.vibrate) navigator.vibrate(20); }}
+                    className="fixed bottom-6 right-4 z-[150] flex items-center gap-2 px-4 py-3 rounded-2xl border shadow-xl active:scale-95 transition-all duration-200 animate-in fade-in slide-in-from-bottom-4"
+                    style={{
+                        backgroundColor: `${theme.cardBg}E0`,
+                        backdropFilter: 'blur(16px)',
+                        borderColor: `${theme.accent}60`,
+                        boxShadow: `0 8px 32px -8px ${theme.accent}40`
+                    }}
+                    aria-label="Consultar rol"
+                >
+                    <Eye size={16} style={{ color: theme.accent }} />
+                    <span className="text-xs font-black uppercase tracking-wider" style={{ color: theme.text }}>
+                        Revisar Rol
+                    </span>
+                </button>
+            )}
+
             {/* 1. HERO SECTION: THE WORD */}
             <div className="w-full max-w-sm mb-10 mt-4 text-center relative group">
                 <div 
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full blur-[80px] rounded-full pointer-events-none opacity-20 transition-opacity duration-1000 group-hover:opacity-40"
                     style={{ backgroundColor: theme.accent }}
                 />
-                
                 <p style={{ color: theme.sub }} className="text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-70">
                     {isTroll ? "ERROR DE SISTEMA" : "LA PALABRA SECRETA ERA"}
                 </p>
-                
                 <h1 
                     className="text-5xl md:text-6xl font-black uppercase break-words leading-[0.9] tracking-tight relative z-10 drop-shadow-2xl"
                     style={{ 
@@ -620,18 +564,16 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                         civilWord
                     )}
                 </h1>
-                
                 {!isTroll && (
                     <div className="h-1 w-12 mx-auto mt-6 rounded-full opacity-50" style={{ backgroundColor: theme.accent }} />
                 )}
             </div>
 
-            {/* ⚠️ CATEGORY EXHAUSTION WARNING */}
+            {/* CATEGORY EXHAUSTION WARNING */}
             {lastLog.exhaustionWarning && lastLog.exhaustionWarning !== 'none' && !isTroll && (
-                <div className={`
-                    w-full max-w-sm mb-6 p-3 rounded-xl border flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-top duration-500
-                    ${lastLog.exhaustionWarning === 'critical' ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30'}
-                `}>
+                <div className={`w-full max-w-sm mb-6 p-3 rounded-xl border flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-top duration-500 ${
+                    lastLog.exhaustionWarning === 'critical' ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30'
+                }`}>
                     <BatteryWarning size={18} className={lastLog.exhaustionWarning === 'critical' ? 'text-red-400 animate-pulse' : 'text-amber-400'} />
                     <div className="flex-1">
                         <p className={`text-[10px] font-black uppercase tracking-wide ${lastLog.exhaustionWarning === 'critical' ? 'text-red-300' : 'text-amber-300'}`}>
@@ -644,7 +586,7 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                 </div>
             )}
 
-            {/* 🎭 BANNER DE TROLL EVENT */}
+            {/* TROLL EVENT BANNER */}
             {isTroll && (
                 <div 
                     className="relative overflow-hidden rounded-2xl border-2 p-5 animate-in fade-in slide-in-from-top duration-700 w-full max-w-sm mb-6"
@@ -657,32 +599,142 @@ export const ResultsView: React.FC<Props> = ({ gameState, theme, onBack, onRepla
                     <div 
                         className="absolute inset-0 opacity-5 pointer-events-none"
                         style={{
-                            backgroundImage: `repeating-linear-gradient(
-                                45deg,
-                                ${theme.accent}40,
-                                ${theme.accent}40 10px,
-                                transparent 10px,
-                                transparent 20px
-                            )`
+                            backgroundImage: `repeating-linear-gradient(45deg, ${theme.accent}40, ${theme.accent}40 10px, transparent 10px, transparent 20px)`
                         }}
                     />
-                    
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-3">
-                            <div 
-                                className="text-3xl animate-pulse"
-                                style={{ filter: `drop-shadow(0 0 10px ${theme.accent})` }}
-                            >
-                                🎭
-                            </div>
+                            <div className="text-3xl animate-pulse" style={{ filter: `drop-shadow(0 0 10px ${theme.accent})` }}>🎭</div>
                             <div>
-                                <h3 
-                                    className="text-lg font-black uppercase tracking-wider"
-                                    style={{ 
-                                        color: theme.accent,
-                                        textShadow: `0 0 20px ${theme.accent}40`
-                                    }}
-                                >
+                                <h3 className="text-lg font-black uppercase tracking-wider" style={{ color: theme.accent, textShadow: `0 0 20px ${theme.accent}40` }}>
                                     Protocolo PANDORA
                                 </h3>
-  
+                                <p className="text-[10px] font-mono opacity-60 uppercase tracking-widest" style={{ color: theme.sub }}>Evento especial activado</p>
+                            </div>
+                        </div>
+                        {trollScenario && (
+                            <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
+                                {trollScenario}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* 2. IMPOSTORS REVEAL */}
+            <div className="w-full max-w-sm mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                    <Ghost size={16} style={{ color: theme.accent }} className="opacity-70" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] opacity-60" style={{ color: theme.sub }}>
+                        {impostors.length === 1 ? 'El Impostor era' : 'Los Impostores eran'}
+                    </span>
+                    <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.border }} />
+                </div>
+                <div className="space-y-3">
+                    {impostors.map((imp, idx) => {
+                        const color = PLAYER_COLORS[gameState.gameData.findIndex(p => p.id === imp.id) % PLAYER_COLORS.length];
+                        return (
+                            <div
+                                key={imp.id}
+                                className="flex items-center gap-4 p-4 rounded-2xl border backdrop-blur-md animate-in slide-in-from-left duration-500"
+                                style={{
+                                    animationDelay: `${idx * 100}ms`,
+                                    backgroundColor: `${color}10`,
+                                    borderColor: `${color}40`
+                                }}
+                            >
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
+                                    <Ghost size={18} style={{ color }} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-base font-black" style={{ color: theme.text }}>{imp.name}</p>
+                                    <p className="text-[10px] font-mono opacity-60 uppercase" style={{ color: theme.sub }}>
+                                        {imp.impostorWord ? `Palabra: ${imp.impostorWord}` : 'Impostor'}
+                                    </p>
+                                </div>
+                                <div
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}` }}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* 3. PLAYER STATS TABLE */}
+            <div className="w-full max-w-sm mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                    <Clock size={16} style={{ color: theme.accent }} className="opacity-70" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] opacity-60" style={{ color: theme.sub }}>Análisis de tiempos</span>
+                    <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.border }} />
+                </div>
+                <div
+                    className="rounded-2xl border overflow-hidden backdrop-blur-md"
+                    style={{ backgroundColor: `${theme.cardBg}80`, borderColor: theme.border }}
+                >
+                    {gameState.gameData.map((player, idx) => {
+                        const suspicion = getSuspicionLevel(player.viewTime || 0);
+                        const isImp = player.isImp;
+                        const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+                        const isExpanded = expandedPlayerId === player.id;
+                        return (
+                            <div key={player.id}>
+                                <button
+                                    onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3.5 transition-colors ${
+                                        idx < gameState.gameData.length - 1 ? 'border-b' : ''
+                                    } ${isExpanded ? 'bg-white/5' : 'hover:bg-white/5'}`}
+                                    style={{ borderColor: `${theme.border}50` }}
+                                >
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                    <span className="text-sm font-bold flex-1 text-left" style={{ color: isImp ? theme.accent : theme.text }}>
+                                        {player.name}
+                                        {isImp && <span className="ml-2 text-[9px] font-black opacity-70">(IMP)</span>}
+                                    </span>
+                                    <span className="text-[10px] font-mono tabular-nums" style={{ color: suspicion.color }}>
+                                        {player.viewTime ? `${player.viewTime.toFixed(1)}s` : '-'}
+                                    </span>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${suspicion.dotColor} bg-opacity-20`} style={{ color: suspicion.color }}>
+                                        {suspicion.label}
+                                    </span>
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* 4. ACTION BUTTONS */}
+            <div className="w-full max-w-sm space-y-3 mb-4">
+                <button
+                    onClick={onReplay}
+                    className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] border"
+                    style={{
+                        backgroundColor: `${theme.accent}20`,
+                        borderColor: `${theme.accent}50`,
+                        color: theme.accent,
+                        boxShadow: `0 8px 24px -8px ${theme.accent}30`
+                    }}
+                >
+                    <RotateCcw size={18} />
+                    Nueva partida
+                </button>
+
+                <button
+                    onClick={handleMenuClick}
+                    onPointerDown={handleMenuClick}
+                    className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] border"
+                    style={{
+                        backgroundColor: showMenuConfirm ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+                        borderColor: showMenuConfirm ? 'rgba(239,68,68,0.5)' : theme.border,
+                        color: showMenuConfirm ? '#f87171' : theme.sub
+                    }}
+                >
+                    <Menu size={18} />
+                    {showMenuConfirm ? '¿Salir? (confirmar)' : 'Menú principal'}
+                </button>
+            </div>
+        </div>
+    );
+};
